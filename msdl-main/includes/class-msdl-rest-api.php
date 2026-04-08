@@ -59,6 +59,13 @@ class MSDL_Main_REST_API {
             'callback'            => [ $this, 'report_sync' ],
             'permission_callback' => [ $this, 'check_api_key' ]
         ]);
+
+        register_rest_route( 'msdl-main/v1', '/get-next-sync', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [ $this, 'get_next_sync_time' ],
+            'permission_callback' => [ $this, 'check_admin_permissions' ]
+        ]);
+
         register_setting( 'msdl_options', 'msdl_global_sync_interval', [
             'type' => 'string',
             'show_in_rest' => true,
@@ -231,4 +238,9 @@ class MSDL_Main_REST_API {
 
         return new WP_Error('invalid_request', 'Érvénytelen kérés.', ['status'=>400]);
     }
+    
+    public function get_next_sync_time() {
+    $next = wp_next_scheduled( 'msdl_main_master_sync' );
+    return rest_ensure_response( [ 'next_sync' => $next ? $next : 0 ] );
+}
 }

@@ -604,8 +604,8 @@ const SettingsApp = () => {
   const [options, setOptions] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)({
     msdl_main_server_url: "",
     msdl_internal_api_key: "",
-    msdl_auto_sync_enabled: "0",
-    msdl_sync_interval: "hourly"
+    msdl_sync_mode: "central",
+    msdl_local_sync_interval: "hourly"
   });
   const [isSaving, setIsSaving] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [statusText, setStatusText] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
@@ -616,8 +616,8 @@ const SettingsApp = () => {
       setOptions({
         msdl_main_server_url: settings.msdl_main_server_url || "",
         msdl_internal_api_key: settings.msdl_internal_api_key || "",
-        msdl_auto_sync_enabled: settings.msdl_auto_sync_enabled || "0",
-        msdl_sync_interval: settings.msdl_sync_interval || "hourly"
+        msdl_sync_mode: settings.msdl_sync_mode || "central",
+        msdl_local_sync_interval: settings.msdl_local_sync_interval || "hourly"
       });
     });
   }, []);
@@ -625,28 +625,19 @@ const SettingsApp = () => {
     setIsSaving(true);
     setStatusText("Mentés...");
     try {
-      // 1. Beállítások mentése
       await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
         path: "/wp/v2/settings",
         method: "POST",
         data: options
       });
-
-      // 2. Cron ütemezés frissítése a szerveren
       await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
         path: "/msdl-child/v1/update-cron",
         method: "POST"
       });
-
-      // 3. Kapcsolat tesztelése
       const testResult = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
         path: "/msdl-child/v1/test-connection"
       });
-      if (testResult.success) {
-        setStatusText(`Sikeres mentés és kapcsolat!`);
-      } else {
-        setStatusText(`Mentve, de hiba a kapcsolódáskor: ${testResult.message}`);
-      }
+      if (testResult.success) setStatusText(`Sikeres mentés és kapcsolat!`);else setStatusText(`Mentve, de hiba a kapcsolódáskor: ${testResult.message}`);
     } catch (error) {
       setStatusText("Hiba történt a mentés során.");
     }
@@ -680,50 +671,70 @@ const SettingsApp = () => {
         })
       })]
     }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.PanelBody, {
-      title: "Automata Szinkroniz\xE1ci\xF3",
-      children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("p", {
-        style: {
-          color: "#666"
-        },
-        children: "Ha bekapcsolod, a rendszer a h\xE1tt\xE9rben automatikusan friss\xEDti a f\xE1jllist\xE1t a SharePoint v\xE1ltoz\xE1sai alapj\xE1n."
-      }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.ToggleControl, {
-        label: "Automata szinkroniz\xE1ci\xF3 enged\xE9lyez\xE9se",
-        checked: options.msdl_auto_sync_enabled === "1",
-        onChange: val => setOptions({
+      title: "Automata Szinkroniz\xE1ci\xF3 Ir\xE1ny\xEDt\xE1sa",
+      children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.RadioControl, {
+        selected: options.msdl_sync_mode,
+        options: [{
+          label: "Központi beállítás követése (Ajánlott)",
+          value: "central"
+        }, {
+          label: "Helyi felülbírálás egyedi időzítővel",
+          value: "override"
+        }, {
+          label: "Szinkronizáció kikapcsolva ezen az oldalon",
+          value: "disabled"
+        }],
+        onChange: value => setOptions({
           ...options,
-          msdl_auto_sync_enabled: val ? "1" : "0"
+          msdl_sync_mode: value
         })
-      }), options.msdl_auto_sync_enabled === "1" && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("select", {
-        value: options.msdl_sync_interval,
-        onChange: e => setOptions({
-          ...options,
-          msdl_sync_interval: e.target.value
-        }),
+      }), options.msdl_sync_mode === "override" && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
         style: {
-          width: "100%",
-          padding: "8px",
-          marginBottom: "20px"
+          marginTop: "15px",
+          padding: "15px",
+          backgroundColor: "#f0f6fc",
+          borderLeft: "4px solid #72aee6"
         },
-        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
-          value: "msdl_15min",
-          children: "15 percenk\xE9nt"
-        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
-          value: "msdl_30min",
-          children: "30 percenk\xE9nt"
-        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
-          value: "hourly",
-          children: "\xD3r\xE1nk\xE9nt"
-        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
-          value: "twicedaily",
-          children: "Naponta k\xE9tszer"
-        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
-          value: "daily",
-          children: "Naponta egyszer"
+        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("p", {
+          style: {
+            margin: "0 0 10px 0",
+            fontWeight: "bold"
+          },
+          children: "Egyedi id\u0151z\xEDt\xE9s megad\xE1sa:"
+        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("select", {
+          value: options.msdl_local_sync_interval,
+          onChange: e => setOptions({
+            ...options,
+            msdl_local_sync_interval: e.target.value
+          }),
+          style: {
+            width: "100%",
+            padding: "8px"
+          },
+          children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+            value: "msdl_15min",
+            children: "15 percenk\xE9nt"
+          }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+            value: "msdl_30min",
+            children: "30 percenk\xE9nt"
+          }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+            value: "hourly",
+            children: "\xD3r\xE1nk\xE9nt"
+          }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+            value: "twicedaily",
+            children: "Naponta k\xE9tszer"
+          }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+            value: "daily",
+            children: "Naponta egyszer"
+          })]
         })]
       }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
         isPrimary: true,
         isBusy: isSaving,
         onClick: handleSave,
+        style: {
+          marginTop: "20px"
+        },
         children: isSaving ? "Mentés..." : "Beállítások Mentése"
       })]
     })]

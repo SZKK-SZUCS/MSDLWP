@@ -143,10 +143,15 @@ const App = () => {
     msdl_client_secret: "",
     msdl_site_id: "",
     msdl_drive_id: "",
-    msdl_internal_api_key: ""
+    msdl_internal_api_key: "",
+    msdl_global_sync_interval: ""
   });
   const [sites, setSites] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
   const [statusText, setStatusText] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
+
+  // Visszaszámláló state-ek
+  const [nextSyncTimestamp, setNextSyncTimestamp] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(0);
+  const [countdownText, setCountdownText] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [siteSearchFilter, setSiteSearchFilter] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [selectedSites, setSelectedSites] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
   const [bulkAction, setBulkAction] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
@@ -170,7 +175,39 @@ const App = () => {
   (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
     loadSettings();
     loadSites();
+    fetchNextSyncTime();
   }, []);
+
+  // Visszaszámláló logika (1 másodperces frissítés)
+  (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+    const timer = setInterval(() => {
+      if (nextSyncTimestamp === 0) {
+        setCountdownText("Nincs ütemezve");
+        return;
+      }
+      const now = Math.floor(Date.now() / 1000);
+      const diff = nextSyncTimestamp - now;
+      if (diff <= 0) {
+        setCountdownText("Indítás...");
+        if (diff === 0) fetchNextSyncTime(); // Frissítés a következőre
+      } else {
+        const m = Math.floor(diff / 60);
+        const s = diff % 60;
+        setCountdownText(`${m}:${s < 10 ? "0" : ""}${s}`);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [nextSyncTimestamp]);
+  const fetchNextSyncTime = async () => {
+    try {
+      const data = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
+        path: "/msdl-main/v1/get-next-sync"
+      });
+      setNextSyncTimestamp(data.next_sync);
+    } catch (e) {
+      console.error(e);
+    }
+  };
   const loadSettings = () => {
     _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
       path: "/wp/v2/settings"
@@ -181,7 +218,8 @@ const App = () => {
         msdl_client_secret: settings.msdl_client_secret || "",
         msdl_site_id: settings.msdl_site_id || "",
         msdl_drive_id: settings.msdl_drive_id || "",
-        msdl_internal_api_key: settings.msdl_internal_api_key || ""
+        msdl_internal_api_key: settings.msdl_internal_api_key || "",
+        msdl_global_sync_interval: settings.msdl_global_sync_interval || ""
       });
     }).catch(console.error);
   };
@@ -201,6 +239,7 @@ const App = () => {
         data: options
       });
       setStatusText("Beállítások sikeresen elmentve!");
+      fetchNextSyncTime(); // Újraütemezés miatt lekérjük az új időpontot
       setTimeout(() => setStatusText(""), 3000);
     } catch (e) {
       setStatusText("Hiba a mentéskor!");
@@ -269,7 +308,7 @@ const App = () => {
     }
   };
 
-  // ÚJ: Dinamikus URL nyitó
+  // Dinamikus URL nyitó
   const handleOpenSharePoint = async (type, siteId = null) => {
     setStatusText("SharePoint URL lekérése a Microsofttól...");
     try {
@@ -535,7 +574,49 @@ const App = () => {
                   ...options,
                   msdl_internal_api_key: v
                 })
-              }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+              }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("hr", {
+                style: {
+                  margin: "20px 0"
+                }
+              }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("h3", {
+                children: "K\xF6zponti Automata Szinkroniz\xE1ci\xF3"
+              }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("p", {
+                style: {
+                  color: "#666"
+                },
+                children: "Ezzel a be\xE1ll\xEDt\xE1ssal fel\xFCl\xEDrhatod az \xF6sszes bek\xF6t\xF6tt webhely szinkroniz\xE1ci\xF3s idej\xE9t, hacsak \u0151k azt helyileg m\xE1sk\xE9nt nem \xE1ll\xEDtj\xE1k be."
+              }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("select", {
+                value: options.msdl_global_sync_interval,
+                onChange: e => setOptions({
+                  ...options,
+                  msdl_global_sync_interval: e.target.value
+                }),
+                style: {
+                  width: "100%",
+                  padding: "8px",
+                  marginBottom: "15px",
+                  maxWidth: "400px"
+                },
+                children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+                  value: "",
+                  children: "-- Kikapcsolva (Nincs k\xF6zponti szinkron) --"
+                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+                  value: "msdl_15min",
+                  children: "15 percenk\xE9nt"
+                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+                  value: "msdl_30min",
+                  children: "30 percenk\xE9nt"
+                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+                  value: "hourly",
+                  children: "\xD3r\xE1nk\xE9nt"
+                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+                  value: "twicedaily",
+                  children: "Naponta k\xE9tszer"
+                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+                  value: "daily",
+                  children: "Naponta egyszer"
+                })]
+              }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("br", {}), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
                 isPrimary: true,
                 onClick: handleSaveSettings,
                 children: "Be\xE1ll\xEDt\xE1sok Ment\xE9se"
@@ -604,15 +685,38 @@ const App = () => {
                   onChange: setSiteSearchFilter,
                   style: {
                     margin: 0,
-                    width: "250px"
+                    width: "200px"
                   }
                 })]
               }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
                 style: {
                   display: "flex",
-                  gap: "10px"
+                  gap: "12px",
+                  alignItems: "center"
                 },
-                children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+                children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
+                  style: {
+                    backgroundColor: "#f0f0f1",
+                    padding: "5px 12px",
+                    borderRadius: "4px",
+                    border: "1px solid #ccd0d4",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px"
+                  },
+                  children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
+                    icon: "clock",
+                    style: {
+                      color: "#2271b1"
+                    }
+                  }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
+                    style: {
+                      fontWeight: "bold",
+                      fontSize: "13px"
+                    },
+                    children: countdownText
+                  })]
+                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
                   isSecondary: true,
                   icon: "external",
                   onClick: () => handleOpenSharePoint("central"),
@@ -679,6 +783,18 @@ const App = () => {
                   const isPending = !site.folder_path;
                   const isSuspended = site.is_active == 0;
                   const siteUrl = site.domain.startsWith("http") ? site.domain : `https://${site.domain}`;
+                  let syncModeIcon = "clock";
+                  let syncModeColor = "#2271b1";
+                  let syncModeText = "Központi ütemezés követése";
+                  if (site.sync_mode === "override") {
+                    syncModeIcon = "admin-settings";
+                    syncModeColor = "#f5c342";
+                    syncModeText = "Egyéni (helyi) felülbírálás";
+                  } else if (site.sync_mode === "disabled") {
+                    syncModeIcon = "hidden";
+                    syncModeColor = "#888";
+                    syncModeText = "Automata szinkronizáció kikapcsolva";
+                  }
                   return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("tr", {
                     style: {
                       backgroundColor: isSuspended ? "#f0f0f0" : isPending ? "#fcf0f1" : "transparent",
@@ -791,6 +907,15 @@ const App = () => {
                             color: site.last_sync ? "#1d2327" : "#888"
                           },
                           children: site.last_sync ? site.last_sync : "Még nem szinkronizált"
+                        }), !isPending && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
+                          icon: syncModeIcon,
+                          style: {
+                            color: syncModeColor,
+                            cursor: "help",
+                            width: "18px",
+                            height: "18px"
+                          },
+                          title: `Ütemezés: ${syncModeText}`
                         }), !isPending && !isSuspended && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
                           isSmall: true,
                           isSecondary: true,

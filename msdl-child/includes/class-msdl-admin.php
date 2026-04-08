@@ -53,8 +53,8 @@ class MSDL_Child_Admin {
         $settings = [ 
             'msdl_main_server_url', 
             'msdl_internal_api_key',
-            'msdl_auto_sync_enabled', // ÚJ: Automata szinkron be/ki
-            'msdl_sync_interval'      // ÚJ: Időköz (pl. msdl_15min)
+            'msdl_sync_mode',
+            'msdl_local_sync_interval'
         ];
         foreach ( $settings as $setting ) {
             register_setting( 'msdl_options', $setting, [ 'type' => 'string', 'show_in_rest' => true, 'default' => '' ] );

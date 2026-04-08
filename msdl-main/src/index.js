@@ -22,9 +22,14 @@ const App = () => {
     msdl_site_id: "",
     msdl_drive_id: "",
     msdl_internal_api_key: "",
+    msdl_global_sync_interval: "",
   });
   const [sites, setSites] = useState([]);
   const [statusText, setStatusText] = useState("");
+
+  // Visszaszámláló state-ek
+  const [nextSyncTimestamp, setNextSyncTimestamp] = useState(0);
+  const [countdownText, setCountdownText] = useState("");
 
   const [siteSearchFilter, setSiteSearchFilter] = useState("");
   const [selectedSites, setSelectedSites] = useState([]);
@@ -52,7 +57,40 @@ const App = () => {
   useEffect(() => {
     loadSettings();
     loadSites();
+    fetchNextSyncTime();
   }, []);
+
+  // Visszaszámláló logika (1 másodperces frissítés)
+  useEffect(() => {
+    const timer = setInterval(() => {
+      if (nextSyncTimestamp === 0) {
+        setCountdownText("Nincs ütemezve");
+        return;
+      }
+      const now = Math.floor(Date.now() / 1000);
+      const diff = nextSyncTimestamp - now;
+
+      if (diff <= 0) {
+        setCountdownText("Indítás...");
+        if (diff === 0) fetchNextSyncTime(); // Frissítés a következőre
+      } else {
+        const m = Math.floor(diff / 60);
+        const s = diff % 60;
+        setCountdownText(`${m}:${s < 10 ? "0" : ""}${s}`);
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [nextSyncTimestamp]);
+
+  const fetchNextSyncTime = async () => {
+    try {
+      const data = await apiFetch({ path: "/msdl-main/v1/get-next-sync" });
+      setNextSyncTimestamp(data.next_sync);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const loadSettings = () => {
     apiFetch({ path: "/wp/v2/settings" })
       .then((settings) => {
@@ -63,10 +101,12 @@ const App = () => {
           msdl_site_id: settings.msdl_site_id || "",
           msdl_drive_id: settings.msdl_drive_id || "",
           msdl_internal_api_key: settings.msdl_internal_api_key || "",
+          msdl_global_sync_interval: settings.msdl_global_sync_interval || "",
         });
       })
       .catch(console.error);
   };
+
   const loadSites = () => {
     apiFetch({ path: "/msdl-main/v1/sites" })
       .then(setSites)
@@ -83,11 +123,13 @@ const App = () => {
         data: options,
       });
       setStatusText("Beállítások sikeresen elmentve!");
+      fetchNextSyncTime(); // Újraütemezés miatt lekérjük az új időpontot
       setTimeout(() => setStatusText(""), 3000);
     } catch (e) {
       setStatusText("Hiba a mentéskor!");
     }
   };
+
   const openModal = (
     site = {
       domain: "",
@@ -102,6 +144,7 @@ const App = () => {
     setIsFolderBrowserActive(false);
     setIsModalOpen(true);
   };
+
   const handleSaveSite = async (e) => {
     e.preventDefault();
     try {
@@ -117,6 +160,7 @@ const App = () => {
       alert("Hiba a webhely mentésekor!");
     }
   };
+
   const handleDeleteSite = async (id) => {
     if (!confirm("Biztosan törlöd ezt a webhelyet?")) return;
     try {
@@ -152,7 +196,7 @@ const App = () => {
     }
   };
 
-  // ÚJ: Dinamikus URL nyitó
+  // Dinamikus URL nyitó
   const handleOpenSharePoint = async (type, siteId = null) => {
     setStatusText("SharePoint URL lekérése a Microsofttól...");
     try {
@@ -413,6 +457,38 @@ const App = () => {
                       setOptions({ ...options, msdl_internal_api_key: v })
                     }
                   />
+
+                  <hr style={{ margin: "20px 0" }} />
+                  <h3>Központi Automata Szinkronizáció</h3>
+                  <p style={{ color: "#666" }}>
+                    Ezzel a beállítással felülírhatod az összes bekötött webhely
+                    szinkronizációs idejét, hacsak ők azt helyileg másként nem
+                    állítják be.
+                  </p>
+                  <select
+                    value={options.msdl_global_sync_interval}
+                    onChange={(e) =>
+                      setOptions({
+                        ...options,
+                        msdl_global_sync_interval: e.target.value,
+                      })
+                    }
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      marginBottom: "15px",
+                      maxWidth: "400px",
+                    }}>
+                    <option value="">
+                      -- Kikapcsolva (Nincs központi szinkron) --
+                    </option>
+                    <option value="msdl_15min">15 percenként</option>
+                    <option value="msdl_30min">30 percenként</option>
+                    <option value="hourly">Óránként</option>
+                    <option value="twicedaily">Naponta kétszer</option>
+                    <option value="daily">Naponta egyszer</option>
+                  </select>
+                  <br />
                   <Button isPrimary onClick={handleSaveSettings}>
                     Beállítások Mentése
                   </Button>
@@ -471,12 +547,32 @@ const App = () => {
                       placeholder="Keresés domain szerint..."
                       value={siteSearchFilter}
                       onChange={setSiteSearchFilter}
-                      style={{ margin: 0, width: "250px" }}
+                      style={{ margin: 0, width: "200px" }}
                     />
                   </div>
 
-                  <div style={{ display: "flex", gap: "10px" }}>
-                    {/* JAVÍTÁS: Központi SharePoint Gomb most már dinamikus */}
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: "12px",
+                      alignItems: "center",
+                    }}>
+                    <div
+                      style={{
+                        backgroundColor: "#f0f0f1",
+                        padding: "5px 12px",
+                        borderRadius: "4px",
+                        border: "1px solid #ccd0d4",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "6px",
+                      }}>
+                      <Dashicon icon="clock" style={{ color: "#2271b1" }} />
+                      <span style={{ fontWeight: "bold", fontSize: "13px" }}>
+                        {countdownText}
+                      </span>
+                    </div>
+
                     <Button
                       isSecondary
                       icon="external"
@@ -530,6 +626,20 @@ const App = () => {
                         const siteUrl = site.domain.startsWith("http")
                           ? site.domain
                           : `https://${site.domain}`;
+
+                        let syncModeIcon = "clock";
+                        let syncModeColor = "#2271b1";
+                        let syncModeText = "Központi ütemezés követése";
+
+                        if (site.sync_mode === "override") {
+                          syncModeIcon = "admin-settings";
+                          syncModeColor = "#f5c342";
+                          syncModeText = "Egyéni (helyi) felülbírálás";
+                        } else if (site.sync_mode === "disabled") {
+                          syncModeIcon = "hidden";
+                          syncModeColor = "#888";
+                          syncModeText = "Automata szinkronizáció kikapcsolva";
+                        }
 
                         return (
                           <tr
@@ -620,7 +730,6 @@ const App = () => {
                                       gap: "8px",
                                     }}>
                                     <code>/{site.folder_path}</code>
-                                    {/* JAVÍTÁS: Mappa gomb most már dinamikus */}
                                     <Button
                                       isSmall
                                       isSecondary
@@ -659,6 +768,20 @@ const App = () => {
                                     ? site.last_sync
                                     : "Még nem szinkronizált"}
                                 </span>
+
+                                {!isPending && (
+                                  <Dashicon
+                                    icon={syncModeIcon}
+                                    style={{
+                                      color: syncModeColor,
+                                      cursor: "help",
+                                      width: "18px",
+                                      height: "18px",
+                                    }}
+                                    title={`Ütemezés: ${syncModeText}`}
+                                  />
+                                )}
+
                                 {!isPending && !isSuspended && (
                                   <Button
                                     isSmall
