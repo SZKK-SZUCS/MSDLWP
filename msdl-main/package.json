@@ -1,0 +1,10 @@
+{
+  "name": "msdl-main",
+  "version": "1.0.0",
+  "description": "MS Graph Dokumentumtar - KOZPONT",
+  "main": "build/index.js",
+  "scripts": {
+    "build": "wp-scripts build",
+    "start": "wp-scripts start"
+  }
+}
