@@ -15,11 +15,20 @@ require_once MSDL_CHILD_DIR . 'includes/class-msdl-admin.php';
 require_once MSDL_CHILD_DIR . 'includes/class-msdl-graph-api.php';
 require_once MSDL_CHILD_DIR . 'includes/class-msdl-sync.php';
 
+// Aktiválási logika
 function activate_msdl_child() {
     MSDL_Activator::activate();
 }
 register_activation_hook( __FILE__, 'activate_msdl_child' );
 
+// ÚJ: Deaktiválási logika (Takarítás)
+function deactivate_msdl_child() {
+    // Töröljük a beállított automata szinkronizációs időzítőt, ha a plugint kikapcsolják
+    wp_clear_scheduled_hook( 'msdl_scheduled_sync' );
+}
+register_deactivation_hook( __FILE__, 'deactivate_msdl_child' );
+
+// Fő indító logika
 function run_msdl_child() {
     $admin = new MSDL_Child_Admin();
     $admin->init();

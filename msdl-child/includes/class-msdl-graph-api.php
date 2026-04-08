@@ -30,7 +30,8 @@ class MSDL_Child_Graph_API {
         $response = wp_remote_get( $endpoint, [
             'headers' => [ 
                 'X-MSDL-API-Key' => $this->internal_api_key,
-                'X-MSDL-Child-Domain' => $child_domain
+                'X-MSDL-Child-Domain' => $child_domain,
+                'X-MSDL-Sync-Mode'    => get_option( 'msdl_sync_mode', 'central' )
             ],
             'timeout' => 15
         ] );

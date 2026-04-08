@@ -12,6 +12,7 @@ class MSDL_Main_Activator {
             custom_site_id varchar(255) NOT NULL DEFAULT '',
             custom_drive_id varchar(255) NOT NULL DEFAULT '',
             is_active tinyint(1) NOT NULL DEFAULT 1,
+            sync_mode varchar(20) NOT NULL DEFAULT 'central',
             last_sync datetime DEFAULT NULL,
             PRIMARY KEY  (id),
             UNIQUE KEY domain (domain)

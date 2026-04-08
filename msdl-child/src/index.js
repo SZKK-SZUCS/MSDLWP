@@ -9,6 +9,7 @@ import {
   Modal,
   RadioControl,
   CheckboxControl,
+  ToggleControl,
 } from "@wordpress/components";
 import apiFetch from "@wordpress/api-fetch";
 
@@ -464,6 +465,8 @@ const SettingsApp = () => {
   const [options, setOptions] = useState({
     msdl_main_server_url: "",
     msdl_internal_api_key: "",
+    msdl_auto_sync_enabled: "0",
+    msdl_sync_interval: "hourly",
   });
   const [isSaving, setIsSaving] = useState(false);
   const [statusText, setStatusText] = useState("");
@@ -473,26 +476,40 @@ const SettingsApp = () => {
       setOptions({
         msdl_main_server_url: settings.msdl_main_server_url || "",
         msdl_internal_api_key: settings.msdl_internal_api_key || "",
+        msdl_auto_sync_enabled: settings.msdl_auto_sync_enabled || "0",
+        msdl_sync_interval: settings.msdl_sync_interval || "hourly",
       });
     });
   }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
-    setStatusText("Mentés és kapcsolódás a központhoz...");
+    setStatusText("Mentés...");
     try {
+      // 1. Beállítások mentése
       await apiFetch({
         path: "/wp/v2/settings",
         method: "POST",
         data: options,
       });
+
+      // 2. Cron ütemezés frissítése a szerveren
+      await apiFetch({ path: "/msdl-child/v1/update-cron", method: "POST" });
+
+      // 3. Kapcsolat tesztelése
       const testResult = await apiFetch({
         path: "/msdl-child/v1/test-connection",
       });
-      if (testResult.success) setStatusText(`Sikeres! ${testResult.message}`);
-      else setStatusText(`Mentve. Központ válasza: ${testResult.message}`);
+
+      if (testResult.success) {
+        setStatusText(`Sikeres mentés és kapcsolat!`);
+      } else {
+        setStatusText(
+          `Mentve, de hiba a kapcsolódáskor: ${testResult.message}`,
+        );
+      }
     } catch (error) {
-      setStatusText("Hiba történt a folyamat során.");
+      setStatusText("Hiba történt a mentés során.");
     }
     setIsSaving(false);
   };
@@ -502,10 +519,14 @@ const SettingsApp = () => {
       <h1>Kliens Beállítások</h1>
       <PanelBody title="Központi Kapcsolat">
         {statusText && (
-          <Notice status="info" isDismissible={false}>
+          <Notice
+            status="info"
+            isDismissible={false}
+            onRemove={() => setStatusText("")}>
             {statusText}
           </Notice>
         )}
+
         <TextControl
           label="Main Szerver URL"
           value={options.msdl_main_server_url}
@@ -521,8 +542,39 @@ const SettingsApp = () => {
             setOptions({ ...options, msdl_internal_api_key: val })
           }
         />
+      </PanelBody>
+
+      <PanelBody title="Automata Szinkronizáció">
+        <p style={{ color: "#666" }}>
+          Ha bekapcsolod, a rendszer a háttérben automatikusan frissíti a
+          fájllistát a SharePoint változásai alapján.
+        </p>
+
+        <ToggleControl
+          label="Automata szinkronizáció engedélyezése"
+          checked={options.msdl_auto_sync_enabled === "1"}
+          onChange={(val) =>
+            setOptions({ ...options, msdl_auto_sync_enabled: val ? "1" : "0" })
+          }
+        />
+
+        {options.msdl_auto_sync_enabled === "1" && (
+          <select
+            value={options.msdl_sync_interval}
+            onChange={(e) =>
+              setOptions({ ...options, msdl_sync_interval: e.target.value })
+            }
+            style={{ width: "100%", padding: "8px", marginBottom: "20px" }}>
+            <option value="msdl_15min">15 percenként</option>
+            <option value="msdl_30min">30 percenként</option>
+            <option value="hourly">Óránként</option>
+            <option value="twicedaily">Naponta kétszer</option>
+            <option value="daily">Naponta egyszer</option>
+          </select>
+        )}
+
         <Button isPrimary isBusy={isSaving} onClick={handleSave}>
-          {isSaving ? "Mentés..." : "Mentés"}
+          {isSaving ? "Mentés..." : "Beállítások Mentése"}
         </Button>
       </PanelBody>
     </div>

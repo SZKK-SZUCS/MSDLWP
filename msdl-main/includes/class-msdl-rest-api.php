@@ -9,7 +9,10 @@ class MSDL_Main_REST_API {
     public function init() { add_action( 'rest_api_init', [ $this, 'register_routes' ] ); }
 
     public function register_routes() {
-        register_rest_route( 'msdl-main/v1', '/get-token', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'serve_token' ], 'permission_callback' => [ $this, 'check_api_key' ] ]);
+        register_rest_route( 'msdl-main/v1', '/get-token', [
+            'methods' => WP_REST_Server::READABLE,
+            'callback' => [ $this, 'serve_token' ],
+            'permission_callback' => [ $this, 'check_api_key' ] ]);
         
         // WP Admin CRUD
         register_rest_route( 'msdl-main/v1', '/sites', [
@@ -39,7 +42,6 @@ class MSDL_Main_REST_API {
             'callback' => [ $this, 'search_folders' ],
             'permission_callback' => [ $this, 'check_admin_permissions' ] ]);
 
-        // ÚJ: Távoli Parancsok a Child-hoz
         register_rest_route( 'msdl-main/v1', '/remote-command', [
             'methods' => WP_REST_Server::CREATABLE,
             'callback' => [ $this, 'remote_command' ],
@@ -51,6 +53,16 @@ class MSDL_Main_REST_API {
             'callback'            => [ $this, 'get_sp_url' ],
             'permission_callback' => [ $this, 'check_admin_permissions' ]
         ]);
+
+        register_rest_route( 'msdl-main/v1', '/report-sync', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [ $this, 'report_sync' ],
+            'permission_callback' => [ $this, 'check_api_key' ]
+        ]);
+        register_setting( 'msdl_options', 'msdl_global_sync_interval', [
+            'type' => 'string',
+            'show_in_rest' => true,
+            'default' => 'hourly' ] );
     }
 
     public function check_api_key( WP_REST_Request $request ) {
@@ -76,6 +88,12 @@ class MSDL_Main_REST_API {
             if ( ! $inserted ) return new WP_Error( 'db_insert_error', 'Központi DB Hiba: ' . $wpdb->last_error, ['status' => 500] );
             return new WP_Error( 'pending_approval', 'A webhely automatikusan regisztrálva lett, de még nincs mappa hozzárendelve.', ['status' => 403] );
         }
+
+        $provided_mode = $request->get_header( 'X-MSDL-Sync-Mode' );
+            if ( ! empty( $provided_mode ) && $site_data->sync_mode !== $provided_mode ) {
+                $wpdb->update( $table_name, [ 'sync_mode' => sanitize_text_field($provided_mode) ],
+                [ 'id' => $site_data->id ] );
+            }
 
         // ÚJ: Felfüggesztés ellenőrzése
         if ( isset($site_data->is_active) && $site_data->is_active == 0 ) {

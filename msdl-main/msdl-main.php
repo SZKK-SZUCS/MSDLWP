@@ -17,6 +17,7 @@ register_activation_hook( __FILE__, [ 'MSDL_Main_Activator', 'activate' ] );
 require_once MSDL_MAIN_DIR . 'includes/class-msdl-admin.php';
 require_once MSDL_MAIN_DIR . 'includes/class-msdl-graph-api.php';
 require_once MSDL_MAIN_DIR . 'includes/class-msdl-rest-api.php';
+require_once MSDL_MAIN_DIR . 'includes/class-msdl-main-cron.php';
 
 function run_msdl_main() {
     MSDL_Main_Activator::activate();
@@ -28,5 +29,8 @@ function run_msdl_main() {
     
     $rest_api = new MSDL_Main_REST_API( $graph_api );
     $rest_api->init();
+
+    $cron = new MSDL_Main_Cron();
+    $cron->init();
 }
 run_msdl_main();
