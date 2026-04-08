@@ -5,13 +5,13 @@ import apiFetch from "@wordpress/api-fetch";
 const FileManagerApp = () => (
   <div className="wrap">
     <h1>Fájlkezelő</h1>
-    <p>Itt lesz a fájlböngésző.</p>
+    <p>Itt lesz a lokális adatbázis fa-struktúrás böngészője.</p>
   </div>
 );
 const SyncApp = () => (
   <div className="wrap">
     <h1>Szinkronizáció</h1>
-    <p>A szinkronizációs beállítások.</p>
+    <p>A szinkronizációs logok és cron beállítások helye.</p>
   </div>
 );
 
@@ -19,7 +19,6 @@ const SettingsApp = () => {
   const [options, setOptions] = useState({
     msdl_main_server_url: "",
     msdl_internal_api_key: "",
-    msdl_root_folder_path: "",
   });
   const [isSaving, setIsSaving] = useState(false);
   const [statusText, setStatusText] = useState("");
@@ -29,23 +28,33 @@ const SettingsApp = () => {
       setOptions({
         msdl_main_server_url: settings.msdl_main_server_url || "",
         msdl_internal_api_key: settings.msdl_internal_api_key || "",
-        msdl_root_folder_path: settings.msdl_root_folder_path || "",
       });
     });
   }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
-    setStatusText("");
+    setStatusText("Mentés és kapcsolódás a központhoz...");
     try {
+      // 1. Lementjük a beállításokat a WP adatbázisba
       await apiFetch({
         path: "/wp/v2/settings",
         method: "POST",
         data: options,
       });
-      setStatusText("Beállítások elmentve.");
+
+      // 2. Pingeljük a Main szervert az új adatokkal
+      const testResult = await apiFetch({
+        path: "/msdl-child/v1/test-connection",
+      });
+
+      if (testResult.success) {
+        setStatusText(`Sikeres! ${testResult.message}`);
+      } else {
+        setStatusText(`Mentve. Központ válasza: ${testResult.message}`);
+      }
     } catch (error) {
-      setStatusText("Hiba a mentéskor!");
+      setStatusText("Hiba történt a folyamat során.");
     }
     setIsSaving(false);
   };
@@ -53,7 +62,7 @@ const SettingsApp = () => {
   return (
     <div className="wrap">
       <h1>Kliens Beállítások</h1>
-      <PanelBody title="Központi Kapcsolat és Mappa">
+      <PanelBody title="Központi Kapcsolat">
         {statusText && (
           <Notice status="info" isDismissible={false}>
             {statusText}
@@ -75,14 +84,6 @@ const SettingsApp = () => {
           value={options.msdl_internal_api_key}
           onChange={(val) =>
             setOptions({ ...options, msdl_internal_api_key: val })
-          }
-        />
-        <TextControl
-          label="Saját Mappa Neve (Path)"
-          help="A weblaphoz dedikált mappa neve a SharePointban (pl. kar.sze.hu)."
-          value={options.msdl_root_folder_path}
-          onChange={(val) =>
-            setOptions({ ...options, msdl_root_folder_path: val })
           }
         />
 

@@ -27,4 +27,33 @@ class MSDL_Main_Graph_API {
         }
         return new WP_Error( 'auth_failed', 'Sikertelen hitelesítés', $body );
     }
+
+    /**
+     * ÚJ METÓDUS: Közvetlen Graph API hívások lebonyolítása a Main pluginból
+     */
+    public function make_request( $endpoint, $method = 'GET' ) {
+        $token = $this->get_access_token();
+        if ( is_wp_error( $token ) ) return $token;
+
+        $url = "https://graph.microsoft.com/v1.0" . $endpoint;
+        $response = wp_remote_request( $url, [
+            'method'  => $method,
+            'timeout' => 30,
+            'headers' => [
+                'Authorization' => 'Bearer ' . $token,
+                'Accept'        => 'application/json',
+            ]
+        ] );
+
+        if ( is_wp_error( $response ) ) return $response;
+        
+        $response_code = wp_remote_retrieve_response_code( $response );
+        $body = json_decode( wp_remote_retrieve_body( $response ), true );
+        
+        if ( $response_code >= 200 && $response_code < 300 ) {
+            return $body;
+        }
+        
+        return new WP_Error( 'graph_error', 'Graph API hiba: ' . (isset($body['error']['message']) ? $body['error']['message'] : 'Ismeretlen hiba'), $body );
+    }
 }
