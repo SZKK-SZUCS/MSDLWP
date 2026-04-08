@@ -48,6 +48,29 @@ class MSDL_Child_Admin {
             'callback'            => [ $this, 'test_connection' ],
             'permission_callback' => function() { return current_user_can( 'administrator' ); }
         ]);
+
+        register_rest_route( 'msdl-child/v1', '/sync-now', [
+            'methods'             => WP_REST_Server::CREATABLE, // POST kérés
+            'callback'            => [ $this, 'trigger_sync' ],
+            'permission_callback' => function() { return current_user_can( 'administrator' ); }
+        ]);
+    }
+
+    public function trigger_sync() {
+        $sync = new MSDL_Child_Sync();
+        $result = $sync->run_manual_sync();
+
+        if ( is_wp_error( $result ) ) {
+            return rest_ensure_response([
+                'success' => false,
+                'message' => $result->get_error_message()
+            ]);
+        }
+
+        return rest_ensure_response([
+            'success' => true,
+            'message' => "Szinkronizáció sikeres! Feldolgozott elemek a mappában: {$result['processed']} db."
+        ]);
     }
 
     public function test_connection() {

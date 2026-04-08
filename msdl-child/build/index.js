@@ -143,14 +143,67 @@ const FileManagerApp = () => /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED
     children: "Itt lesz a lok\xE1lis adatb\xE1zis fa-strukt\xFAr\xE1s b\xF6ng\xE9sz\u0151je."
   })]
 });
-const SyncApp = () => /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
-  className: "wrap",
-  children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("h1", {
-    children: "Szinkroniz\xE1ci\xF3"
-  }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("p", {
-    children: "A szinkroniz\xE1ci\xF3s logok \xE9s cron be\xE1ll\xEDt\xE1sok helye."
-  })]
-});
+const SyncApp = () => {
+  const [isSyncing, setIsSyncing] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
+  const [syncResult, setSyncResult] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    setSyncResult({
+      type: "info",
+      msg: "Szinkronizáció folyamatban a Microsoft szervereivel... Kérlek várj!"
+    });
+    try {
+      const response = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
+        path: "/msdl-child/v1/sync-now",
+        method: "POST"
+      });
+      if (response.success) {
+        setSyncResult({
+          type: "success",
+          msg: response.message
+        });
+      } else {
+        setSyncResult({
+          type: "error",
+          msg: `Hiba: ${response.message}`
+        });
+      }
+    } catch (error) {
+      setSyncResult({
+        type: "error",
+        msg: "Hálózati hiba a szinkronizáció során."
+      });
+    }
+    setIsSyncing(false);
+  };
+  return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
+    className: "wrap",
+    children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("h1", {
+      children: "Szinkroniz\xE1ci\xF3"
+    }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.PanelBody, {
+      title: "K\xE9zi Szinkroniz\xE1ci\xF3",
+      children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("p", {
+        style: {
+          marginBottom: "15px",
+          color: "#666"
+        },
+        children: "Itt ind\xEDthatod el manu\xE1lisan a Microsoft SharePoint mappa tartalm\xE1nak let\xF6lt\xE9s\xE9t a helyi WordPress adatb\xE1zisba. Ez a funkci\xF3 friss\xEDti a m\xF3dos\xEDtott f\xE1jlokat \xE9s hozz\xE1adja az \xFAjakat."
+      }), syncResult && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Notice, {
+        status: syncResult.type,
+        isDismissible: false,
+        style: {
+          marginBottom: "20px"
+        },
+        children: syncResult.msg
+      }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+        isPrimary: true,
+        isBusy: isSyncing,
+        onClick: handleManualSync,
+        children: isSyncing ? "Szinkronizálás..." : "Kézi Szinkronizáció Indítása"
+      })]
+    })]
+  });
+};
 const SettingsApp = () => {
   const [options, setOptions] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)({
     msdl_main_server_url: "",

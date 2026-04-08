@@ -8,12 +8,64 @@ const FileManagerApp = () => (
     <p>Itt lesz a lokális adatbázis fa-struktúrás böngészője.</p>
   </div>
 );
-const SyncApp = () => (
-  <div className="wrap">
-    <h1>Szinkronizáció</h1>
-    <p>A szinkronizációs logok és cron beállítások helye.</p>
-  </div>
-);
+const SyncApp = () => {
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState(null);
+
+  const handleManualSync = async () => {
+    setIsSyncing(true);
+    setSyncResult({
+      type: "info",
+      msg: "Szinkronizáció folyamatban a Microsoft szervereivel... Kérlek várj!",
+    });
+
+    try {
+      const response = await apiFetch({
+        path: "/msdl-child/v1/sync-now",
+        method: "POST",
+      });
+
+      if (response.success) {
+        setSyncResult({ type: "success", msg: response.message });
+      } else {
+        setSyncResult({ type: "error", msg: `Hiba: ${response.message}` });
+      }
+    } catch (error) {
+      setSyncResult({
+        type: "error",
+        msg: "Hálózati hiba a szinkronizáció során.",
+      });
+    }
+
+    setIsSyncing(false);
+  };
+
+  return (
+    <div className="wrap">
+      <h1>Szinkronizáció</h1>
+      <PanelBody title="Kézi Szinkronizáció">
+        <p style={{ marginBottom: "15px", color: "#666" }}>
+          Itt indíthatod el manuálisan a Microsoft SharePoint mappa tartalmának
+          letöltését a helyi WordPress adatbázisba. Ez a funkció frissíti a
+          módosított fájlokat és hozzáadja az újakat.
+        </p>
+
+        {syncResult && (
+          <Notice
+            status={syncResult.type}
+            isDismissible={false}
+            style={{ marginBottom: "20px" }}>
+            {syncResult.msg}
+          </Notice>
+        )}
+
+        <Button isPrimary isBusy={isSyncing} onClick={handleManualSync}>
+          {isSyncing ? "Szinkronizálás..." : "Kézi Szinkronizáció Indítása"}
+        </Button>
+      </PanelBody>
+    </div>
+  );
+};
 
 const SettingsApp = () => {
   const [options, setOptions] = useState({

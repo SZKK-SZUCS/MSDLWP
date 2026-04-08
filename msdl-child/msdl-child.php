@@ -13,6 +13,7 @@ define( 'MSDL_CHILD_URL', plugin_dir_url( __FILE__ ) );
 require_once MSDL_CHILD_DIR . 'includes/class-msdl-activator.php';
 require_once MSDL_CHILD_DIR . 'includes/class-msdl-admin.php';
 require_once MSDL_CHILD_DIR . 'includes/class-msdl-graph-api.php';
+require_once MSDL_CHILD_DIR . 'includes/class-msdl-sync.php';
 
 function activate_msdl_child() {
     MSDL_Activator::activate();
