@@ -136,7 +136,7 @@ __webpack_require__.r(__webpack_exports__);
 
 
 const App = () => {
-  // --- State-ek: Alap beállítások és Webhelyek ---
+  // --- State-ek ---
   const [options, setOptions] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)({
     msdl_tenant_id: "",
     msdl_client_id: "",
@@ -147,16 +147,14 @@ const App = () => {
   });
   const [sites, setSites] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
   const [statusText, setStatusText] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
-
-  // --- State-ek: Fő Szerkesztő Modal ---
+  const [siteSearchFilter, setSiteSearchFilter] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
+  const [selectedSites, setSelectedSites] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
+  const [bulkAction, setBulkAction] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
+  const [isBulkProcessing, setIsBulkProcessing] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [isModalOpen, setIsModalOpen] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [editingSite, setEditingSite] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
   const [showAdvanced, setShowAdvanced] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
-
-  // ÚJ: Ez dönti el, hogy a Modalon belül a Szerkesztőt vagy a Tallózót mutatjuk
   const [isFolderBrowserActive, setIsFolderBrowserActive] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
-
-  // --- State-ek: SharePoint Azonosító Kereső Modal (Ez maradhat külön, mert nem a szerkesztőből nyílik) ---
   const [isFinderOpen, setIsFinderOpen] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [searchQuery, setSearchQuery] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [isSearching, setIsSearching] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
@@ -164,8 +162,6 @@ const App = () => {
   const [selectedFoundSite, setSelectedFoundSite] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
   const [foundDrives, setFoundDrives] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
   const [isLoadingDrives, setIsLoadingDrives] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
-
-  // --- State-ek: MAPPA Kereső adatok ---
   const [folderSearchQuery, setFolderSearchQuery] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [isSearchingFolders, setIsSearchingFolders] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [foundFolders, setFoundFolders] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
@@ -195,7 +191,7 @@ const App = () => {
     }).then(setSites).catch(console.error);
   };
 
-  // --- Műveletek: Beállítások és Webhelyek ---
+  // --- Műveletek ---
   const handleSaveSettings = async () => {
     setStatusText("Mentés...");
     try {
@@ -214,11 +210,12 @@ const App = () => {
     domain: "",
     folder_path: "",
     custom_site_id: "",
-    custom_drive_id: ""
+    custom_drive_id: "",
+    is_active: 1
   }) => {
     setEditingSite(site);
     setShowAdvanced(!!(site.custom_site_id || site.custom_drive_id));
-    setIsFolderBrowserActive(false); // Biztosítjuk, hogy mindig a szerkesztő nézetben nyíljon meg!
+    setIsFolderBrowserActive(false);
     setIsModalOpen(true);
   };
   const handleSaveSite = async e => {
@@ -237,19 +234,121 @@ const App = () => {
     }
   };
   const handleDeleteSite = async id => {
-    if (!confirm("Biztosan törlöd ezt a webhelyet? A Child plugin szinkronizációja azonnal leáll az adott oldalon!")) return;
+    if (!confirm("Biztosan törlöd ezt a webhelyet?")) return;
     try {
       await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
         path: `/msdl-main/v1/sites/${id}`,
         method: "DELETE"
       });
       loadSites();
+      setSelectedSites(selectedSites.filter(sId => sId !== id));
     } catch (e) {
       alert("Hiba a törléskor!");
     }
   };
+  const handleRemoteCommand = async (site, command) => {
+    const actionName = command === "ping" ? "Pingelés" : "Szinkronizáció";
+    setStatusText(`${site.domain}: ${actionName} folyamatban...`);
+    try {
+      const response = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
+        path: "/msdl-main/v1/remote-command",
+        method: "POST",
+        data: {
+          domain: site.domain,
+          command: command
+        }
+      });
+      if (response && response.success) {
+        setStatusText(`${site.domain}: Sikeres! ${response.message || ""}`);
+        if (command === "sync") loadSites();
+      } else {
+        setStatusText(`${site.domain}: Hiba! ${response?.message || "Nem érkezett válasz."}`);
+      }
+    } catch (e) {
+      setStatusText(`${site.domain}: Kapcsolódási hiba!`);
+    }
+  };
 
-  // --- Műveletek: SharePoint Azonosító Kereső ---
+  // ÚJ: Dinamikus URL nyitó
+  const handleOpenSharePoint = async (type, siteId = null) => {
+    setStatusText("SharePoint URL lekérése a Microsofttól...");
+    try {
+      const query = type === "central" ? "?type=central" : `?type=folder&site_id=${siteId}`;
+      const response = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
+        path: `/msdl-main/v1/get-sp-url${query}`
+      });
+      if (response && response.url) {
+        setStatusText(""); // Sáv törlése
+        window.open(response.url, "_blank");
+      } else {
+        setStatusText("Hiba: Nem kaptam vissza URL-t.");
+      }
+    } catch (err) {
+      setStatusText(`Hiba az URL lekérésekor: ${err.message || "Ismeretlen hiba"}`);
+    }
+  };
+
+  // --- Tömeges műveletek ---
+  const filteredSites = sites.filter(s => s.domain.toLowerCase().includes(siteSearchFilter.toLowerCase()));
+  const handleSelectAll = isChecked => {
+    if (isChecked) setSelectedSites(filteredSites.map(s => s.id));else setSelectedSites([]);
+  };
+  const handleSelectSite = siteId => {
+    if (selectedSites.includes(siteId)) setSelectedSites(selectedSites.filter(id => id !== siteId));else setSelectedSites([...selectedSites, siteId]);
+  };
+  const handleBulkAction = async () => {
+    if (!bulkAction || selectedSites.length === 0) return;
+    setIsBulkProcessing(true);
+    setStatusText("Tömeges művelet végrehajtása folyamatban...");
+    const sitesToProcess = sites.filter(s => selectedSites.includes(s.id));
+    for (const site of sitesToProcess) {
+      if (bulkAction === "ping" || bulkAction === "sync") {
+        if (bulkAction === "sync" && (!site.folder_path || site.is_active == 0)) continue;
+        await handleRemoteCommand(site, bulkAction);
+      } else if (bulkAction === "suspend") {
+        if (site.is_active == 1) await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
+          path: "/msdl-main/v1/sites",
+          method: "POST",
+          data: {
+            ...site,
+            is_active: 0
+          }
+        });
+      } else if (bulkAction === "activate") {
+        if (site.is_active == 0) await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
+          path: "/msdl-main/v1/sites",
+          method: "POST",
+          data: {
+            ...site,
+            is_active: 1
+          }
+        });
+      }
+    }
+    setStatusText("Tömeges művelet befejezve!");
+    setSelectedSites([]);
+    setIsBulkProcessing(false);
+    setBulkAction("");
+    loadSites();
+  };
+  const handleToggleActive = async site => {
+    const updatedSite = {
+      ...site,
+      is_active: site.is_active == 1 ? 0 : 1
+    };
+    try {
+      await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
+        path: "/msdl-main/v1/sites",
+        method: "POST",
+        data: updatedSite
+      });
+      loadSites();
+    } catch (e) {
+      alert("Hiba az állapot mentésekor!");
+    }
+  };
+
+  // --- Graph Kereső Metódusok ---
   const handleSearchSites = async e => {
     e.preventDefault();
     setIsSearching(true);
@@ -262,11 +361,11 @@ const App = () => {
       });
       setFoundSites(results);
     } catch (err) {
-      alert("Hiba a keresés során. Ellenőrizd a kulcsokat!");
+      alert("Hiba a keresés során.");
     }
     setIsSearching(false);
   };
-  const handleSelectSite = async site => {
+  const handleSelectSiteAPI = async site => {
     setSelectedFoundSite(site);
     setIsLoadingDrives(true);
     try {
@@ -275,7 +374,7 @@ const App = () => {
       });
       setFoundDrives(drives);
     } catch (err) {
-      alert("Nem sikerült lekérni a dokumentumtárakat.");
+      alert("Hiba a lekérésnél.");
     }
     setIsLoadingDrives(false);
   };
@@ -286,20 +385,16 @@ const App = () => {
       msdl_drive_id: driveId
     });
     setIsFinderOpen(false);
-    setStatusText("Azonosítók bemásolva! Ne felejtsd el elmenteni a beállításokat.");
+    setStatusText("Azonosítók bemásolva!");
   };
-
-  // --- Műveletek: MAPPA Kereső ---
   const openFolderFinder = () => {
     const driveId = editingSite?.custom_drive_id || options.msdl_drive_id;
     if (!driveId) {
-      alert("Nincs beállítva Dokumentumtár (Drive ID)! Előbb add meg a központi beállításokban, vagy mentsd el a webhely haladó beállításainál az egyedit.");
+      alert("Nincs beállítva Drive ID!");
       return;
     }
     setFolderSearchQuery("");
     setFoundFolders([]);
-
-    // VÁLTUNK A MODALON BELÜLI NÉZETRE
     setIsFolderBrowserActive(true);
     handleSearchFolders(null, driveId, "");
   };
@@ -315,7 +410,7 @@ const App = () => {
       });
       setFoundFolders(results);
     } catch (err) {
-      alert("Hiba a mappák lekérdezésekor. Ellenőrizd, hogy az adott Drive ID helyes-e.");
+      alert("Hiba a mappák lekérdezésekor.");
     }
     setIsSearchingFolders(false);
   };
@@ -328,12 +423,9 @@ const App = () => {
         if (relativePath.startsWith("/")) relativePath = relativePath.substring(1);
       }
     }
-    const fullPath = relativePath ? `${relativePath}/${folder.name}` : folder.name;
-
-    // Frissítjük a form adatot ÉS visszaváltunk a szerkesztő nézetre!
     setEditingSite({
       ...editingSite,
-      folder_path: fullPath
+      folder_path: relativePath ? `${relativePath}/${folder.name}` : folder.name
     });
     setIsFolderBrowserActive(false);
   };
@@ -354,7 +446,7 @@ const App = () => {
       },
       children: "MSDL K\xF6zpont - Architekt\xFAra Menedzser"
     }), statusText && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Notice, {
-      status: "success",
+      status: "info",
       isDismissible: false,
       onRemove: () => setStatusText(""),
       children: statusText
@@ -363,7 +455,6 @@ const App = () => {
       activeClass: "is-active",
       tabs: tabs,
       children: tab => {
-        // BEÁLLÍTÁSOK FÜL
         if (tab.name === "settings") {
           return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("div", {
             style: {
@@ -372,13 +463,7 @@ const App = () => {
             },
             children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.PanelBody, {
               title: "Microsoft Graph Hiteles\xEDt\xE9s \xE9s Rendszerkulcsok",
-              children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("p", {
-                style: {
-                  color: "#666",
-                  marginBottom: "15px"
-                },
-                children: "Ezek az azonos\xEDt\xF3k adj\xE1k a k\xF6zponti hozz\xE1f\xE9r\xE9st a Microsoft tenant-hoz."
-              }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.TextControl, {
+              children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.TextControl, {
                 label: "Tenant ID",
                 value: options.msdl_tenant_id,
                 onChange: v => setOptions({
@@ -443,7 +528,7 @@ const App = () => {
               }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("h3", {
                 children: "Bels\u0151 Kommunik\xE1ci\xF3s Kulcs"
               }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.TextControl, {
-                label: "Bels\u0151 API Kulcs (Child hiteles\xEDt\xE9shez)",
+                label: "Bels\u0151 API Kulcs",
                 type: "password",
                 value: options.msdl_internal_api_key,
                 onChange: v => setOptions({
@@ -458,8 +543,6 @@ const App = () => {
             })
           });
         }
-
-        // KLIENS WEBHELYEK FÜL
         if (tab.name === "sites") {
           return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
             style: {
@@ -472,15 +555,73 @@ const App = () => {
                 alignItems: "center",
                 marginBottom: "15px"
               },
-              children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("p", {
+              children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
                 style: {
-                  margin: 0
+                  display: "flex",
+                  gap: "15px",
+                  alignItems: "center"
                 },
-                children: "Az itt list\xE1zott webhelyek (Child pluginok) kaptak enged\xE9lyt a kapcsol\xF3d\xE1sra."
-              }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
-                isPrimary: true,
-                onClick: () => openModal(),
-                children: "+ \xDAj Webhely Hozz\xE1ad\xE1sa"
+                children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
+                  style: {
+                    display: "flex",
+                    gap: "5px",
+                    alignItems: "center"
+                  },
+                  children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("select", {
+                    value: bulkAction,
+                    onChange: e => setBulkAction(e.target.value),
+                    style: {
+                      padding: "0 8px",
+                      lineHeight: "2.2",
+                      height: "32px"
+                    },
+                    children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+                      value: "",
+                      children: "T\xF6meges m\u0171veletek"
+                    }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+                      value: "ping",
+                      children: "\xC1llapot Ping (Ellen\u0151rz\xE9s)"
+                    }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+                      value: "sync",
+                      children: "Azonnali Szinkroniz\xE1l\xE1s"
+                    }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+                      value: "suspend",
+                      children: "Felf\xFCggeszt\xE9s (Karbantart\xE1s)"
+                    }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+                      value: "activate",
+                      children: "Aktiv\xE1l\xE1s"
+                    })]
+                  }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+                    isSecondary: true,
+                    isBusy: isBulkProcessing,
+                    onClick: handleBulkAction,
+                    disabled: !bulkAction || selectedSites.length === 0,
+                    children: ["Alkalmaz (", selectedSites.length, ")"]
+                  })]
+                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.TextControl, {
+                  placeholder: "Keres\xE9s domain szerint...",
+                  value: siteSearchFilter,
+                  onChange: setSiteSearchFilter,
+                  style: {
+                    margin: 0,
+                    width: "250px"
+                  }
+                })]
+              }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
+                style: {
+                  display: "flex",
+                  gap: "10px"
+                },
+                children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+                  isSecondary: true,
+                  icon: "external",
+                  onClick: () => handleOpenSharePoint("central"),
+                  children: "K\xF6zponti SharePoint"
+                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+                  isPrimary: true,
+                  onClick: () => openModal(),
+                  children: "+ \xDAj Webhely"
+                })]
               })]
             }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("table", {
               className: "wp-list-table widefat fixed striped table-view-list",
@@ -491,59 +632,114 @@ const App = () => {
                       width: "40px",
                       textAlign: "center"
                     },
+                    children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("input", {
+                      type: "checkbox",
+                      checked: selectedSites.length === filteredSites.length && filteredSites.length > 0,
+                      onChange: e => handleSelectAll(e.target.checked)
+                    })
+                  }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
+                    style: {
+                      width: "70px",
+                      textAlign: "center"
+                    },
                     children: "St\xE1tusz"
                   }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
                     children: "Domain"
                   }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
-                    children: "Hozz\xE1rendelt Mappa"
-                  }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
-                    children: "Egyedi T\xE1rol\xF3"
+                    children: "Mappa / T\xE1rol\xF3"
                   }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
                     style: {
-                      width: "200px",
+                      width: "180px"
+                    },
+                    children: "Utols\xF3 Szinkroniz\xE1ci\xF3"
+                  }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
+                    style: {
+                      width: "120px"
+                    },
+                    children: "Karbantart\xE1s"
+                  }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
+                    style: {
+                      width: "260px",
                       textAlign: "right"
                     },
                     children: "M\u0171veletek"
                   })]
                 })
               }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("tbody", {
-                children: sites.length === 0 ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("tr", {
+                children: filteredSites.length === 0 ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("tr", {
                   children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
-                    colSpan: "5",
+                    colSpan: "7",
                     style: {
                       textAlign: "center",
                       padding: "20px"
                     },
-                    children: "Nincs webhely."
+                    children: "Nincs a keres\xE9snek megfelel\u0151 webhely."
                   })
-                }) : sites.map(site => {
+                }) : filteredSites.map(site => {
                   const isPending = !site.folder_path;
+                  const isSuspended = site.is_active == 0;
+                  const siteUrl = site.domain.startsWith("http") ? site.domain : `https://${site.domain}`;
                   return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("tr", {
                     style: {
-                      backgroundColor: isPending ? "#fcf0f1" : "transparent"
+                      backgroundColor: isSuspended ? "#f0f0f0" : isPending ? "#fcf0f1" : "transparent",
+                      opacity: isSuspended ? 0.7 : 1
                     },
                     children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
                       style: {
                         textAlign: "center",
                         verticalAlign: "middle"
                       },
-                      children: isPending ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
+                      children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("input", {
+                        type: "checkbox",
+                        checked: selectedSites.includes(site.id),
+                        onChange: () => handleSelectSite(site.id)
+                      })
+                    }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
+                      style: {
+                        textAlign: "center",
+                        verticalAlign: "middle"
+                      },
+                      children: isSuspended ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
+                        icon: "hidden",
+                        style: {
+                          color: "#666"
+                        },
+                        title: "Felf\xFCggesztve"
+                      }) : isPending ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
                         icon: "warning",
                         style: {
                           color: "#d63638"
-                        }
+                        },
+                        title: "F\xFCgg\u0151ben"
                       }) : /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
                         icon: "yes-alt",
                         style: {
                           color: "#00a32a"
-                        }
+                        },
+                        title: "Akt\xEDv"
                       })
                     }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
                       style: {
                         verticalAlign: "middle"
                       },
-                      children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("strong", {
-                        children: site.domain
+                      children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("a", {
+                        href: siteUrl,
+                        target: "_blank",
+                        rel: "noreferrer",
+                        style: {
+                          fontWeight: "bold",
+                          textDecoration: isSuspended ? "line-through" : "none",
+                          fontSize: "14px"
+                        },
+                        children: [site.domain, " ", /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
+                          icon: "external",
+                          style: {
+                            fontSize: "12px",
+                            width: "12px",
+                            height: "12px",
+                            color: "#888"
+                          }
+                        })]
                       })
                     }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
                       style: {
@@ -555,43 +751,102 @@ const App = () => {
                           fontWeight: "bold"
                         },
                         children: "J\xF3v\xE1hagy\xE1sra v\xE1r"
-                      }) : /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("code", {
-                        children: ["/", site.folder_path]
+                      }) : /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
+                        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
+                          style: {
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "8px"
+                          },
+                          children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("code", {
+                            children: ["/", site.folder_path]
+                          }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+                            isSmall: true,
+                            isSecondary: true,
+                            icon: "admin-links",
+                            title: "Mappa megnyit\xE1sa a SharePointban",
+                            onClick: () => handleOpenSharePoint("folder", site.id)
+                          })]
+                        }), site.custom_site_id && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("div", {
+                          style: {
+                            fontSize: "11px",
+                            color: "#2271b1",
+                            marginTop: "4px"
+                          },
+                          children: "\u2713 Egyedi t\xE1rol\xF3 fel\xFClb\xEDr\xE1l\xE1s"
+                        })]
                       })
                     }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
                       style: {
                         verticalAlign: "middle"
                       },
-                      children: site.custom_site_id ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
+                      children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
                         style: {
-                          color: "#2271b1"
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "8px"
                         },
-                        children: "\u2713 Akt\xEDv"
-                      }) : /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
-                        style: {
-                          color: "#a0a5aa"
-                        },
-                        children: "K\xF6zponti"
+                        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
+                          style: {
+                            color: site.last_sync ? "#1d2327" : "#888"
+                          },
+                          children: site.last_sync ? site.last_sync : "Még nem szinkronizált"
+                        }), !isPending && !isSuspended && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+                          isSmall: true,
+                          isSecondary: true,
+                          icon: "update",
+                          title: "Szinkroniz\xE1ci\xF3 Ind\xEDt\xE1sa",
+                          onClick: () => handleRemoteCommand(site, "sync")
+                        })]
                       })
-                    }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("td", {
+                    }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
                       style: {
-                        textAlign: "right",
                         verticalAlign: "middle"
                       },
-                      children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
-                        isSmall: true,
-                        isSecondary: true,
-                        onClick: () => openModal(site),
+                      children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.ToggleControl, {
+                        label: isSuspended ? "Szünetel" : "Aktív",
+                        checked: !isSuspended,
+                        onChange: () => handleToggleActive(site),
                         style: {
-                          marginRight: "8px"
+                          margin: 0
+                        }
+                      })
+                    }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
+                      style: {
+                        verticalAlign: "middle"
+                      },
+                      children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
+                        style: {
+                          display: "flex",
+                          justifyContent: "flex-end",
+                          gap: "5px",
+                          flexWrap: "wrap"
                         },
-                        children: isPending ? "Jóváhagyás & Beállítás" : "Szerkesztés"
-                      }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
-                        isSmall: true,
-                        isDestructive: true,
-                        onClick: () => handleDeleteSite(site.id),
-                        children: "T\xF6rl\xE9s"
-                      })]
+                        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+                          isSmall: true,
+                          isSecondary: true,
+                          icon: "admin-network",
+                          title: "\xC1llapot Ping",
+                          onClick: () => handleRemoteCommand(site, "ping")
+                        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+                          isSmall: true,
+                          isSecondary: true,
+                          icon: "admin-users",
+                          href: `${siteUrl}/wp-admin`,
+                          target: "_blank",
+                          title: "WP Admin"
+                        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+                          isSmall: true,
+                          isSecondary: true,
+                          onClick: () => openModal(site),
+                          children: isPending ? "Jóváhagyás" : "Szerk."
+                        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+                          isSmall: true,
+                          isDestructive: true,
+                          onClick: () => handleDeleteSite(site.id),
+                          children: "T\xF6rl\xE9s"
+                        })]
+                      })
                     })]
                   }, site.id);
                 })
@@ -649,7 +904,7 @@ const App = () => {
               cursor: "pointer",
               backgroundColor: selectedFoundSite?.id === site.id ? "#f0f6fc" : "#fff"
             },
-            onClick: () => handleSelectSite(site),
+            onClick: () => handleSelectSiteAPI(site),
             children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("strong", {
               children: site.name
             }), " ", /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("span", {
@@ -672,7 +927,7 @@ const App = () => {
           style: {
             marginTop: 0
           },
-          children: "V\xE1lassz egy Dokumentumt\xE1rat (Drive):"
+          children: "V\xE1lassz egy Dokumentumt\xE1rat:"
         }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("div", {
           style: {
             border: "1px solid #ccc",
@@ -712,21 +967,12 @@ const App = () => {
     }), isModalOpen && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Modal, {
       title: isFolderBrowserActive ? "Mappa Tallózó" : editingSite?.id ? `Szerkesztés: ${editingSite.domain}` : "Új Webhely Felvitele",
       onRequestClose: () => {
-        // Ha a tallózóban vagyunk, a bezárás gomb (X) csak visszadob a szerkesztőbe
-        if (isFolderBrowserActive) {
-          setIsFolderBrowserActive(false);
-        } else {
-          // Egyébként bezárja az egész ablakot
-          setIsModalOpen(false);
-        }
+        if (isFolderBrowserActive) setIsFolderBrowserActive(false);else setIsModalOpen(false);
       },
       style: {
         width: "600px"
       },
-      children: isFolderBrowserActive ?
-      /*#__PURE__*/
-      // NÉZET 1: MAPPA TALLÓZÓ
-      (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
+      children: isFolderBrowserActive ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
         children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
           isLink: true,
           icon: "arrow-left-alt2",
@@ -748,7 +994,7 @@ const App = () => {
               flexGrow: 1
             },
             children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.TextControl, {
-              placeholder: "Keres\xE9s mapp\xE1k k\xF6z\xF6tt (\xFCresen hagyva a gy\xF6keret list\xE1zza)...",
+              placeholder: "Keres\xE9s mapp\xE1k k\xF6z\xF6tt...",
               value: folderSearchQuery,
               onChange: setFolderSearchQuery
             })
@@ -832,14 +1078,10 @@ const App = () => {
             })
           })
         })]
-      }) :
-      /*#__PURE__*/
-      // NÉZET 2: WEBHELY SZERKESZTŐ FORM
-      (0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("form", {
+      }) : /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("form", {
         onSubmit: handleSaveSite,
         children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.TextControl, {
           label: "Kliens Domain",
-          help: "A csatlakoz\xF3 weboldal c\xEDme (pl. gepesz.sze.hu).",
           value: editingSite.domain,
           onChange: val => setEditingSite({
             ...editingSite,
@@ -858,7 +1100,6 @@ const App = () => {
             },
             children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.TextControl, {
               label: "Gy\xF6k\xE9r Mappa \xDAtvonala",
-              help: "A kiv\xE1lasztott mappa a SharePointb\xF3l.",
               value: editingSite.folder_path,
               onChange: val => setEditingSite({
                 ...editingSite,
@@ -910,6 +1151,24 @@ const App = () => {
               })
             })]
           })]
+        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("div", {
+          style: {
+            marginTop: "20px",
+            padding: "10px",
+            border: "1px solid #ddd",
+            borderRadius: "4px"
+          },
+          children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.ToggleControl, {
+            label: "Webhely enged\xE9lyez\xE9se (Akt\xEDv kapcsolat)",
+            checked: editingSite.is_active == 1,
+            onChange: val => setEditingSite({
+              ...editingSite,
+              is_active: val ? 1 : 0
+            }),
+            style: {
+              margin: 0
+            }
+          })
         }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
           style: {
             display: "flex",

@@ -11,6 +11,8 @@ class MSDL_Main_Activator {
             folder_path varchar(255) NOT NULL DEFAULT '',
             custom_site_id varchar(255) NOT NULL DEFAULT '',
             custom_drive_id varchar(255) NOT NULL DEFAULT '',
+            is_active tinyint(1) NOT NULL DEFAULT 1,
+            last_sync datetime DEFAULT NULL,
             PRIMARY KEY  (id),
             UNIQUE KEY domain (domain)
         ) $charset_collate;";
