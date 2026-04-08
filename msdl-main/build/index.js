@@ -171,6 +171,14 @@ const App = () => {
   const [isSearchingFolders, setIsSearchingFolders] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [foundFolders, setFoundFolders] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
 
+  // Visszaszámláló és folyamatjelző state-ek
+  const [isProcessingBatch, setIsProcessingBatch] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
+  const [syncProgress, setSyncProgress] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)({
+    current: 0,
+    total: 0
+  });
+  const syncSnapshots = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useRef)({});
+
   // --- Adatbetöltés ---
   (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
     loadSettings();
@@ -181,23 +189,34 @@ const App = () => {
   // Visszaszámláló logika (1 másodperces frissítés)
   (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
     const timer = setInterval(() => {
+      const now = Math.floor(Date.now() / 1000);
+      if (isProcessingBatch) {
+        handleBatchPolling();
+        return;
+      }
       if (nextSyncTimestamp === 0) {
         setCountdownText("Nincs ütemezve");
         return;
       }
-      const now = Math.floor(Date.now() / 1000);
       const diff = nextSyncTimestamp - now;
       if (diff <= 0) {
-        setCountdownText("Indítás...");
-        if (diff === 0) fetchNextSyncTime(); // Frissítés a következőre
+        startProgressTracking();
       } else {
-        const m = Math.floor(diff / 60);
+        const h = Math.floor(diff / 3600);
+        const m = Math.floor(diff % 3600 / 60);
         const s = diff % 60;
-        setCountdownText(`${m}:${s < 10 ? "0" : ""}${s}`);
+
+        // Ha több mint egy óra van hátra, kiírjuk az órát is
+        if (h > 0) {
+          setCountdownText(`${h}:${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`);
+        } else {
+          // Ha kevesebb mint egy óra, marad a megszokott MM:SS
+          setCountdownText(`${m}:${s < 10 ? "0" : ""}${s}`);
+        }
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [nextSyncTimestamp]);
+  }, [nextSyncTimestamp, isProcessingBatch, sites]);
   const fetchNextSyncTime = async () => {
     try {
       const data = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
@@ -206,6 +225,55 @@ const App = () => {
       setNextSyncTimestamp(data.next_sync);
     } catch (e) {
       console.error(e);
+    }
+  };
+  const startProgressTracking = () => {
+    const centralSites = sites.filter(s => s.is_active == 1 && s.sync_mode === "central" && s.folder_path);
+    if (centralSites.length === 0) {
+      fetchNextSyncTime();
+      return;
+    }
+
+    // Snapshot készítése: elmentjük, mi volt a dátum a kezdéskor
+    const snapshots = {};
+    centralSites.forEach(s => {
+      snapshots[s.id] = s.last_sync;
+    });
+    syncSnapshots.current = snapshots;
+    setSyncProgress({
+      current: 0,
+      total: centralSites.length
+    });
+    setIsProcessingBatch(true);
+    setCountdownText(`0 / ${centralSites.length}`);
+  };
+  const handleBatchPolling = async () => {
+    // 3 másodpercenként kérünk új adatokat a szervertől (Soft Refresh)
+    if (Date.now() % 3000 < 1000) {
+      try {
+        const freshSites = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
+          path: "/msdl-main/v1/sites"
+        });
+        setSites(freshSites); // Frissítjük a táblázatot az oldalon belül
+
+        const centralSites = freshSites.filter(s => s.is_active == 1 && s.sync_mode === "central" && s.folder_path);
+
+        // Ellenőrizzük, hánynak változott meg a dátuma a kezdés óta
+        const updatedCount = centralSites.filter(s => {
+          return s.last_sync !== syncSnapshots.current[s.id];
+        }).length;
+        setSyncProgress({
+          current: updatedCount,
+          total: centralSites.length
+        });
+        setCountdownText(`${updatedCount} / ${centralSites.length}`);
+        if (updatedCount >= centralSites.length) {
+          setIsProcessingBatch(false);
+          fetchNextSyncTime();
+        }
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
   const loadSettings = () => {
@@ -601,6 +669,9 @@ const App = () => {
                   value: "",
                   children: "-- Kikapcsolva (Nincs k\xF6zponti szinkron) --"
                 }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
+                  value: "msdl_1min",
+                  children: "1 percenk\xE9nt (CSAK TESZTRE)"
+                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
                   value: "msdl_15min",
                   children: "15 percenk\xE9nt"
                 }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
@@ -696,7 +767,7 @@ const App = () => {
                 },
                 children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
                   style: {
-                    backgroundColor: "#f0f0f1",
+                    backgroundColor: isProcessingBatch ? "#f6f7f7" : "#fff",
                     padding: "5px 12px",
                     borderRadius: "4px",
                     border: "1px solid #ccd0d4",
@@ -707,14 +778,14 @@ const App = () => {
                   children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
                     icon: "clock",
                     style: {
-                      color: "#2271b1"
+                      color: isProcessingBatch ? "#d63638" : "#2271b1"
                     }
                   }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
                     style: {
                       fontWeight: "bold",
                       fontSize: "13px"
                     },
-                    children: countdownText
+                    children: isProcessingBatch ? `Szinkron: ${countdownText}` : countdownText
                   })]
                 }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
                   isSecondary: true,

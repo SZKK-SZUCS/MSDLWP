@@ -188,7 +188,7 @@ class MSDL_Main_REST_API {
             $clean_domain = preg_replace('#^https?://#', '', rtrim($domain, '/'));
             $wpdb->update( 
                 $table_name, 
-                [ 'last_sync' => current_time('mysql') ], 
+                [ 'last_sync' => wp_date('Y-m-d H:i:s') ], 
                 [ 'domain' => $clean_domain ] 
             );
         }
@@ -238,7 +238,7 @@ class MSDL_Main_REST_API {
 
         return new WP_Error('invalid_request', 'Érvénytelen kérés.', ['status'=>400]);
     }
-    
+
     public function get_next_sync_time() {
     $next = wp_next_scheduled( 'msdl_main_master_sync' );
     return rest_ensure_response( [ 'next_sync' => $next ? $next : 0 ] );

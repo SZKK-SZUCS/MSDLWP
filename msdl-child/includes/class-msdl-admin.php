@@ -13,6 +13,7 @@ class MSDL_Child_Admin {
     }
 
     public function add_cron_schedules( $schedules ) {
+        $schedules['msdl_1min'] = [ 'interval' => 60, 'display' => '1 percenként (CSAK TESZTRE)' ];
         $schedules['msdl_15min'] = [ 'interval' => 900, 'display' => '15 percenként' ];
         $schedules['msdl_30min'] = [ 'interval' => 1800, 'display' => '30 percenként' ];
         return $schedules;

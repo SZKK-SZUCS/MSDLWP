@@ -1,4 +1,4 @@
-import { render, useState, useEffect } from "@wordpress/element";
+import { render, useState, useEffect, useRef } from "@wordpress/element";
 import {
   PanelBody,
   TextControl,
@@ -53,6 +53,11 @@ const App = () => {
   const [isSearchingFolders, setIsSearchingFolders] = useState(false);
   const [foundFolders, setFoundFolders] = useState([]);
 
+  // Visszaszámláló és folyamatjelző state-ek
+  const [isProcessingBatch, setIsProcessingBatch] = useState(false);
+  const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
+  const syncSnapshots = useRef({});
+
   // --- Adatbetöltés ---
   useEffect(() => {
     loadSettings();
@@ -63,24 +68,39 @@ const App = () => {
   // Visszaszámláló logika (1 másodperces frissítés)
   useEffect(() => {
     const timer = setInterval(() => {
+      const now = Math.floor(Date.now() / 1000);
+
+      if (isProcessingBatch) {
+        handleBatchPolling();
+        return;
+      }
+
       if (nextSyncTimestamp === 0) {
         setCountdownText("Nincs ütemezve");
         return;
       }
-      const now = Math.floor(Date.now() / 1000);
-      const diff = nextSyncTimestamp - now;
 
+      const diff = nextSyncTimestamp - now;
       if (diff <= 0) {
-        setCountdownText("Indítás...");
-        if (diff === 0) fetchNextSyncTime(); // Frissítés a következőre
+        startProgressTracking();
       } else {
-        const m = Math.floor(diff / 60);
+        const h = Math.floor(diff / 3600);
+        const m = Math.floor((diff % 3600) / 60);
         const s = diff % 60;
-        setCountdownText(`${m}:${s < 10 ? "0" : ""}${s}`);
+
+        // Ha több mint egy óra van hátra, kiírjuk az órát is
+        if (h > 0) {
+          setCountdownText(
+            `${h}:${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`,
+          );
+        } else {
+          // Ha kevesebb mint egy óra, marad a megszokott MM:SS
+          setCountdownText(`${m}:${s < 10 ? "0" : ""}${s}`);
+        }
       }
     }, 1000);
     return () => clearInterval(timer);
-  }, [nextSyncTimestamp]);
+  }, [nextSyncTimestamp, isProcessingBatch, sites]);
 
   const fetchNextSyncTime = async () => {
     try {
@@ -91,6 +111,55 @@ const App = () => {
     }
   };
 
+  const startProgressTracking = () => {
+    const centralSites = sites.filter(
+      (s) => s.is_active == 1 && s.sync_mode === "central" && s.folder_path,
+    );
+    if (centralSites.length === 0) {
+      fetchNextSyncTime();
+      return;
+    }
+
+    // Snapshot készítése: elmentjük, mi volt a dátum a kezdéskor
+    const snapshots = {};
+    centralSites.forEach((s) => {
+      snapshots[s.id] = s.last_sync;
+    });
+    syncSnapshots.current = snapshots;
+
+    setSyncProgress({ current: 0, total: centralSites.length });
+    setIsProcessingBatch(true);
+    setCountdownText(`0 / ${centralSites.length}`);
+  };
+
+  const handleBatchPolling = async () => {
+    // 3 másodpercenként kérünk új adatokat a szervertől (Soft Refresh)
+    if (Date.now() % 3000 < 1000) {
+      try {
+        const freshSites = await apiFetch({ path: "/msdl-main/v1/sites" });
+        setSites(freshSites); // Frissítjük a táblázatot az oldalon belül
+
+        const centralSites = freshSites.filter(
+          (s) => s.is_active == 1 && s.sync_mode === "central" && s.folder_path,
+        );
+
+        // Ellenőrizzük, hánynak változott meg a dátuma a kezdés óta
+        const updatedCount = centralSites.filter((s) => {
+          return s.last_sync !== syncSnapshots.current[s.id];
+        }).length;
+
+        setSyncProgress({ current: updatedCount, total: centralSites.length });
+        setCountdownText(`${updatedCount} / ${centralSites.length}`);
+
+        if (updatedCount >= centralSites.length) {
+          setIsProcessingBatch(false);
+          fetchNextSyncTime();
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+  };
   const loadSettings = () => {
     apiFetch({ path: "/wp/v2/settings" })
       .then((settings) => {
@@ -482,6 +551,9 @@ const App = () => {
                     <option value="">
                       -- Kikapcsolva (Nincs központi szinkron) --
                     </option>
+                    <option value="msdl_1min">
+                      1 percenként (CSAK TESZTRE)
+                    </option>
                     <option value="msdl_15min">15 percenként</option>
                     <option value="msdl_30min">30 percenként</option>
                     <option value="hourly">Óránként</option>
@@ -559,7 +631,7 @@ const App = () => {
                     }}>
                     <div
                       style={{
-                        backgroundColor: "#f0f0f1",
+                        backgroundColor: isProcessingBatch ? "#f6f7f7" : "#fff",
                         padding: "5px 12px",
                         borderRadius: "4px",
                         border: "1px solid #ccd0d4",
@@ -567,9 +639,16 @@ const App = () => {
                         alignItems: "center",
                         gap: "6px",
                       }}>
-                      <Dashicon icon="clock" style={{ color: "#2271b1" }} />
+                      <Dashicon
+                        icon="clock"
+                        style={{
+                          color: isProcessingBatch ? "#d63638" : "#2271b1",
+                        }}
+                      />
                       <span style={{ fontWeight: "bold", fontSize: "13px" }}>
-                        {countdownText}
+                        {isProcessingBatch
+                          ? `Szinkron: ${countdownText}`
+                          : countdownText}
                       </span>
                     </div>
 
