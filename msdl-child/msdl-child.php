@@ -14,6 +14,7 @@ require_once MSDL_CHILD_DIR . 'includes/class-msdl-activator.php';
 require_once MSDL_CHILD_DIR . 'includes/class-msdl-admin.php';
 require_once MSDL_CHILD_DIR . 'includes/class-msdl-graph-api.php';
 require_once MSDL_CHILD_DIR . 'includes/class-msdl-sync.php';
+require_once MSDL_CHILD_DIR . 'includes/class-msdl-download.php';
 
 // Aktiválási logika
 function activate_msdl_child() {
@@ -35,5 +36,8 @@ function run_msdl_child() {
     
     // A szinkronizációs motornak ezt az API példányt fogjuk átadni később
     $graph_api = new MSDL_Child_Graph_API();
+
+    $download = new MSDL_Child_Download();
+    $download->init();
 }
 run_msdl_child();
