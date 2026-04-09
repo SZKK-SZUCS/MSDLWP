@@ -5,20 +5,13 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 class MSDL_Child_Elementor {
 
     public function init() {
-        // Ellenőrizzük, hogy az Elementor be van-e kapcsolva
         if ( ! did_action( 'elementor/loaded' ) ) {
             return;
         }
 
-        // Kategória regisztrálása az Elementor oldalsávjában (Hogy külön blokkban legyenek a mi widgetjeink)
         add_action( 'elementor/elements/categories_registered', [ $this, 'add_elementor_widget_categories' ] );
-
-        // Widgetek regisztrálása
         add_action( 'elementor/widgets/register', [ $this, 'register_widgets' ] );
-        
-        // CSS és JS betöltése a widgetekhez (ezt majd a következő lépésekben írjuk meg)
         add_action( 'elementor/frontend/after_enqueue_scripts', [ $this, 'enqueue_frontend_assets' ] );
-        
         add_action( 'elementor/controls/controls_registered', [ $this, 'register_custom_controls' ] );
         add_action( 'wp_ajax_msdl_get_picker_items', [ $this, 'ajax_get_picker_items' ] );
         add_action( 'wp_ajax_msdl_get_single_item', [ $this, 'ajax_get_single_item' ] ); 
@@ -41,26 +34,20 @@ class MSDL_Child_Elementor {
     }
 
     public function register_widgets( $widgets_manager ) {
-        // 1. Widget: Gomb
         require_once MSDL_CHILD_DIR . 'includes/widgets/class-msdl-widget-button.php';
         $widgets_manager->register( new MSDL_Widget_Button() );
 
-        // 2. Widget: Fájl Kártya
         require_once MSDL_CHILD_DIR . 'includes/widgets/class-msdl-widget-file-card.php';
         $widgets_manager->register( new MSDL_Widget_File_Card() );
 
-        // 3. Widget: Mappa Lista
         require_once MSDL_CHILD_DIR . 'includes/widgets/class-msdl-widget-folder-view.php';
         $widgets_manager->register( new MSDL_Widget_Folder_View() );
 
-        // 4. Widget: Fájlkezelő
         require_once MSDL_CHILD_DIR . 'includes/widgets/class-msdl-widget-file-manager.php';
         $widgets_manager->register( new MSDL_Widget_File_Manager() );
     }
 
-    public function enqueue_frontend_assets() {
-        // Itt töltjük majd be a Vanilla JS fájlunkat a mappa navigációhoz
-    }
+    public function enqueue_frontend_assets() {}
 
     public function register_custom_controls( $controls_manager ) {
         require_once MSDL_CHILD_DIR . 'includes/controls/class-msdl-control-picker.php';
@@ -80,7 +67,6 @@ class MSDL_Child_Elementor {
         $order_sql = "ORDER BY CASE WHEN type='folder' THEN 1 ELSE 2 END ASC, name ASC";
         
         if ( !empty($search) ) {
-            // A kereső a Pickerben is tudjon keresni Címre és Leírásra!
             $query = $wpdb->prepare( "SELECT * FROM $table WHERE name LIKE %s OR custom_title LIKE %s OR custom_description LIKE %s $order_sql", '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%' );
         } else {
             if ( $parent_id === 'root' || $parent_id === '0' ) {
@@ -106,7 +92,7 @@ class MSDL_Child_Elementor {
                     'name'               => $item->name,
                     'custom_title'       => $item->custom_title,
                     'custom_description' => $item->custom_description,
-                    'roles'              => $item->visibility_roles, // JAVÍTVA: Nyers string (pl. 'hidden', 'public')
+                    'roles'              => $item->visibility_roles,
                     'size'               => $this->format_size_for_display( $item->type, $item->size ?? null ),
                     'date'               => (!empty($item->last_modified) && $item->last_modified !== '0000-00-00 00:00:00') ? date('Y.m.d', strtotime($item->last_modified)) : '-',
                 ];
@@ -144,7 +130,7 @@ class MSDL_Child_Elementor {
                 'name'               => $item->name,
                 'custom_title'       => $item->custom_title,
                 'custom_description' => $item->custom_description,
-                'roles'              => $item->visibility_roles, // JAVÍTVA
+                'roles'              => $item->visibility_roles,
                 'size'               => $this->format_size_for_display( $item->type, $item->size ?? null ),
                 'date'               => (!empty($item->last_modified) && $item->last_modified !== '0000-00-00 00:00:00') ? date('Y.m.d', strtotime($item->last_modified)) : '-',
             ]);
@@ -164,7 +150,6 @@ class MSDL_Child_Elementor {
         $order_sql = "ORDER BY CASE WHEN type='folder' THEN 1 ELSE 2 END ASC, name ASC";
         
         if ( !empty($search) ) {
-            // JAVÍTÁS: Keresésnél a címet és a leírást is nézzük!
             $items = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $table WHERE name LIKE %s OR custom_title LIKE %s OR custom_description LIKE %s $order_sql", '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%' ) );
         } else {
             if ( $folder_id === '0' || $folder_id === 'root' ) {
@@ -214,8 +199,16 @@ class MSDL_Child_Elementor {
                         }
                     }
 
-                    // JAVÍTÁS: Ha van egyedi cím, azt mutatjuk a fájlnév helyett!
-                    $display_name = !empty($item->custom_title) ? $item->custom_title : $item->name;
+                    // JAVÍTÁS: Egyedi cím esetén hozzáfűzzük a kiterjesztést, hogy a JS ikon ne törjön el!
+                    $display_name = $item->name;
+                    if ( !empty($item->custom_title) ) {
+                        $display_name = $item->custom_title;
+                        if ( $item->type === 'file' && $ext !== 'file' ) {
+                            if ( !preg_match('/\.'.$ext.'$/i', $display_name) ) {
+                                $display_name .= '.' . $ext;
+                            }
+                        }
+                    }
 
                     $filtered[] = [
                         'id' => $item->id,
@@ -303,8 +296,17 @@ class MSDL_Child_Elementor {
             $formatted_size = $bytes . ' B';
         }
 
-        // JAVÍTÁS: Egyedi Cím és Leírás kinyerése!
-        $display_name = !empty($file->custom_title) ? $file->custom_title : $file->name;
+        // JAVÍTÁS: Egyedi cím esetén hozzáfűzzük a kiterjesztést, hogy a JS ikon ne törjön el!
+        $display_name = $file->name;
+        if ( !empty($file->custom_title) ) {
+            $display_name = $file->custom_title;
+            if ( $ext !== 'file' ) {
+                if ( !preg_match('/\.'.$ext.'$/i', $display_name) ) {
+                    $display_name .= '.' . $ext;
+                }
+            }
+        }
+
         $description = !empty($file->custom_description) ? wp_kses_post($file->custom_description) : '';
 
         wp_send_json_success([
@@ -336,8 +338,6 @@ class MSDL_Child_Elementor {
         return false;
     }
 
-    // --- SEGÉDFÜGGVÉNYEK A FORMÁZÁSHOZ ---
-
     private function format_size_for_display( $type, $size ) {
         if ( $type !== 'file' || $size === null ) return '-';
         $size_mb = round( $size / 1048576, 2 );
@@ -348,7 +348,6 @@ class MSDL_Child_Elementor {
         if ( empty( $roles_raw ) || $roles_raw === 'public' ) return 'Mindenki (Nyilvános)';
         if ( $roles_raw === 'loggedin' ) return 'Bejelentkezett felhasználók';
         
-        // Ha JSON tömb (pl. ["administrator", "editor"])
         $decoded = json_decode( $roles_raw, true );
         if ( is_array( $decoded ) ) {
             return implode( ', ', array_map( 'ucfirst', $decoded ) );

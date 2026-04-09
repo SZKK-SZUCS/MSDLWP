@@ -12,6 +12,8 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
     public function get_script_depends() { return [ 'swiper' ]; }
 
     private function check_access( $roles_data ) {
+        if ( $roles_data === 'hidden' ) return false;
+        
         if ( empty( $roles_data ) || $roles_data === 'public' ) return true;
         if ( $roles_data === 'loggedin' ) return is_user_logged_in();
         $allowed_roles = json_decode( $roles_data, true );
@@ -248,7 +250,17 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             }
             
             $date_str = (!empty($item->last_modified)) ? date('Y.m.d.', strtotime($item->last_modified)) : '-';
-            $display_name = !empty($item->custom_title) ? $item->custom_title : $item->name;
+            
+            // JAVÍTÁS: Egyedi cím esetén hozzáfűzzük a kiterjesztést, hogy itt is konzisztens legyen!
+            $display_name = $item->name;
+            if ( !empty($item->custom_title) ) {
+                $display_name = $item->custom_title;
+                if ( !$is_folder ) {
+                    if ( $ext !== 'file' && !preg_match('/\.'.$ext.'$/i', $display_name) ) {
+                        $display_name .= '.' . $ext;
+                    }
+                }
+            }
 
             $display_style = $is_hidden ? 'display:none;' : '';
             $item_class = 'msdl-fv-item layout-' . esc_attr($item_layout) . ' msdl-page-item';
