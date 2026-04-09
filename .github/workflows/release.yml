@@ -1,0 +1,55 @@
+name: Build and Release Plugins
+
+on:
+  push:
+    tags:
+      - "v*" # Csak akkor fut le, ha egy "v" betűvel kezdődő taget hozol létre (pl. v1.0.0)
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    # A GITHUB_TOKEN jogosultságainak beállítása a release feltöltéshez
+    permissions:
+      contents: write
+
+    steps:
+      - name: Kód letöltése (Checkout)
+        uses: actions/checkout@v4
+
+      - name: Node.js környezet beállítása
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+
+      - name: Main plugin - Build és Tisztítás
+        run: |
+          cd msdl-main
+          npm install
+          npm run build
+          # Fejlesztői és forrásfájlok törlése, hogy tiszta legyen a telepítő
+          rm -rf node_modules src .gitignore package.json package-lock.json webpack.config.js
+          cd ..
+
+      - name: Child plugin - Build és Tisztítás
+        run: |
+          cd msdl-child
+          npm install
+          npm run build
+          # Fejlesztői és forrásfájlok törlése
+          rm -rf node_modules src .gitignore package.json package-lock.json webpack.config.js
+          cd ..
+
+      - name: Zip fájlok generálása
+        run: |
+          zip -r msdl-main.zip msdl-main/
+          zip -r msdl-child.zip msdl-child/
+
+      - name: Feltöltés a GitHub Release-hez
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            msdl-main.zip
+            msdl-child.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
