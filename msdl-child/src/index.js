@@ -436,14 +436,51 @@ const SyncApp = () => {
     setIsSyncing(false);
   };
 
+  const handleResetSync = async () => {
+    if (
+      !window.confirm(
+        "Biztosan törlöd a szinkronizációs gyorsítótárat? Ez a következő szinkronizációnál mindent a nulláról tölt le (az eddig beállított jogosultságok természetesen megmaradnak).",
+      )
+    )
+      return;
+
+    setIsSyncing(true);
+    setSyncResult({ type: "info", msg: "Gyorsítótár törlése folyamatban..." });
+
+    try {
+      const res = await apiFetch({
+        path: "/msdl-child/v1/reset-sync",
+        method: "POST",
+      });
+      if (res.success) {
+        setSyncResult({
+          type: "info",
+          msg: "Gyorsítótár törölve. Teljes szinkronizáció indítása...",
+        });
+        // Automatikusan indítjuk utána a normál szinkront
+        await handleManualSync();
+      } else {
+        setSyncResult({ type: "error", msg: res.message });
+        setIsSyncing(false);
+      }
+    } catch (error) {
+      setSyncResult({
+        type: "error",
+        msg: "Hálózati hiba a gyorsítótár törlésekor.",
+      });
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="wrap">
       <h1>Szinkronizáció</h1>
-      <PanelBody title="Kézi Szinkronizáció">
+      <PanelBody title="Kézi Szinkronizáció és Gyorsítótár">
         <p style={{ marginBottom: "15px", color: "#666" }}>
           Itt indíthatod el manuálisan a Microsoft SharePoint mappa tartalmának
-          letöltését a helyi WordPress adatbázisba. Ez a funkció frissíti a
-          módosított fájlokat és hozzáadja az újakat.
+          letöltését a helyi WordPress adatbázisba. A normál szinkronizáció csak
+          a változásokat kéri le. Ha strukturális hiba lép fel, vagy új mezők
+          (Cím, Leírás) kerültek a rendszerbe, használd a gyorsítótár ürítését!
         </p>
         {syncResult && (
           <Notice
@@ -453,14 +490,22 @@ const SyncApp = () => {
             {syncResult.msg}
           </Notice>
         )}
-        <Button isPrimary isBusy={isSyncing} onClick={handleManualSync}>
-          {isSyncing ? "Szinkronizálás..." : "Kézi Szinkronizáció Indítása"}
-        </Button>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <Button isPrimary isBusy={isSyncing} onClick={handleManualSync}>
+            {isSyncing ? "Szinkronizálás..." : "Kézi Szinkronizáció Indítása"}
+          </Button>
+          <Button
+            isSecondary
+            isBusy={isSyncing}
+            onClick={handleResetSync}
+            style={{ borderColor: "#d63638", color: "#d63638" }}>
+            Gyorsítótár ürítése (Teljes Szinkron)
+          </Button>
+        </div>
       </PanelBody>
     </div>
   );
 };
-
 const SettingsApp = () => {
   const [options, setOptions] = useState({
     msdl_main_server_url: "",

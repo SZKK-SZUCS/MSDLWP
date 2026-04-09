@@ -572,18 +572,52 @@ const SyncApp = () => {
     }
     setIsSyncing(false);
   };
+  const handleResetSync = async () => {
+    if (!window.confirm("Biztosan törlöd a szinkronizációs gyorsítótárat? Ez a következő szinkronizációnál mindent a nulláról tölt le (az eddig beállított jogosultságok természetesen megmaradnak).")) return;
+    setIsSyncing(true);
+    setSyncResult({
+      type: "info",
+      msg: "Gyorsítótár törlése folyamatban..."
+    });
+    try {
+      const res = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
+        path: "/msdl-child/v1/reset-sync",
+        method: "POST"
+      });
+      if (res.success) {
+        setSyncResult({
+          type: "info",
+          msg: "Gyorsítótár törölve. Teljes szinkronizáció indítása..."
+        });
+        // Automatikusan indítjuk utána a normál szinkront
+        await handleManualSync();
+      } else {
+        setSyncResult({
+          type: "error",
+          msg: res.message
+        });
+        setIsSyncing(false);
+      }
+    } catch (error) {
+      setSyncResult({
+        type: "error",
+        msg: "Hálózati hiba a gyorsítótár törlésekor."
+      });
+      setIsSyncing(false);
+    }
+  };
   return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
     className: "wrap",
     children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("h1", {
       children: "Szinkroniz\xE1ci\xF3"
     }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.PanelBody, {
-      title: "K\xE9zi Szinkroniz\xE1ci\xF3",
+      title: "K\xE9zi Szinkroniz\xE1ci\xF3 \xE9s Gyors\xEDt\xF3t\xE1r",
       children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("p", {
         style: {
           marginBottom: "15px",
           color: "#666"
         },
-        children: "Itt ind\xEDthatod el manu\xE1lisan a Microsoft SharePoint mappa tartalm\xE1nak let\xF6lt\xE9s\xE9t a helyi WordPress adatb\xE1zisba. Ez a funkci\xF3 friss\xEDti a m\xF3dos\xEDtott f\xE1jlokat \xE9s hozz\xE1adja az \xFAjakat."
+        children: "Itt ind\xEDthatod el manu\xE1lisan a Microsoft SharePoint mappa tartalm\xE1nak let\xF6lt\xE9s\xE9t a helyi WordPress adatb\xE1zisba. A norm\xE1l szinkroniz\xE1ci\xF3 csak a v\xE1ltoz\xE1sokat k\xE9ri le. Ha struktur\xE1lis hiba l\xE9p fel, vagy \xFAj mez\u0151k (C\xEDm, Le\xEDr\xE1s) ker\xFCltek a rendszerbe, haszn\xE1ld a gyors\xEDt\xF3t\xE1r \xFCr\xEDt\xE9s\xE9t!"
       }), syncResult && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Notice, {
         status: syncResult.type,
         isDismissible: false,
@@ -591,11 +625,26 @@ const SyncApp = () => {
           marginBottom: "20px"
         },
         children: syncResult.msg
-      }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
-        isPrimary: true,
-        isBusy: isSyncing,
-        onClick: handleManualSync,
-        children: isSyncing ? "Szinkronizálás..." : "Kézi Szinkronizáció Indítása"
+      }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
+        style: {
+          display: "flex",
+          gap: "10px"
+        },
+        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+          isPrimary: true,
+          isBusy: isSyncing,
+          onClick: handleManualSync,
+          children: isSyncing ? "Szinkronizálás..." : "Kézi Szinkronizáció Indítása"
+        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+          isSecondary: true,
+          isBusy: isSyncing,
+          onClick: handleResetSync,
+          style: {
+            borderColor: "#d63638",
+            color: "#d63638"
+          },
+          children: "Gyors\xEDt\xF3t\xE1r \xFCr\xEDt\xE9se (Teljes Szinkron)"
+        })]
       })]
     })]
   });

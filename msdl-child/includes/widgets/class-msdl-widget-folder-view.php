@@ -21,7 +21,6 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         if ( is_user_logged_in() ) {
             $current_user = wp_get_current_user();
             if ( in_array( 'administrator', $current_user->roles ) ) return true;
-            
             $intersect = array_intersect( $allowed_roles, $current_user->roles );
             if ( ! empty( $intersect ) ) return true;
         }
@@ -39,7 +38,8 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
 
         $this->start_controls_section( 'section_elements', [ 'label' => 'Megjelenítés', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
         $this->add_control( 'show_icon', [ 'label' => 'Ikon', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
-        $this->add_control( 'show_title', [ 'label' => 'Fájlnév', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
+        $this->add_control( 'show_title', [ 'label' => 'Fájlnév / Cím', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
+        $this->add_control( 'show_desc', [ 'label' => 'Leírás (SharePoint)', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'divider_1', [ 'type' => \Elementor\Controls_Manager::DIVIDER ] );
         $this->add_control( 'show_meta_ext', [ 'label' => 'Kiterjesztés', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'show_meta_size', [ 'label' => 'Méret', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
@@ -84,6 +84,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         $this->add_responsive_control( 'icon_size', [ 'label' => 'Méret', 'type' => \Elementor\Controls_Manager::SLIDER, 'default' => [ 'size' => 32, 'unit' => 'px' ], 'selectors' => [ '{{WRAPPER}} .msdl-fv-icon i' => 'font-size: {{SIZE}}{{UNIT}};', '{{WRAPPER}} .msdl-fv-icon svg' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};' ] ] );
         $this->add_responsive_control( 'icon_padding', [ 'label' => 'Padding', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '0', 'right' => '0', 'bottom' => '0', 'left' => '0', 'unit' => 'px', 'isLinked' => true ], 'selectors' => [ '{{WRAPPER}} .msdl-fv-icon' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
         $this->add_responsive_control( 'icon_border_radius', [ 'label' => 'Lekerekítés', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '0', 'right' => '0', 'bottom' => '0', 'left' => '0', 'unit' => 'px', 'isLinked' => true ], 'selectors' => [ '{{WRAPPER}} .msdl-fv-icon' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
+        
         $this->add_control( 'title_color', [ 'label' => 'Cím Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#242943', 'separator' => 'before', 'selectors' => [ '{{WRAPPER}} .msdl-fv-title' => 'color: {{VALUE}};' ] ] );
         $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'title_typo', 'selector' => '{{WRAPPER}} .msdl-fv-title' ] );
         $this->add_control( 'meta_color', [ 'label' => 'Meta Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#787c82', 'selectors' => [ '{{WRAPPER}} .msdl-fv-meta' => 'color: {{VALUE}};' ] ] );
@@ -184,19 +185,22 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             $stop_id = (empty($base_folder_id) || $base_folder_id === 'root') ? '0' : strval($base_folder_id);
 
             if ( $temp_id !== '0' && $temp_id !== 'root' && intval($temp_id) > 0 ) {
-                $curr = $wpdb->get_row( $wpdb->prepare( "SELECT id, name, parent_graph_id FROM $table WHERE id = %d", intval($temp_id) ) );
+                $curr = $wpdb->get_row( $wpdb->prepare( "SELECT id, name, custom_title, parent_graph_id FROM $table WHERE id = %d", intval($temp_id) ) );
                 if ( $curr ) {
-                    $breadcrumbs[] = [ 'id' => strval($curr->id), 'name' => $curr->name ];
+                    $bc_name = !empty($curr->custom_title) ? $curr->custom_title : $curr->name;
+                    $breadcrumbs[] = [ 'id' => strval($curr->id), 'name' => $bc_name ];
                     $parent_gid = $curr->parent_graph_id;
 
                     while ( !empty($parent_gid) && strval($curr->id) !== $stop_id ) {
-                        $parent = $wpdb->get_row( $wpdb->prepare( "SELECT id, name, parent_graph_id FROM $table WHERE graph_id = %s", $parent_gid ) );
+                        $parent = $wpdb->get_row( $wpdb->prepare( "SELECT id, name, custom_title, parent_graph_id FROM $table WHERE graph_id = %s", $parent_gid ) );
                         if ( $parent ) {
                             if ( strval($parent->id) === $stop_id ) {
-                                $breadcrumbs[] = [ 'id' => strval($parent->id), 'name' => $parent->name ];
+                                $p_name = !empty($parent->custom_title) ? $parent->custom_title : $parent->name;
+                                $breadcrumbs[] = [ 'id' => strval($parent->id), 'name' => $p_name ];
                                 break;
                             }
-                            $breadcrumbs[] = [ 'id' => strval($parent->id), 'name' => $parent->name ];
+                            $p_name = !empty($parent->custom_title) ? $parent->custom_title : $parent->name;
+                            $breadcrumbs[] = [ 'id' => strval($parent->id), 'name' => $p_name ];
                             $parent_gid = $parent->parent_graph_id;
                         } else {
                             break;
@@ -210,8 +214,11 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
                 if ( $stop_id === '0' ) {
                     $breadcrumbs[] = [ 'id' => '0', 'name' => 'Dokumentumtár' ];
                 } else {
-                    $base_node = $wpdb->get_row( $wpdb->prepare( "SELECT name FROM $table WHERE id = %d", intval($stop_id) ) );
-                    if ( $base_node ) $breadcrumbs[] = [ 'id' => strval($stop_id), 'name' => $base_node->name ];
+                    $base_node = $wpdb->get_row( $wpdb->prepare( "SELECT name, custom_title FROM $table WHERE id = %d", intval($stop_id) ) );
+                    if ( $base_node ) {
+                        $p_name = !empty($base_node->custom_title) ? $base_node->custom_title : $base_node->name;
+                        $breadcrumbs[] = [ 'id' => strval($stop_id), 'name' => $p_name ];
+                    }
                 }
             }
             $breadcrumbs = array_reverse($breadcrumbs);
@@ -238,9 +245,26 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             }
             if ( empty( $icon_render ) ) $icon_render = sprintf( '<i class="%s" aria-hidden="true"></i>', esc_attr( $icon_class ) );
 
-            $size_str = $is_folder ? 'Mappa' : (($item->size > 0) ? round($item->size / 1048576, 2) . ' MB' : '< 1 MB');
+            // JAVÍTÁS: Dinamikus méret és Cím/Leírás
+            $size_str = '-';
+            if ( $is_folder ) {
+                $size_str = 'Mappa';
+            } else {
+                $bytes = intval($item->size);
+                if ( $bytes >= 1048576 ) {
+                    $size_str = round($bytes / 1048576, 2) . ' MB';
+                } elseif ( $bytes >= 1024 ) {
+                    $size_str = round($bytes / 1024, 0) . ' KB';
+                } else {
+                    $size_str = $bytes > 0 ? $bytes . ' B' : '-';
+                }
+            }
+            
             $date_str = (!empty($item->last_modified)) ? date('Y.m.d.', strtotime($item->last_modified)) : '-';
             
+            $display_name = !empty($item->custom_title) ? $item->custom_title : $item->name;
+            $desc_html = (!empty($item->custom_description) && $settings['show_desc'] === 'yes') ? '<div class="msdl-fv-desc">' . wp_kses_post($item->custom_description) . '</div>' : '';
+
             $display_style = $is_hidden ? 'display:none;' : '';
             $item_class = 'msdl-fv-item layout-' . esc_attr($item_layout) . ' msdl-page-item';
             
@@ -257,7 +281,8 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             <div class="<?php echo esc_attr($item_class); ?>" style="<?php echo $display_style; ?>">
                 <?php if ( $settings['show_icon'] === 'yes' ) : ?><div class="msdl-fv-icon"><?php echo $icon_render; ?></div><?php endif; ?>
                 <div class="msdl-fv-content">
-                    <h4 class="msdl-fv-title"><?php echo esc_html($item->name); ?></h4>
+                    <?php if ( $settings['show_title'] === 'yes' ) : ?><h4 class="msdl-fv-title"><?php echo esc_html($display_name); ?></h4><?php endif; ?>
+                    <?php echo $desc_html; ?>
                     <div class="msdl-fv-meta">
                         <?php if ( $settings['show_meta_ext'] === 'yes' && !$is_folder ) : ?><span><?php echo esc_html( strtoupper($ext) ); ?></span><?php endif; ?>
                         <?php if ( $settings['show_meta_size'] === 'yes' ) : ?><span><?php echo $size_str; ?></span><?php endif; ?>
@@ -282,7 +307,6 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             .msdl-fv-breadcrumbs .msdl-bc-sep { color: #a0a6b5; }
             .msdl-fv-breadcrumbs span.msdl-bc-current { color: #242943; font-weight: 700; padding: 4px 8px;}
 
-            /* SWIPER ASZINKRON JAVÍTÁS ÉS DIZÁJN */
             .swiper-wrapper { display: flex; align-items: stretch; box-sizing: content-box; }
             .swiper-button-next, .swiper-button-prev { background: #fff; width: 44px; height: 44px; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
             .swiper-button-next:after, .swiper-button-prev:after { font-size: 16px !important; font-weight: bold; }
@@ -310,7 +334,9 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             .msdl-fv-content { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
             .msdl-fv-title { font-size: 15px; font-weight: 700; margin: 0; word-wrap: break-word; line-height: 1.3; }
             
-            /* JAVÍTOTT KÖZÉPRE RENDEZÉS A META ADATOKNAK GRID / CAROUSEL NÉZETBEN */
+            /* ÚJ: LEÍRÁS CSS */
+            .msdl-fv-desc { font-size: 13px; color: #787c82; margin-bottom: 8px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; text-align: left; }
+            
             .msdl-fv-meta { font-size: 12px; font-weight: 500; display: flex; flex-wrap: wrap; gap: 4px; }
             .msdl-fv-item.layout-list .msdl-fv-meta { justify-content: flex-start; }
             .msdl-fv-item:not(.layout-list) .msdl-fv-meta { justify-content: center; }
@@ -405,7 +431,6 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             var layout = "<?php echo $layout; ?>";
             var uid = "<?php echo $uid; ?>";
             
-            // ASZINKRON SWIPER BETÖLTÉS FIGYELŐ
             if ( layout === 'carousel' && $('#swiper-' + uid).length > 0 ) {
                 var cols = <?php echo intval($cols); ?>;
                 var initSwiper = function() {

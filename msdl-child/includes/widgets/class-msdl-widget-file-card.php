@@ -10,7 +10,6 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
 
     public function get_style_depends() { return [ 'elementor-icons-fa-solid' ]; }
 
-    // --- BIZTONSÁGI JOGOSULTSÁG-ELLENŐRZŐ METÓDUS ---
     private function check_access( $roles_data ) {
         if ( empty( $roles_data ) || $roles_data === 'public' ) return true;
         if ( $roles_data === 'loggedin' ) return is_user_logged_in();
@@ -20,10 +19,10 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
         
         if ( is_user_logged_in() ) {
             $current_user = wp_get_current_user();
-            if ( in_array( 'administrator', $current_user->roles ) ) return true; // Admin mindent lát
+            if ( in_array( 'administrator', $current_user->roles ) ) return true;
             
             $intersect = array_intersect( $allowed_roles, $current_user->roles );
-            if ( ! empty( $intersect ) ) return true; // Van egyező jogosultság
+            if ( ! empty( $intersect ) ) return true;
         }
         return false;
     }
@@ -35,7 +34,8 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
 
         $this->start_controls_section( 'section_elements', [ 'label' => 'Megjelenítendő Elemek', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
         $this->add_control( 'show_icon', [ 'label' => 'Ikon Mutatása', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
-        $this->add_control( 'show_title', [ 'label' => 'Fájlnév Mutatása', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
+        $this->add_control( 'show_title', [ 'label' => 'Fájlnév / Cím Mutatása', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
+        $this->add_control( 'show_desc', [ 'label' => 'Leírás Mutatása (ha van)', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'divider_1', [ 'type' => \Elementor\Controls_Manager::DIVIDER ] );
         $this->add_control( 'show_meta_ext', [ 'label' => 'Kiterjesztés', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'show_meta_size', [ 'label' => 'Méret', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
@@ -98,6 +98,7 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
         $file_id = intval( $settings['file_id'] );
 
         $file_name = 'Kérlek, válassz ki egy fájlt!';
+        $file_desc = '';
         $file_size = '-';
         $file_ext = 'file';
         $file_date = '-';
@@ -109,16 +110,24 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
             $file = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE id = %d AND type = 'file'", $file_id ) );
 
             if ( $file ) {
-                // JOGOSULTSÁG VIZSGÁLAT A MEGJELENÍTÉS ELŐTT!
                 if ( ! $is_editor && ! $this->check_access( $file->visibility_roles ) ) {
-                    return; // Frontend látogató számára a kártya rejtve marad!
+                    return; 
                 }
 
-                $file_name = esc_html( $file->name );
+                // JAVÍTÁS: Egyedi Cím és Leírás betöltése!
+                $file_name = !empty($file->custom_title) ? esc_html( $file->custom_title ) : esc_html( $file->name );
+                $file_desc = !empty($file->custom_description) ? wp_kses_post( $file->custom_description ) : '';
+                
                 $download_url = site_url( '/?msdl_download=' . $file_id );
                 if ( isset( $file->size ) ) {
-                    $size_mb = round( $file->size / 1048576, 2 );
-                    $file_size = $size_mb > 0 ? $size_mb . ' MB' : '< 1 MB';
+                    $bytes = intval($file->size);
+                    if ( $bytes >= 1048576 ) {
+                        $file_size = round($bytes / 1048576, 2) . ' MB';
+                    } elseif ( $bytes >= 1024 ) {
+                        $file_size = round($bytes / 1024, 0) . ' KB';
+                    } else {
+                        $file_size = $bytes > 0 ? $bytes . ' B' : '-';
+                    }
                 }
                 if ( !empty($file->last_modified) && $file->last_modified !== '0000-00-00 00:00:00' ) {
                     $file_date = date( 'Y.m.d.', strtotime( $file->last_modified ) );
@@ -144,6 +153,7 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
         $layout = $settings['layout_style'] ?? 'row';
         $show_icon = $settings['show_icon'] === 'yes';
         $show_title = $settings['show_title'] === 'yes';
+        $show_desc = $settings['show_desc'] === 'yes';
         $show_ext = $settings['show_meta_ext'] === 'yes';
         $show_size = $settings['show_meta_size'] === 'yes';
         $show_date = $settings['show_meta_date'] === 'yes';
@@ -169,6 +179,10 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
             .msdl-fc-icon svg { fill: currentColor; }
             .msdl-fc-content { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
             .msdl-fc-title { font-size: 16px; font-weight: 700; margin: 0; word-wrap: break-word; line-height: 1.3; }
+            
+            /* LEÍRÁS STÍLUSA */
+            .msdl-fc-desc { font-size: 13px; color: #50575e; margin-top: 2px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+            
             .msdl-fc-meta { font-size: 13px; font-weight: 500; display: flex; flex-wrap: wrap; justify-content: inherit; gap: 4px;}
             .msdl-fc-meta span { display: inline-flex; align-items: center; }
             .msdl-fc-meta span:not(:last-child)::after { content: '•'; margin-left: 8px; opacity: 0.5; }
@@ -187,6 +201,8 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
             <?php if ( $show_icon ) : ?><div class="msdl-fc-icon"><?php echo $icon_render; ?></div><?php endif; ?>
             <div class="msdl-fc-content">
                 <?php if ( $show_title ) : ?><h4 class="msdl-fc-title"><?php echo $file_name; ?></h4><?php endif; ?>
+                <?php if ( $show_desc && !empty($file_desc) ) : ?><div class="msdl-fc-desc"><?php echo $file_desc; ?></div><?php endif; ?>
+                
                 <?php if ( $has_meta ) : ?>
                     <div class="msdl-fc-meta">
                         <?php if ( $show_ext ) : ?><span><?php echo esc_html( strtoupper($file_ext) ); ?></span><?php endif; ?>

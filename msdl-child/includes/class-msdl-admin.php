@@ -84,6 +84,19 @@ class MSDL_Child_Admin {
             'callback' => [ $this, 'handle_cron_update' ],
             'permission_callback' => function() { return current_user_can( 'manage_options' ); }
         ]);
+
+        register_rest_route( 'msdl-child/v1', '/reset-sync', [
+            'methods' => WP_REST_Server::CREATABLE,
+            'callback' => [ $this, 'reset_sync' ],
+            'permission_callback' => [ $this, 'check_api_or_admin_auth' ]
+        ]);
+    }
+
+    public function reset_sync() {
+        global $wpdb;
+        // Töröljük az összes lementett delta linket a gyorsítótárból
+        $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE 'msdl_delta_link_%'" );
+        return rest_ensure_response(['success' => true, 'message' => 'Gyorsítótár törölve!']);
     }
 
     public function handle_cron_update() {

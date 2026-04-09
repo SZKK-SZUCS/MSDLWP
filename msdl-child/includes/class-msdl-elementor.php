@@ -158,7 +158,8 @@ class MSDL_Child_Elementor {
         $order_sql = "ORDER BY CASE WHEN type='folder' THEN 1 ELSE 2 END ASC, name ASC";
         
         if ( !empty($search) ) {
-            $items = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $table WHERE name LIKE %s $order_sql", '%' . $wpdb->esc_like($search) . '%' ) );
+            // JAVÍTÁS: Keresésnél a címet és a leírást is nézzük!
+            $items = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $table WHERE name LIKE %s OR custom_title LIKE %s OR custom_description LIKE %s $order_sql", '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%' ) );
         } else {
             if ( $folder_id === '0' || $folder_id === 'root' ) {
                 $items = $wpdb->get_results( "SELECT * FROM $table WHERE parent_graph_id IS NULL $order_sql" );
@@ -193,7 +194,6 @@ class MSDL_Child_Elementor {
                     }
                     if ( empty( $icon_render ) ) $icon_render = sprintf( '<i class="%s" aria-hidden="true"></i>', esc_attr( $icon_class ) );
 
-                    // Dinamikus Fájlméret Formázás
                     $formatted_size = '-';
                     if ( $item->type === 'folder' ) {
                         $formatted_size = 'Mappa';
@@ -208,10 +208,13 @@ class MSDL_Child_Elementor {
                         }
                     }
 
+                    // JAVÍTÁS: Ha van egyedi cím, azt mutatjuk a fájlnév helyett!
+                    $display_name = !empty($item->custom_title) ? $item->custom_title : $item->name;
+
                     $filtered[] = [
                         'id' => $item->id,
                         'type' => $item->type,
-                        'name' => $item->name,
+                        'name' => $display_name,
                         'icon_html' => $icon_render,
                         'size' => $formatted_size,
                         'date' => (!empty($item->last_modified) && $item->last_modified !== '0000-00-00 00:00:00') ? date('Y.m.d.', strtotime($item->last_modified)) : '-'
@@ -222,14 +225,17 @@ class MSDL_Child_Elementor {
 
         $breadcrumbs = [];
         if ( empty($search) && $folder_id !== '0' && $folder_id !== 'root' ) {
-            $curr = $wpdb->get_row( $wpdb->prepare( "SELECT id, name, parent_graph_id FROM $table WHERE id = %d", intval($folder_id) ) );
+            $curr = $wpdb->get_row( $wpdb->prepare( "SELECT id, name, custom_title, parent_graph_id FROM $table WHERE id = %d", intval($folder_id) ) );
             if ( $curr ) {
-                $breadcrumbs[] = [ 'id' => $curr->id, 'name' => $curr->name ];
+                $bc_name = !empty($curr->custom_title) ? $curr->custom_title : $curr->name;
+                $breadcrumbs[] = [ 'id' => $curr->id, 'name' => $bc_name ];
+                
                 $parent_gid = $curr->parent_graph_id;
                 while ( !empty($parent_gid) ) {
-                    $parent = $wpdb->get_row( $wpdb->prepare( "SELECT id, name, parent_graph_id FROM $table WHERE graph_id = %s", $parent_gid ) );
+                    $parent = $wpdb->get_row( $wpdb->prepare( "SELECT id, name, custom_title, parent_graph_id FROM $table WHERE graph_id = %s", $parent_gid ) );
                     if ( $parent ) {
-                        $breadcrumbs[] = [ 'id' => $parent->id, 'name' => $parent->name ];
+                        $p_name = !empty($parent->custom_title) ? $parent->custom_title : $parent->name;
+                        $breadcrumbs[] = [ 'id' => $parent->id, 'name' => $p_name ];
                         $parent_gid = $parent->parent_graph_id;
                     } else { break; }
                 }
@@ -281,7 +287,6 @@ class MSDL_Child_Elementor {
             if ( $parent_node ) $parent_id = $parent_node->id;
         }
 
-        // Dinamikus Fájlméret Formázás
         $bytes = intval($file->size);
         $formatted_size = '-';
         if ( $bytes >= 1048576 ) {
@@ -292,9 +297,14 @@ class MSDL_Child_Elementor {
             $formatted_size = $bytes . ' B';
         }
 
+        // JAVÍTÁS: Egyedi Cím és Leírás kinyerése!
+        $display_name = !empty($file->custom_title) ? $file->custom_title : $file->name;
+        $description = !empty($file->custom_description) ? wp_kses_post($file->custom_description) : '';
+
         wp_send_json_success([
             'id' => $file->id,
-            'name' => $file->name,
+            'name' => $display_name,
+            'description' => $description,
             'icon_html' => $icon_render,
             'ext' => strtoupper($ext),
             'parent_id' => $parent_id,

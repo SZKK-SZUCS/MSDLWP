@@ -11,7 +11,7 @@ class MSDL_Activator {
 		$table_name = $wpdb->prefix . 'msdl_nodes';
 		$charset_collate = $wpdb->get_charset_collate();
 
-		// Az adatbázis séma a specifikáció alapján
+		// JAVÍTOTT SÉMA: Hozzáadva a custom_title és custom_description, valamint a 'file_size' javítva 'size'-ra.
 		$sql = "CREATE TABLE $table_name (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             graph_id varchar(255) NOT NULL,
@@ -19,9 +19,11 @@ class MSDL_Activator {
             type varchar(50) NOT NULL,
             parent_graph_id varchar(255) DEFAULT NULL,
             visibility_roles text DEFAULT '',
-            file_size bigint(20) DEFAULT 0,
+            size bigint(20) DEFAULT 0,
             last_modified datetime DEFAULT NULL,
             mime_type varchar(255) DEFAULT '',
+            custom_title varchar(255) DEFAULT '',
+            custom_description text DEFAULT '',
             PRIMARY KEY  (id),
             UNIQUE KEY graph_id (graph_id)
         ) $charset_collate;";

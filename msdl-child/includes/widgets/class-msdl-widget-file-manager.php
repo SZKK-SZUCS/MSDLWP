@@ -11,7 +11,6 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
     public function get_style_depends() { return [ 'elementor-icons-fa-solid' ]; }
 
     protected function register_controls() {
-        // --- 1. MAPPÁK ÉS NAVIGÁCIÓ ---
         $this->start_controls_section( 'section_query', [ 'label' => 'Navigáció és Bázis', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
         $this->add_control( 'start_folder_id', [
             'label' => 'Bázis Mappa (Opcionális)',
@@ -32,26 +31,24 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         ]);
         $this->end_controls_section();
 
-        // --- 2. FEJLÉC ELEMEK ---
         $this->start_controls_section( 'section_header_elements', [ 'label' => 'Fejléc Elemek', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
         $this->add_control( 'show_header', [ 'label' => 'Teljes Fejléc mutatása', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'show_breadcrumbs', [ 'label' => 'Útvonal (Breadcrumb)', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes', 'condition' => [ 'show_header' => 'yes' ] ] );
         $this->add_control( 'enable_search', [ 'label' => 'Keresősáv', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes', 'condition' => [ 'show_header' => 'yes' ] ] );
         $this->end_controls_section();
 
-        // --- 3. TÁBLÁZAT ELEMEK ---
         $this->start_controls_section( 'section_table_elements', [ 'label' => 'Táblázat Elemek', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
-        $this->add_control( 'show_table_header', [ 'label' => 'Táblázat Fejléc Sor (Név, Méret, stb.)', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
+        $this->add_control( 'show_table_header', [ 'label' => 'Táblázat Fejléc Sor', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'show_table_icon', [ 'label' => 'Fájl/Mappa Ikonok mutatása', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'divider_1', [ 'type' => \Elementor\Controls_Manager::DIVIDER ] );
         $this->add_control( 'show_size', [ 'label' => 'Méret Oszlop', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'show_date', [ 'label' => 'Dátum Oszlop', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->end_controls_section();
 
-        // --- 4. FÁJL ADATLAP ELEMEK ---
         $this->start_controls_section( 'section_fv_elements', [ 'label' => 'Fájl Adatlap (Single View)', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
         $this->add_control( 'fv_show_icon', [ 'label' => 'Nagy Ikon mutatása', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'fv_show_title', [ 'label' => 'Fájlnév mutatása', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
+        $this->add_control( 'fv_show_desc', [ 'label' => 'Fájl Leírása (ha van)', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'divider_2', [ 'type' => \Elementor\Controls_Manager::DIVIDER ] );
         $this->add_control( 'fv_show_ext', [ 'label' => 'Kiterjesztés (MIME) Meta', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'fv_show_size', [ 'label' => 'Méret Meta', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
@@ -61,7 +58,6 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         $this->add_control( 'fv_show_copy', [ 'label' => 'Link Másolása Gomb', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->end_controls_section();
 
-        // --- STÍLUSOK ---
         $this->start_controls_section( 'section_style', [ 'label' => 'Színek és Stílus', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
         $this->add_control( 'primary_color', [
             'label' => 'Fő Szín (Ikonok, Gombok, Hover)',
@@ -78,6 +74,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
                 '{{WRAPPER}} .msdl-fm-search input:focus' => 'border-color: {{VALUE}};',
                 '{{WRAPPER}} .msdl-fm-loader' => 'color: {{VALUE}};',
                 '{{WRAPPER}} .msdl-fm-fv-icon' => 'background-color: {{VALUE}};',
+                '{{WRAPPER}} .msdl-fm-fv-desc' => 'border-left-color: {{VALUE}};',
             ]
         ]);
         $this->add_control( 'text_color', [
@@ -120,16 +117,15 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         $nonce = wp_create_nonce( 'msdl_frontend_nonce' );
         $ajax_url = admin_url( 'admin-ajax.php' );
 
-        // JS Változók generálása a beállítások alapján
         $allow_up = $settings['allow_navigate_up'] === 'yes' ? 'true' : 'false';
         $allow_down = $settings['allow_navigate_down'] === 'yes' ? 'true' : 'false';
-        
         $show_size = $settings['show_size'] === 'yes' ? 'true' : 'false';
         $show_date = $settings['show_date'] === 'yes' ? 'true' : 'false';
         $show_table_icon = $settings['show_table_icon'] === 'yes' ? 'true' : 'false';
         
         $fv_show_icon = $settings['fv_show_icon'] === 'yes' ? 'true' : 'false';
         $fv_show_title = $settings['fv_show_title'] === 'yes' ? 'true' : 'false';
+        $fv_show_desc = $settings['fv_show_desc'] === 'yes' ? 'true' : 'false';
         $fv_show_ext = $settings['fv_show_ext'] === 'yes' ? 'true' : 'false';
         $fv_show_size = $settings['fv_show_size'] === 'yes' ? 'true' : 'false';
         $fv_show_date = $settings['fv_show_date'] === 'yes' ? 'true' : 'false';
@@ -158,12 +154,9 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
             @keyframes msdl-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
             
             .msdl-fm-table { width: 100%; min-width: 600px; border-collapse: separate; border-spacing: 0; text-align: left; font-size: 14px; margin: 0; padding: 10px;}
-            
-            /* Diniamikus Table Header Rejtés */
             <?php if ( $settings['show_table_header'] !== 'yes' ) : ?>
             .msdl-fm-table thead { display: none; }
             <?php endif; ?>
-
             .msdl-fm-table th { padding: 12px 25px; border-bottom: 1px solid #e2e4e7; color: #787c82; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; white-space: nowrap; }
             .msdl-fm-table td { padding: 14px 25px; vertical-align: middle; border-bottom: 1px solid #f0f2f5; transition: background 0.2s;}
             .msdl-fm-table tr:last-child td { border-bottom: none; }
@@ -200,6 +193,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
             .msdl-fm-fv-icon svg { width: 40px; height: 40px; fill: #fff; }
             .msdl-fm-fv-icon i { font-size: 36px; color: #fff; }
             .msdl-fm-fv-title { font-size: 22px; font-weight: 700; margin: 0 0 15px 0; word-wrap: break-word; line-height: 1.3;}
+            .msdl-fm-fv-desc { font-size: 14px; color: #50575e; line-height: 1.6; margin-bottom: 25px; padding: 15px; background: rgba(0,0,0,0.02); border-radius: 8px; border-left: 3px solid; text-align: left; }
             .msdl-fm-fv-meta { display: flex; justify-content: center; flex-wrap: wrap; gap: 15px; margin-bottom: 30px; font-size: 14px; color: #787c82; font-weight: 500;}
             .msdl-fm-fv-meta span { background: #f6f7f7; padding: 6px 12px; border-radius: 20px; }
             .msdl-fm-fv-actions { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; }
@@ -272,6 +266,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
                     <div class="msdl-fm-fv-card">
                         <div class="msdl-fm-fv-icon"></div>
                         <h3 class="msdl-fm-fv-title"></h3>
+                        <div class="msdl-fm-fv-desc"></div>
                         <div class="msdl-fm-fv-meta"></div>
                         <div class="msdl-fm-fv-actions"></div>
                     </div>
@@ -292,13 +287,13 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
             var allowUp = <?php echo $allow_up; ?>;
             var allowDown = <?php echo $allow_down; ?>;
             
-            // JAVÍTÁS: Átadjuk a PHP beállításokat a JS-nek
             var showSize = <?php echo $show_size; ?>;
             var showDate = <?php echo $show_date; ?>;
             var showTableIcon = <?php echo $show_table_icon; ?>;
             
             var fvShowIcon = <?php echo $fv_show_icon; ?>;
             var fvShowTitle = <?php echo $fv_show_title; ?>;
+            var fvShowDesc = <?php echo $fv_show_desc; ?>;
             var fvShowExt = <?php echo $fv_show_ext; ?>;
             var fvShowSize = <?php echo $fv_show_size; ?>;
             var fvShowDate = <?php echo $fv_show_date; ?>;
@@ -394,8 +389,8 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
                         }
 
                         if (itemsToRender.length === 0) {
-                            var colSpan = 2; if(showSize) colSpan++; if(showDate) colSpan++;
-                            $tbody.append('<tr><td colspan="'+colSpan+'" style="text-align:center; padding:60px 20px; color:#a0a6b5; font-size:15px;"><i class="fas fa-folder-open" style="font-size:40px; display:block; margin-bottom:15px; opacity:0.3;"></i> A mappa üres, vagy nincs találat.</td></tr>');
+                            var colSpan = 1; if(showSize) colSpan++; if(showDate) colSpan++;
+                            $tbody.append('<tr><td colspan="'+(colSpan+1)+'" style="text-align:center; padding:60px 20px; color:#a0a6b5; font-size:15px;"><i class="fas fa-folder-open" style="font-size:40px; display:block; margin-bottom:15px; opacity:0.3;"></i> A mappa üres, vagy nincs találat.</td></tr>');
                             return;
                         }
 
@@ -449,16 +444,16 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
                         
                         $fv.find('.msdl-fm-back-btn').attr('data-folder', data.parent_id);
                         
-                        if (fvShowIcon) {
-                            $fv.find('.msdl-fm-fv-icon').html(data.icon_html).show();
-                        } else {
-                            $fv.find('.msdl-fm-fv-icon').hide();
-                        }
+                        if (fvShowIcon) $fv.find('.msdl-fm-fv-icon').html(data.icon_html).show();
+                        else $fv.find('.msdl-fm-fv-icon').hide();
 
-                        if (fvShowTitle) {
-                            $fv.find('.msdl-fm-fv-title').text(data.name).show();
+                        if (fvShowTitle) $fv.find('.msdl-fm-fv-title').text(data.name).show();
+                        else $fv.find('.msdl-fm-fv-title').hide();
+                        
+                        if (fvShowDesc && data.description && data.description.trim() !== '') {
+                            $fv.find('.msdl-fm-fv-desc').html(data.description).show();
                         } else {
-                            $fv.find('.msdl-fm-fv-title').hide();
+                            $fv.find('.msdl-fm-fv-desc').hide();
                         }
                         
                         var metaHtml = '';
