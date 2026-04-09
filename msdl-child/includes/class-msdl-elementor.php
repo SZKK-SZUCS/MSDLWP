@@ -23,6 +23,11 @@ class MSDL_Child_Elementor {
         add_action( 'wp_ajax_msdl_get_picker_items', [ $this, 'ajax_get_picker_items' ] );
         add_action( 'wp_ajax_msdl_get_single_item', [ $this, 'ajax_get_single_item' ] ); 
         add_action( 'elementor/editor/after_enqueue_scripts', [ $this, 'enqueue_editor_scripts' ] );
+        
+        add_action( 'wp_ajax_msdl_frontend_get_folder', [ $this, 'ajax_frontend_get_folder' ] );
+        add_action( 'wp_ajax_nopriv_msdl_frontend_get_folder', [ $this, 'ajax_frontend_get_folder' ] );
+        add_action( 'wp_ajax_msdl_frontend_get_file', [ $this, 'ajax_frontend_get_file' ] );
+        add_action( 'wp_ajax_nopriv_msdl_frontend_get_file', [ $this, 'ajax_frontend_get_file' ] );
     }
 
     public function add_elementor_widget_categories( $elements_manager ) {
@@ -47,6 +52,10 @@ class MSDL_Child_Elementor {
         // 3. Widget: Mappa Lista
         require_once MSDL_CHILD_DIR . 'includes/widgets/class-msdl-widget-folder-view.php';
         $widgets_manager->register( new MSDL_Widget_Folder_View() );
+
+        // 4. Widget: Fájlkezelő
+        require_once MSDL_CHILD_DIR . 'includes/widgets/class-msdl-widget-file-manager.php';
+        $widgets_manager->register( new MSDL_Widget_File_Manager() );
     }
 
     public function enqueue_frontend_assets() {
@@ -135,6 +144,178 @@ class MSDL_Child_Elementor {
             ]);
         }
         wp_send_json_error( 'Fájl nem található' );
+    }
+
+    public function ajax_frontend_get_folder() {
+        check_ajax_referer( 'msdl_frontend_nonce', 'nonce' );
+        
+        $folder_id = isset($_POST['folder_id']) ? sanitize_text_field($_POST['folder_id']) : 'root';
+        $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
+        
+        global $wpdb;
+        $table = $wpdb->prefix . 'msdl_nodes';
+
+        $order_sql = "ORDER BY CASE WHEN type='folder' THEN 1 ELSE 2 END ASC, name ASC";
+        
+        if ( !empty($search) ) {
+            $items = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $table WHERE name LIKE %s $order_sql", '%' . $wpdb->esc_like($search) . '%' ) );
+        } else {
+            if ( $folder_id === '0' || $folder_id === 'root' ) {
+                $items = $wpdb->get_results( "SELECT * FROM $table WHERE parent_graph_id IS NULL $order_sql" );
+            } else {
+                $folder = $wpdb->get_row( $wpdb->prepare( "SELECT graph_id FROM $table WHERE id = %d", intval($folder_id) ) );
+                if ( $folder ) {
+                    $items = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $table WHERE parent_graph_id = %s $order_sql", $folder->graph_id ) );
+                } else {
+                    wp_send_json_error( 'Mappa nem található.' );
+                }
+            }
+        }
+
+        $filtered = [];
+        if ( $items ) {
+            foreach ( $items as $item ) {
+                if ( $this->frontend_check_access( $item->visibility_roles ) ) {
+                    $ext = pathinfo( $item->name, PATHINFO_EXTENSION );
+                    $ext = $ext ? strtolower($ext) : 'file';
+
+                    $icon_class = 'fas fa-file';
+                    if ( $item->type === 'folder' ) $icon_class = 'fas fa-folder';
+                    elseif ( in_array( $ext, ['pdf'] ) ) $icon_class = 'fas fa-file-pdf';
+                    elseif ( in_array( $ext, ['doc', 'docx'] ) ) $icon_class = 'fas fa-file-word';
+                    elseif ( in_array( $ext, ['xls', 'xlsx', 'csv'] ) ) $icon_class = 'fas fa-file-excel';
+                    elseif ( in_array( $ext, ['jpg', 'jpeg', 'png', 'gif'] ) ) $icon_class = 'fas fa-file-image';
+                    elseif ( in_array( $ext, ['zip', 'rar'] ) ) $icon_class = 'fas fa-file-archive';
+
+                    $icon_render = '';
+                    if ( class_exists( '\Elementor\Icons_Manager' ) ) {
+                        ob_start(); \Elementor\Icons_Manager::render_icon( [ 'value' => $icon_class, 'library' => 'fa-solid' ], [ 'aria-hidden' => 'true' ] ); $icon_render = ob_get_clean();
+                    }
+                    if ( empty( $icon_render ) ) $icon_render = sprintf( '<i class="%s" aria-hidden="true"></i>', esc_attr( $icon_class ) );
+
+                    // Dinamikus Fájlméret Formázás
+                    $formatted_size = '-';
+                    if ( $item->type === 'folder' ) {
+                        $formatted_size = 'Mappa';
+                    } else {
+                        $bytes = intval($item->size);
+                        if ( $bytes >= 1048576 ) {
+                            $formatted_size = round($bytes / 1048576, 2) . ' MB';
+                        } elseif ( $bytes >= 1024 ) {
+                            $formatted_size = round($bytes / 1024, 0) . ' KB';
+                        } else {
+                            $formatted_size = $bytes . ' B';
+                        }
+                    }
+
+                    $filtered[] = [
+                        'id' => $item->id,
+                        'type' => $item->type,
+                        'name' => $item->name,
+                        'icon_html' => $icon_render,
+                        'size' => $formatted_size,
+                        'date' => (!empty($item->last_modified) && $item->last_modified !== '0000-00-00 00:00:00') ? date('Y.m.d.', strtotime($item->last_modified)) : '-'
+                    ];
+                }
+            }
+        }
+
+        $breadcrumbs = [];
+        if ( empty($search) && $folder_id !== '0' && $folder_id !== 'root' ) {
+            $curr = $wpdb->get_row( $wpdb->prepare( "SELECT id, name, parent_graph_id FROM $table WHERE id = %d", intval($folder_id) ) );
+            if ( $curr ) {
+                $breadcrumbs[] = [ 'id' => $curr->id, 'name' => $curr->name ];
+                $parent_gid = $curr->parent_graph_id;
+                while ( !empty($parent_gid) ) {
+                    $parent = $wpdb->get_row( $wpdb->prepare( "SELECT id, name, parent_graph_id FROM $table WHERE graph_id = %s", $parent_gid ) );
+                    if ( $parent ) {
+                        $breadcrumbs[] = [ 'id' => $parent->id, 'name' => $parent->name ];
+                        $parent_gid = $parent->parent_graph_id;
+                    } else { break; }
+                }
+            }
+        }
+        $breadcrumbs[] = [ 'id' => 'root', 'name' => 'Dokumentumtár' ];
+        $breadcrumbs = array_reverse($breadcrumbs);
+
+        wp_send_json_success([
+            'items' => $filtered,
+            'breadcrumbs' => $breadcrumbs
+        ]);
+    }
+
+    public function ajax_frontend_get_file() {
+        check_ajax_referer( 'msdl_frontend_nonce', 'nonce' );
+        
+        $file_id = intval( $_POST['file_id'] );
+        if ( !$file_id ) wp_send_json_error( 'Érvénytelen azonosító.' );
+
+        global $wpdb;
+        $table = $wpdb->prefix . 'msdl_nodes';
+        
+        $file = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE id = %d AND type = 'file'", $file_id ) );
+        
+        if ( ! $file || ! $this->frontend_check_access( $file->visibility_roles ) ) {
+            wp_send_json_error( 'A fájl nem található, vagy nincs hozzá jogosultságod.' );
+        }
+
+        $ext = pathinfo( $file->name, PATHINFO_EXTENSION );
+        $ext = $ext ? strtolower($ext) : 'file';
+
+        $icon_class = 'fas fa-file';
+        if ( in_array( $ext, ['pdf'] ) ) $icon_class = 'fas fa-file-pdf';
+        elseif ( in_array( $ext, ['doc', 'docx'] ) ) $icon_class = 'fas fa-file-word';
+        elseif ( in_array( $ext, ['xls', 'xlsx', 'csv'] ) ) $icon_class = 'fas fa-file-excel';
+        elseif ( in_array( $ext, ['jpg', 'jpeg', 'png', 'gif'] ) ) $icon_class = 'fas fa-file-image';
+        elseif ( in_array( $ext, ['zip', 'rar'] ) ) $icon_class = 'fas fa-file-archive';
+
+        $icon_render = '';
+        if ( class_exists( '\Elementor\Icons_Manager' ) ) {
+            ob_start(); \Elementor\Icons_Manager::render_icon( [ 'value' => $icon_class, 'library' => 'fa-solid' ], [ 'aria-hidden' => 'true' ] ); $icon_render = ob_get_clean();
+        }
+        if ( empty( $icon_render ) ) $icon_render = sprintf( '<i class="%s" aria-hidden="true"></i>', esc_attr( $icon_class ) );
+
+        $parent_id = 'root';
+        if ( !empty($file->parent_graph_id) ) {
+            $parent_node = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM $table WHERE graph_id = %s", $file->parent_graph_id ) );
+            if ( $parent_node ) $parent_id = $parent_node->id;
+        }
+
+        // Dinamikus Fájlméret Formázás
+        $bytes = intval($file->size);
+        $formatted_size = '-';
+        if ( $bytes >= 1048576 ) {
+            $formatted_size = round($bytes / 1048576, 2) . ' MB';
+        } elseif ( $bytes >= 1024 ) {
+            $formatted_size = round($bytes / 1024, 0) . ' KB';
+        } else {
+            $formatted_size = $bytes . ' B';
+        }
+
+        wp_send_json_success([
+            'id' => $file->id,
+            'name' => $file->name,
+            'icon_html' => $icon_render,
+            'ext' => strtoupper($ext),
+            'parent_id' => $parent_id,
+            'size' => $formatted_size,
+            'date' => (!empty($file->last_modified) && $file->last_modified !== '0000-00-00 00:00:00') ? date('Y.m.d.', strtotime($file->last_modified)) : '-',
+            'download_url' => site_url( '/?msdl_download=' . $file->id )
+        ]);
+    }
+
+    private function frontend_check_access( $roles_data ) {
+        if ( empty( $roles_data ) || $roles_data === 'public' ) return true;
+        if ( $roles_data === 'loggedin' ) return is_user_logged_in();
+        $allowed_roles = json_decode( $roles_data, true );
+        if ( ! is_array( $allowed_roles ) ) $allowed_roles = [ $roles_data ];
+        if ( is_user_logged_in() ) {
+            $current_user = wp_get_current_user();
+            if ( in_array( 'administrator', $current_user->roles ) ) return true;
+            $intersect = array_intersect( $allowed_roles, $current_user->roles );
+            if ( ! empty( $intersect ) ) return true;
+        }
+        return false;
     }
 
     // --- SEGÉDFÜGGVÉNYEK A FORMÁZÁSHOZ ---
