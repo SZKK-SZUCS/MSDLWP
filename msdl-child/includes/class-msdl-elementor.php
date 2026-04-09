@@ -77,11 +77,11 @@ class MSDL_Child_Elementor {
         $parent_id = isset($_POST['parent_id']) ? sanitize_text_field($_POST['parent_id']) : 'root';
         $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
         
-        // Szigorú szabály: Mappák mindig legelöl, utána ABC sorrend
         $order_sql = "ORDER BY CASE WHEN type='folder' THEN 1 ELSE 2 END ASC, name ASC";
         
         if ( !empty($search) ) {
-            $query = $wpdb->prepare( "SELECT * FROM $table WHERE name LIKE %s $order_sql", '%' . $wpdb->esc_like($search) . '%' );
+            // A kereső a Pickerben is tudjon keresni Címre és Leírásra!
+            $query = $wpdb->prepare( "SELECT * FROM $table WHERE name LIKE %s OR custom_title LIKE %s OR custom_description LIKE %s $order_sql", '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%' );
         } else {
             if ( $parent_id === 'root' || $parent_id === '0' ) {
                 $query = "SELECT * FROM $table WHERE parent_graph_id IS NULL $order_sql";
@@ -101,12 +101,14 @@ class MSDL_Child_Elementor {
         if ( $items ) {
             foreach ( $items as $item ) {
                 $formatted[] = [
-                    'id'    => $item->id,
-                    'type'  => $item->type,
-                    'name'  => $item->name,
-                    'roles' => $this->format_roles_for_display( $item->visibility_roles ),
-                    'size'  => $this->format_size_for_display( $item->type, $item->size ?? null ),
-                    'date'  => (!empty($item->last_modified) && $item->last_modified !== '0000-00-00 00:00:00') ? date('Y.m.d', strtotime($item->last_modified)) : '-',
+                    'id'                 => $item->id,
+                    'type'               => $item->type,
+                    'name'               => $item->name,
+                    'custom_title'       => $item->custom_title,
+                    'custom_description' => $item->custom_description,
+                    'roles'              => $item->visibility_roles, // JAVÍTVA: Nyers string (pl. 'hidden', 'public')
+                    'size'               => $this->format_size_for_display( $item->type, $item->size ?? null ),
+                    'date'               => (!empty($item->last_modified) && $item->last_modified !== '0000-00-00 00:00:00') ? date('Y.m.d', strtotime($item->last_modified)) : '-',
                 ];
             }
         }
@@ -121,10 +123,12 @@ class MSDL_Child_Elementor {
 
         if ( $id_param === '0' || $id_param === 'root' ) {
             wp_send_json_success([
-                'name'  => 'Dokumentumtár (Gyökér)',
-                'roles' => '-',
-                'size'  => 'Mappa',
-                'date'  => '-'
+                'name'               => 'Dokumentumtár (Gyökér)',
+                'custom_title'       => '',
+                'custom_description' => '',
+                'roles'              => 'public',
+                'size'               => 'Mappa',
+                'date'               => '-'
             ]);
         }
 
@@ -137,10 +141,12 @@ class MSDL_Child_Elementor {
 
         if ( $item ) {
             wp_send_json_success([
-                'name'  => $item->name,
-                'roles' => $this->format_roles_for_display( $item->visibility_roles ),
-                'size'  => $this->format_size_for_display( $item->type, $item->size ?? null ),
-                'date'  => (!empty($item->last_modified) && $item->last_modified !== '0000-00-00 00:00:00') ? date('Y.m.d', strtotime($item->last_modified)) : '-',
+                'name'               => $item->name,
+                'custom_title'       => $item->custom_title,
+                'custom_description' => $item->custom_description,
+                'roles'              => $item->visibility_roles, // JAVÍTVA
+                'size'               => $this->format_size_for_display( $item->type, $item->size ?? null ),
+                'date'               => (!empty($item->last_modified) && $item->last_modified !== '0000-00-00 00:00:00') ? date('Y.m.d', strtotime($item->last_modified)) : '-',
             ]);
         }
         wp_send_json_error( 'Fájl nem található' );

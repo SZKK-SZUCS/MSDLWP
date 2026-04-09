@@ -9,9 +9,9 @@ jQuery(document).ready(function ($) {
     var html = "";
     breadcrumbs.forEach(function (b, i) {
       if (i === breadcrumbs.length - 1) {
-        html += `<span style="color:#1d2327; font-weight:600;">${b.name}</span>`;
+        html += `<span style="color:#1d2327; font-weight:600; background:#fff; padding:4px 10px; border-radius:4px; box-shadow:0 1px 2px rgba(0,0,0,0.05);">${b.name}</span>`;
       } else {
-        html += `<a href="#" class="msdl-bc-link" data-index="${i}" style="color:#2271b1; text-decoration:none;">${b.name}</a> <span style="margin:0 8px; color:#a0a6b5;">/</span> `;
+        html += `<a href="#" class="msdl-bc-link" data-index="${i}" style="color:#2271b1; text-decoration:none; font-weight:500; padding:4px 8px; border-radius:4px; transition:background 0.2s;" onmouseover="this.style.background='#e7f0f7'" onmouseout="this.style.background='transparent'">${b.name}</a> <span style="margin:0 6px; color:#a0a6b5;">/</span> `;
       }
     });
     return html;
@@ -21,31 +21,34 @@ jQuery(document).ready(function ($) {
     if ($("#msdl-picker-modal").length === 0) {
       var modalHtml = `
         <div id="msdl-picker-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:999999; align-items:center; justify-content:center; backdrop-filter: blur(3px);">
-            <div style="background:#fff; width:90%; max-width:950px; border-radius:8px; display:flex; flex-direction:column; max-height:85vh; overflow:hidden; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen-Sans,Ubuntu,Cantarell,'Helvetica Neue',sans-serif; box-shadow: 0 15px 40px rgba(0,0,0,0.3);">
+            <div style="background:#fff; width:95%; max-width:1000px; border-radius:8px; display:flex; flex-direction:column; max-height:85vh; overflow:hidden; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen-Sans,Ubuntu,Cantarell,'Helvetica Neue',sans-serif; box-shadow: 0 15px 40px rgba(0,0,0,0.3);">
                 
                 <div style="padding:15px 20px; background:#f0f6fc; border-bottom:1px solid #dcdcde; display:flex; justify-content:space-between; align-items:center;">
-                    <h3 style="margin:0; font-size:18px; color:#1d2327; font-weight:600;"><span class="dashicons dashicons-portfolio" style="margin-top:2px;"></span> MSDL Tallózó</h3>
-                    <button class="msdl-close-modal" style="background:none; border:none; font-size:24px; cursor:pointer; color:#787c82; transition:color 0.2s;">&times;</button>
+                    <h3 style="margin:0; font-size:18px; color:#1d2327; font-weight:600; display:flex; align-items:center; gap:8px;">
+                        <span class="dashicons dashicons-portfolio" style="color:#2271b1; margin-top:2px;"></span> MSDL Tallózó
+                    </h3>
+                    <button class="msdl-close-modal" style="background:none; border:none; font-size:26px; cursor:pointer; color:#8c8f94; transition:color 0.2s; line-height:1;" onmouseover="this.style.color='#d63638'" onmouseout="this.style.color='#8c8f94'">&times;</button>
                 </div>
 
-                <div style="padding:15px 20px; background:#fff; border-bottom:1px solid #f0f0f0; display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap;">
-                    <div class="msdl-breadcrumbs" style="font-size:14px; flex-grow:1;"></div>
+                <div style="padding:15px 20px; background:#f6f7f7; border-bottom:1px solid #e2e4e7; display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap;">
+                    <div class="msdl-breadcrumbs" style="font-size:14px; flex-grow:1; display:flex; align-items:center;"></div>
                     <div style="display:flex; gap:10px; align-items:center;">
-                        <input type="text" id="msdl-picker-search" placeholder="Keresés..." style="padding:6px 12px; border:1px solid #8c8f94; border-radius:4px; font-size:13px; width:200px;">
-                        <button id="msdl-select-current-folder" style="display:none; background:#2271b1; color:#fff; border:none; padding:6px 15px; border-radius:4px; font-size:13px; font-weight:600; cursor:pointer;">Jelenlegi mappa kiválasztása</button>
+                        <input type="text" id="msdl-picker-search" placeholder="Keresés név vagy cím alapján..." style="padding:8px 12px; border:1px solid #8c8f94 !important; border-radius:4px; font-size:13px; width:260px; background-color:#ffffff !important; color:#1d2327 !important; box-shadow:inset 0 1px 2px rgba(0,0,0,0.05);">
+                        <button id="msdl-select-current-folder" style="display:none; background:#2271b1; color:#fff; border:none; padding:8px 15px; border-radius:4px; font-size:13px; font-weight:600; cursor:pointer; transition:background 0.2s;" onmouseover="this.style.background='#135e96'" onmouseout="this.style.background='#2271b1'">Jelenlegi mappa kiválasztása</button>
                     </div>
                 </div>
 
                 <div class="msdl-modal-body" style="padding:0; overflow-y:auto; flex:1; background:#fff; position:relative;">
                     <div class="msdl-loader" style="padding:40px; text-align:center; color:#50575e; font-weight:500;">Adatok lekérése...</div>
-                    <table class="msdl-items-table" style="width:100%; text-align:left; border-collapse:collapse; display:none; font-size:13px;">
+                    <table class="msdl-items-table" style="width:100%; text-align:left; border-collapse:collapse; display:none; font-size:13px; table-layout:fixed;">
                         <thead>
-                            <tr style="border-bottom:2px solid #dcdcde; color:#1d2327; background:#f6f7f7;">
-                                <th style="padding:12px 20px; font-weight:600;">Név</th>
-                                <th style="padding:12px 20px; width:90px; font-weight:600;">Méret</th>
-                                <th style="padding:12px 20px; width:150px; font-weight:600;">Láthatóság</th>
-                                <th style="padding:12px 20px; width:110px; font-weight:600;">Módosítva</th>
-                                <th style="padding:12px 20px; width:140px; font-weight:600; text-align:right;">Művelet</th>
+                            <tr style="border-bottom:2px solid #dcdcde; color:#1d2327; background:#fff;">
+                                <th style="padding:12px 20px; font-weight:600;">Név / Cím</th>
+                                <th style="padding:12px 10px; width:65px; font-weight:600; text-align:center;">Leírás</th>
+                                <th style="padding:12px 10px; width:100px; font-weight:600; text-align:center;">Láthatóság</th>
+                                <th style="padding:12px 10px; width:80px; font-weight:600; text-align:right;">Méret</th>
+                                <th style="padding:12px 10px; width:100px; font-weight:600;">Módosítva</th>
+                                <th style="padding:12px 20px; width:180px; font-weight:600; text-align:right;">Művelet</th>
                             </tr>
                         </thead>
                         <tbody></tbody>
@@ -56,7 +59,7 @@ jQuery(document).ready(function ($) {
       `;
       $("body").append(modalHtml);
       $("head").append(
-        "<style>.msdl-row-hover:hover{background-color:#f0f6fc !important;} .msdl-action-btn{padding:5px 10px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid transparent; transition:all 0.2s;} .msdl-btn-open{background:#fff; color:#2271b1; border-color:#2271b1;} .msdl-btn-open:hover{background:#f0f6fc;} .msdl-btn-select{background:#2271b1; color:#fff; border-color:#2271b1;} .msdl-btn-select:hover{background:#135e96;}</style>",
+        "<style>.msdl-row-hover:hover{background-color:#f0f6fc !important;} .msdl-action-btn{padding:6px 12px; border-radius:4px; font-size:12px; font-weight:600; cursor:pointer; border:1px solid transparent; transition:all 0.2s; white-space:nowrap;} .msdl-btn-open{background:#fff; color:#2271b1; border-color:#2271b1;} .msdl-btn-open:hover{background:#f0f6fc;} .msdl-btn-select{background:#2271b1; color:#fff; border-color:#2271b1;} .msdl-btn-select:hover{background:#135e96;}</style>",
       );
     }
   }
@@ -66,7 +69,6 @@ jQuery(document).ready(function ($) {
     $(".msdl-loader").show();
     $(".msdl-breadcrumbs").html(renderBreadcrumbs());
 
-    // Fő mappa választó gomb mutatása, ha mappa módban vagyunk és nincs keresés
     if (currentItemType === "folder" && currentSearch === "") {
       $("#msdl-select-current-folder").show();
     } else {
@@ -87,45 +89,112 @@ jQuery(document).ready(function ($) {
         tbody.empty();
 
         if (response.success && response.data && response.data.length > 0) {
-          response.data.forEach(function (item) {
-            var isFolder = item.type === "folder";
-            var iconHtml = isFolder
-              ? '<span class="dashicons dashicons-category" style="color:#f5c342; margin-right:8px; margin-top:2px;"></span>'
-              : '<span class="dashicons dashicons-media-document" style="color:#2271b1; margin-right:8px; margin-top:2px;"></span>';
+          var validItems = response.data.filter(function (item) {
+            return item.roles !== "hidden";
+          });
 
-            var badgeHtml = `<span style="background:#e2e4e7; color:#2c3338; padding:4px 10px; border-radius:12px; font-size:11px; font-weight:600;">${item.roles}</span>`;
+          if (validItems.length > 0) {
+            validItems.forEach(function (item) {
+              var isFolder = item.type === "folder";
+              if (currentItemType === "folder" && !isFolder) return;
 
-            var actions = "";
-            if (isFolder) {
-              actions += `<button class="msdl-action-btn msdl-btn-open" data-id="${item.id}" data-name="${item.name}">Megnyitás</button>`;
-              if (currentItemType === "folder") {
-                actions += ` <button class="msdl-action-btn msdl-btn-select" data-id="${item.id}" data-name="${item.name}" data-size="Mappa" data-roles="${item.roles}" data-date="${item.date}">Kiválasztás</button>`;
-              }
-            } else {
-              if (currentItemType === "file") {
-                actions += `<button class="msdl-action-btn msdl-btn-select" data-id="${item.id}" data-name="${item.name}" data-size="${item.size}" data-roles="${item.roles}" data-date="${item.date}">Kiválasztás</button>`;
+              var iconHtml = isFolder
+                ? '<span class="dashicons dashicons-portfolio" style="color:#f5c342; margin-right:12px; font-size:24px; width:24px; height:24px; flex-shrink:0;"></span>'
+                : '<span class="dashicons dashicons-media-document" style="color:#72aee6; margin-right:12px; font-size:24px; width:24px; height:24px; flex-shrink:0;"></span>';
+
+              var titleHtml = "";
+              if (item.custom_title && item.custom_title.trim() !== "") {
+                titleHtml = `<div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><strong style="font-size:14px; color:#007cba;">${item.custom_title}</strong><div style="font-size:11px; color:#8c8f94; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${item.name}</div></div>`;
               } else {
-                actions += `<span style="color:#a0a6b5; font-size:11px;">Nem választható</span>`;
+                titleHtml = `<div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><strong style="font-size:14px; color:${
+                  isFolder ? "#2271b1" : "#1d2327"
+                };">${item.name}</strong></div>`;
               }
-            }
 
-            var rowStyle =
-              currentItemType === "folder" && !isFolder ? "opacity:0.5;" : "";
+              var hasDesc =
+                item.custom_description &&
+                item.custom_description.trim() !== "";
+              var descHtml = hasDesc
+                ? '<span class="dashicons dashicons-yes-alt" style="color:#00a32a;" title="A fájlhoz tartozik HTML leírás"></span>'
+                : '<span style="color:#ccd0d4;" title="Nincs leírás">-</span>';
 
-            tbody.append(`
+              var roleStr = item.visibility_roles || item.roles || "public";
+              var accessIcon = "dashicons-admin-site-alt3";
+              var accessTooltip = "Nyilvános (Bárki láthatja)";
+
+              if (roleStr === "loggedin") {
+                accessIcon = "dashicons-lock";
+                accessTooltip = "Csak bejelentkezett felhasználók";
+              } else if (roleStr.includes("[")) {
+                accessIcon = "dashicons-admin-users";
+                // JSON tömb dekódolása és emberi olvashatóvá tétele
+                try {
+                  var parsedRoles = JSON.parse(roleStr);
+                  var formattedRoles = parsedRoles
+                    .map(function (r) {
+                      return r.charAt(0).toUpperCase() + r.slice(1);
+                    })
+                    .join(", ");
+                  accessTooltip = "Engedélyezve: " + formattedRoles;
+                } catch (e) {
+                  accessTooltip = "Szerepkörhöz kötött";
+                }
+              }
+
+              var badgeHtml = `<div title="${accessTooltip}" style="display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; background:#f0f6fc; border-radius:50%; color:#2271b1; cursor:help;"><span class="dashicons ${accessIcon}" style="font-size:16px; width:16px; height:16px;"></span></div>`;
+
+              var actions = "";
+              if (isFolder) {
+                actions += `<button class="msdl-action-btn msdl-btn-open" data-id="${item.id}" data-name="${item.name}">Megnyitás</button>`;
+                if (currentItemType === "folder") {
+                  actions += ` <button class="msdl-action-btn msdl-btn-select" data-id="${
+                    item.id
+                  }" data-name="${
+                    item.custom_title || item.name
+                  }" data-size="Mappa" data-roles='${roleStr}' data-date="${
+                    item.date
+                  }">Kiválasztás</button>`;
+                }
+              } else {
+                if (currentItemType === "file") {
+                  actions += `<button class="msdl-action-btn msdl-btn-select" data-id="${
+                    item.id
+                  }" data-name="${item.custom_title || item.name}" data-size="${
+                    item.size
+                  }" data-roles='${roleStr}' data-date="${
+                    item.date
+                  }">Kiválasztás</button>`;
+                } else {
+                  actions += `<span style="color:#a0a6b5; font-size:11px;">Nem választható</span>`;
+                }
+              }
+
+              var rowStyle =
+                currentItemType === "folder" && !isFolder
+                  ? "opacity:0.4; filter:grayscale(1);"
+                  : "";
+
+              tbody.append(`
                     <tr class="msdl-row-hover" style="border-bottom:1px solid #f0f0f0; ${rowStyle}">
-                        <td style="padding:12px 20px; color:#1d2327; display:flex; align-items:center;"><strong style="font-size:14px; color:#2271b1;">${iconHtml} ${item.name}</strong></td>
-                        <td style="padding:12px 20px; color:#50575e;">${item.size}</td>
-                        <td style="padding:12px 20px;">${badgeHtml}</td>
-                        <td style="padding:12px 20px; color:#50575e;">${item.date}</td>
-                        <td style="padding:12px 20px; text-align:right;">${actions}</td>
+                        <td style="padding:12px 20px; display:flex; align-items:center; overflow:hidden;">${iconHtml} ${titleHtml}</td>
+                        <td style="padding:12px 10px; text-align:center;">${descHtml}</td>
+                        <td style="padding:12px 10px; text-align:center;">${badgeHtml}</td>
+                        <td style="padding:12px 10px; color:#50575e; text-align:right;">${item.size}</td>
+                        <td style="padding:12px 10px; color:#50575e;">${item.date}</td>
+                        <td style="padding:12px 20px; text-align:right; white-space:nowrap;">${actions}</td>
                     </tr>
                 `);
-          });
-          $(".msdl-items-table").show();
+            });
+            $(".msdl-items-table").show();
+          } else {
+            tbody.append(
+              '<tr><td colspan="6" style="padding:40px; text-align:center; color:#50575e;">Nincs megjeleníthető elem. (Csak rejtett fájlok találhatóak)</td></tr>',
+            );
+            $(".msdl-items-table").show();
+          }
         } else {
           tbody.append(
-            '<tr><td colspan="5" style="padding:30px; text-align:center; color:#50575e;">Nincs megjeleníthető elem.</td></tr>',
+            '<tr><td colspan="6" style="padding:40px; text-align:center; color:#50575e;">Nincs megjeleníthető elem.</td></tr>',
           );
           $(".msdl-items-table").show();
         }
@@ -144,7 +213,7 @@ jQuery(document).ready(function ($) {
     currentSearch = "";
     $("#msdl-picker-search").val("");
 
-    $("#msdl-picker-modal").css("display", "flex");
+    $("#msdl-picker-modal").css("display", "flex").hide().fadeIn(200);
     loadItems();
   });
 
@@ -185,8 +254,27 @@ jQuery(document).ready(function ($) {
     e.preventDefault();
     var id = currentFolderId === "root" ? 0 : currentFolderId;
     var name = breadcrumbs[breadcrumbs.length - 1].name;
-    selectItem(id, name, "Mappa", "-", "-");
+    selectItem(id, name, "Mappa", "public", "-");
   });
+
+  function translateRole(roleStr) {
+    if (!roleStr || roleStr === "public") return "Nyilvános";
+    if (roleStr === "loggedin") return "Bejelentkezett";
+    if (roleStr === "hidden") return "Rejtett";
+    if (roleStr.includes("[")) {
+      try {
+        var parsedRoles = JSON.parse(roleStr);
+        return parsedRoles
+          .map(function (r) {
+            return r.charAt(0).toUpperCase() + r.slice(1);
+          })
+          .join(", ");
+      } catch (e) {
+        return "Szerepkörhöz kötött";
+      }
+    }
+    return roleStr;
+  }
 
   function selectItem(id, name, size, roles, date) {
     if (activeWrapper) {
@@ -194,11 +282,11 @@ jQuery(document).ready(function ($) {
       var card = activeWrapper.find(".msdl-selected-card");
       card.find(".msdl-sc-name").text(name);
       card.find(".msdl-sc-size").text(size);
-      card.find(".msdl-sc-roles").text(roles);
+      card.find(".msdl-sc-roles").text(translateRole(roles));
       card.find(".msdl-sc-date").text(date);
       card.slideDown("fast");
     }
-    $("#msdl-picker-modal").hide();
+    $("#msdl-picker-modal").fadeOut(200);
   }
 
   $("body").on("click", ".msdl-clear-btn", function (e) {
@@ -209,7 +297,7 @@ jQuery(document).ready(function ($) {
   });
 
   $("body").on("click", ".msdl-close-modal", function () {
-    $("#msdl-picker-modal").hide();
+    $("#msdl-picker-modal").fadeOut(200);
   });
 
   $("body").on("mouseenter", ".msdl-picker-control-wrapper", function () {
@@ -229,9 +317,14 @@ jQuery(document).ready(function ($) {
         },
         function (response) {
           if (response.success) {
-            card.find(".msdl-sc-name").text(response.data.name);
+            var displayName = response.data.custom_title
+              ? response.data.custom_title
+              : response.data.name;
+            var roleStr = response.data.roles || "public";
+
+            card.find(".msdl-sc-name").text(displayName);
             card.find(".msdl-sc-size").text(response.data.size);
-            card.find(".msdl-sc-roles").text(response.data.roles);
+            card.find(".msdl-sc-roles").text(translateRole(roleStr));
             card.find(".msdl-sc-date").text(response.data.date);
             card.show();
           }
