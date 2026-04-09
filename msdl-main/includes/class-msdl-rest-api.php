@@ -14,7 +14,6 @@ class MSDL_Main_REST_API {
             'callback' => [ $this, 'serve_token' ],
             'permission_callback' => [ $this, 'check_api_key' ] ]);
         
-        // WP Admin CRUD
         register_rest_route( 'msdl-main/v1', '/sites', [
             [ 'methods' => WP_REST_Server::READABLE,
             'callback' => [ $this, 'get_sites' ],
@@ -28,7 +27,6 @@ class MSDL_Main_REST_API {
             'callback' => [ $this, 'delete_site' ],
             'permission_callback' => [ $this, 'check_admin_permissions' ] ]);
         
-        // Graph API Keresők
         register_rest_route( 'msdl-main/v1', '/search-sites', [
             'methods' => WP_REST_Server::READABLE,
             'callback' => [ $this, 'search_sites' ],
@@ -60,11 +58,10 @@ class MSDL_Main_REST_API {
             'permission_callback' => [ $this, 'check_api_key' ]
         ]);
 
-        // JAVÍTVA: check_admin_permissions helyett check_api_key!
         register_rest_route( 'msdl-main/v1', '/get-next-sync', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ $this, 'get_next_sync_time' ],
-            'permission_callback' => [ $this, 'check_api_key' ] 
+            'permission_callback' => [ $this, 'check_api_key_or_admin' ] // <--- JAVÍTVA!
         ]);
 
         register_setting( 'msdl_options', 'msdl_global_sync_interval', [
@@ -74,6 +71,16 @@ class MSDL_Main_REST_API {
     }
 
     public function check_api_key( WP_REST_Request $request ) {
+        $provided = $request->get_header( 'X-MSDL-API-Key' );
+        $stored = get_option( 'msdl_internal_api_key' );
+        if ( empty($stored) || $provided !== $stored ) return new WP_Error( 'forbidden', 'Érvénytelen belső API kulcs.', ['status' => 403] );
+        return true;
+    }
+
+    // ÚJ: Kettős ellenőrzés (API kulcs VAGY bejelentkezett Admin)
+    public function check_api_key_or_admin( WP_REST_Request $request ) {
+        if ( current_user_can( 'manage_options' ) ) return true;
+        
         $provided = $request->get_header( 'X-MSDL-API-Key' );
         $stored = get_option( 'msdl_internal_api_key' );
         if ( empty($stored) || $provided !== $stored ) return new WP_Error( 'forbidden', 'Érvénytelen belső API kulcs.', ['status' => 403] );
@@ -101,10 +108,9 @@ class MSDL_Main_REST_API {
         }
 
         $provided_mode = $request->get_header( 'X-MSDL-Sync-Mode' );
-            if ( ! empty( $provided_mode ) && $site_data->sync_mode !== $provided_mode ) {
-                $wpdb->update( $table_name, [ 'sync_mode' => sanitize_text_field($provided_mode) ],
-                [ 'id' => $site_data->id ] );
-            }
+        if ( ! empty( $provided_mode ) && $site_data->sync_mode !== $provided_mode ) {
+            $wpdb->update( $table_name, [ 'sync_mode' => sanitize_text_field($provided_mode) ], [ 'id' => $site_data->id ] );
+        }
 
         if ( isset($site_data->is_active) && $site_data->is_active == 0 ) {
             return new WP_Error( 'site_suspended', 'A webhely kapcsolata karbantartás vagy tiltás miatt ideiglenesen fel van függesztve a központban.', ['status' => 403] );
@@ -123,6 +129,7 @@ class MSDL_Main_REST_API {
     }
 
     public function get_sites() { global $wpdb; $table_name = $wpdb->prefix . 'msdl_sites'; return rest_ensure_response( $wpdb->get_results( "SELECT * FROM $table_name ORDER BY id DESC" ) ); }
+    
     public function save_site( WP_REST_Request $request ) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'msdl_sites';
@@ -141,6 +148,7 @@ class MSDL_Main_REST_API {
 
         return rest_ensure_response( ['status' => 'success'] );
     }
+    
     public function delete_site( WP_REST_Request $request ) { global $wpdb; $table_name = $wpdb->prefix . 'msdl_sites'; $wpdb->delete( $table_name, [ 'id' => intval( $request->get_param( 'id' ) ) ] ); return rest_ensure_response( ['status' => 'deleted'] ); }
 
     public function search_sites( WP_REST_Request $request ) { $query = sanitize_text_field( $request->get_param( 'q' ) ); if ( empty( $query ) ) return rest_ensure_response( [] ); $response = $this->graph_api->make_request( "/sites?search=" . rawurlencode( $query ) . "&\$select=id,name,webUrl" ); return is_wp_error( $response ) ? $response : rest_ensure_response( $response['value'] ?? [] ); }
@@ -235,7 +243,7 @@ class MSDL_Main_REST_API {
         return new WP_Error('invalid_request', 'Érvénytelen kérés.', ['status'=>400]);
     }
 
-    public function report_sync() {} // Ide jöhet a webhook fogadó
+    public function report_sync() {}
 
     public function get_next_sync_time() {
         $next = wp_next_scheduled( 'msdl_main_master_sync' );
