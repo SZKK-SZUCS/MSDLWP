@@ -36,13 +36,17 @@ class MSDL_Child_Elementor {
     }
 
     public function register_widgets( $widgets_manager ) {
-        // 1. Widget
+        // 1. Widget: Gomb
         require_once MSDL_CHILD_DIR . 'includes/widgets/class-msdl-widget-button.php';
         $widgets_manager->register( new MSDL_Widget_Button() );
 
-        // 2. Widget
+        // 2. Widget: Fájl Kártya
         require_once MSDL_CHILD_DIR . 'includes/widgets/class-msdl-widget-file-card.php';
         $widgets_manager->register( new MSDL_Widget_File_Card() );
+
+        // 3. Widget: Mappa Lista
+        require_once MSDL_CHILD_DIR . 'includes/widgets/class-msdl-widget-folder-view.php';
+        $widgets_manager->register( new MSDL_Widget_Folder_View() );
     }
 
     public function enqueue_frontend_assets() {
@@ -64,19 +68,18 @@ class MSDL_Child_Elementor {
         $parent_id = isset($_POST['parent_id']) ? sanitize_text_field($_POST['parent_id']) : 'root';
         $search = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
         
+        // Szigorú szabály: Mappák mindig legelöl, utána ABC sorrend
+        $order_sql = "ORDER BY CASE WHEN type='folder' THEN 1 ELSE 2 END ASC, name ASC";
+        
         if ( !empty($search) ) {
-            // 1. Keresés: Lapos lista a teljes adatbázisból, ami illeszkedik a névre
-            $query = $wpdb->prepare( "SELECT * FROM $table WHERE name LIKE %s ORDER BY type ASC, name ASC", '%' . $wpdb->esc_like($search) . '%' );
+            $query = $wpdb->prepare( "SELECT * FROM $table WHERE name LIKE %s $order_sql", '%' . $wpdb->esc_like($search) . '%' );
         } else {
-            // 2. Mappa Navigáció: Hierarchikus lekérdezés
             if ( $parent_id === 'root' || $parent_id === '0' ) {
-                // Gyökérmappa (ahol nincs parent)
-                $query = "SELECT * FROM $table WHERE parent_graph_id IS NULL ORDER BY type ASC, name ASC";
+                $query = "SELECT * FROM $table WHERE parent_graph_id IS NULL $order_sql";
             } else {
-                // Belépés egy adott mappába
                 $parent_node = $wpdb->get_row( $wpdb->prepare( "SELECT graph_id FROM $table WHERE id = %d", intval($parent_id) ) );
                 if ( $parent_node ) {
-                    $query = $wpdb->prepare( "SELECT * FROM $table WHERE parent_graph_id = %s ORDER BY type ASC, name ASC", $parent_node->graph_id );
+                    $query = $wpdb->prepare( "SELECT * FROM $table WHERE parent_graph_id = %s $order_sql", $parent_node->graph_id );
                 } else {
                     wp_send_json_error( 'Mappa nem található.' );
                 }
@@ -90,7 +93,7 @@ class MSDL_Child_Elementor {
             foreach ( $items as $item ) {
                 $formatted[] = [
                     'id'    => $item->id,
-                    'type'  => $item->type, // KÖTELEZŐ: a JS ez alapján rajzolja a mappát/fájlt
+                    'type'  => $item->type,
                     'name'  => $item->name,
                     'roles' => $this->format_roles_for_display( $item->visibility_roles ),
                     'size'  => $this->format_size_for_display( $item->type, $item->size ?? null ),
@@ -107,7 +110,6 @@ class MSDL_Child_Elementor {
 
         $id_param = isset($_POST['item_id']) ? sanitize_text_field($_POST['item_id']) : '';
 
-        // Ha a gyökérmappát választották ki
         if ( $id_param === '0' || $id_param === 'root' ) {
             wp_send_json_success([
                 'name'  => 'Dokumentumtár (Gyökér)',

@@ -8,153 +8,69 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
     public function get_icon() { return 'eicon-info-box'; }
     public function get_categories() { return [ 'msdl-widgets' ]; }
 
-    public function get_style_depends() {
-        return [ 'elementor-icons-fa-solid' ];
+    public function get_style_depends() { return [ 'elementor-icons-fa-solid' ]; }
+
+    // --- BIZTONSÁGI JOGOSULTSÁG-ELLENŐRZŐ METÓDUS ---
+    private function check_access( $roles_data ) {
+        if ( empty( $roles_data ) || $roles_data === 'public' ) return true;
+        if ( $roles_data === 'loggedin' ) return is_user_logged_in();
+        
+        $allowed_roles = json_decode( $roles_data, true );
+        if ( ! is_array( $allowed_roles ) ) $allowed_roles = [ $roles_data ];
+        
+        if ( is_user_logged_in() ) {
+            $current_user = wp_get_current_user();
+            if ( in_array( 'administrator', $current_user->roles ) ) return true; // Admin mindent lát
+            
+            $intersect = array_intersect( $allowed_roles, $current_user->roles );
+            if ( ! empty( $intersect ) ) return true; // Van egyező jogosultság
+        }
+        return false;
     }
 
     protected function register_controls() {
-
         $this->start_controls_section( 'section_query', [ 'label' => 'Adatforrás', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
-        $this->add_control( 'file_id', [
-            'label' => 'Fájl Kiválasztása',
-            'type' => 'msdl_picker',
-            'item_type' => 'file',
-        ]);
+        $this->add_control( 'file_id', [ 'label' => 'Fájl Kiválasztása', 'type' => 'msdl_picker', 'item_type' => 'file' ] );
         $this->end_controls_section();
 
         $this->start_controls_section( 'section_elements', [ 'label' => 'Megjelenítendő Elemek', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
         $this->add_control( 'show_icon', [ 'label' => 'Ikon Mutatása', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'show_title', [ 'label' => 'Fájlnév Mutatása', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'divider_1', [ 'type' => \Elementor\Controls_Manager::DIVIDER ] );
-        $this->add_control( 'show_meta_ext', [ 'label' => 'Kiterjesztés (pl. PDF)', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
-        $this->add_control( 'show_meta_size', [ 'label' => 'Méret (MB)', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
+        $this->add_control( 'show_meta_ext', [ 'label' => 'Kiterjesztés', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
+        $this->add_control( 'show_meta_size', [ 'label' => 'Méret', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'show_meta_date', [ 'label' => 'Módosítás Dátuma', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'divider_2', [ 'type' => \Elementor\Controls_Manager::DIVIDER ] );
-        $this->add_control( 'show_button', [ 'label' => 'Letöltés Gomb Mutatása', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
+        $this->add_control( 'show_button', [ 'label' => 'Gomb Mutatása', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'btn_text', [ 'label' => 'Gomb Szövege', 'type' => \Elementor\Controls_Manager::TEXT, 'default' => 'Letöltés', 'condition' => [ 'show_button' => 'yes' ] ]);
         $this->end_controls_section();
 
         $this->start_controls_section( 'section_template', [ 'label' => 'Dizájn Sablon', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
-        $this->add_control( 'card_template', [
-            'label' => 'Sablon Választó',
-            'type' => \Elementor\Controls_Manager::SELECT,
-            'options' => [
-                'tpl-list'   => 'Vízszintes Lista',
-                'tpl-grid'   => 'Kompakt Rács / Kártya',
-                'tpl-cta'    => 'Kiemelt CTA Banner',
-                'custom'     => 'Egyéni (Custom)',
-            ],
-            'default' => 'tpl-list',
-        ]);
-        $this->add_control( 'layout_style', [
-            'label' => 'Asztali Elrendezés',
-            'type' => \Elementor\Controls_Manager::CHOOSE,
-            'options' => [
-                'row' => [ 'title' => 'Vízszintes (Sor)', 'icon' => 'eicon-h-align-left' ],
-                'column' => [ 'title' => 'Függőleges (Oszlop)', 'icon' => 'eicon-v-align-top' ],
-            ],
-            'default' => 'row',
-            'condition' => [ 'card_template' => 'custom' ],
-        ]);
+        $this->add_control( 'card_template', [ 'label' => 'Sablon Választó', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'tpl-list' => 'Vízszintes Lista', 'tpl-grid' => 'Kompakt Rács / Kártya', 'tpl-cta' => 'Kiemelt CTA Banner', 'custom' => 'Egyéni' ], 'default' => 'tpl-list' ] );
+        $this->add_control( 'layout_style', [ 'label' => 'Asztali Elrendezés', 'type' => \Elementor\Controls_Manager::CHOOSE, 'options' => [ 'row' => [ 'title' => 'Vízszintes', 'icon' => 'eicon-h-align-left' ], 'column' => [ 'title' => 'Függőleges', 'icon' => 'eicon-v-align-top' ] ], 'default' => 'row', 'condition' => [ 'card_template' => 'custom' ] ] );
         $this->end_controls_section();
 
         $this->start_controls_section( 'section_card_style', [ 'label' => 'Kártya Stílusa', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
-        $this->add_control( 'card_bg_color', [
-            'label' => 'Háttérszín',
-            'type' => \Elementor\Controls_Manager::COLOR,
-            'selectors' => [ '{{WRAPPER}} .msdl-fc-wrapper' => 'background-color: {{VALUE}};' ],
-        ]);
-        $this->add_group_control( \Elementor\Group_Control_Border::get_type(), [
-            'name' => 'card_border',
-            'selector' => '{{WRAPPER}} .msdl-fc-wrapper',
-        ]);
-        $this->add_responsive_control( 'card_border_radius', [
-            'label' => 'Lekerekítés',
-            'type' => \Elementor\Controls_Manager::DIMENSIONS,
-            'size_units' => [ 'px', '%' ],
-            'selectors' => [ '{{WRAPPER}} .msdl-fc-wrapper' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
-        ]);
-        $this->add_responsive_control( 'card_padding', [
-            'label' => 'Belső Margó',
-            'type' => \Elementor\Controls_Manager::DIMENSIONS,
-            'size_units' => [ 'px', 'em' ],
-            'selectors' => [ '{{WRAPPER}} .msdl-fc-wrapper' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
-        ]);
-        $this->add_group_control( \Elementor\Group_Control_Box_Shadow::get_type(), [
-            'name' => 'card_box_shadow',
-            'selector' => '{{WRAPPER}} .msdl-fc-wrapper',
-        ]);
+        $this->add_control( 'card_bg_color', [ 'label' => 'Háttérszín', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fc-wrapper' => 'background-color: {{VALUE}};' ] ] );
+        $this->add_group_control( \Elementor\Group_Control_Border::get_type(), [ 'name' => 'card_border', 'selector' => '{{WRAPPER}} .msdl-fc-wrapper' ] );
+        $this->add_responsive_control( 'card_border_radius', [ 'label' => 'Lekerekítés', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'size_units' => [ 'px', '%' ], 'selectors' => [ '{{WRAPPER}} .msdl-fc-wrapper' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
+        $this->add_responsive_control( 'card_padding', [ 'label' => 'Belső Margó', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'size_units' => [ 'px', 'em' ], 'selectors' => [ '{{WRAPPER}} .msdl-fc-wrapper' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
+        $this->add_group_control( \Elementor\Group_Control_Box_Shadow::get_type(), [ 'name' => 'card_box_shadow', 'selector' => '{{WRAPPER}} .msdl-fc-wrapper' ] );
         $this->end_controls_section();
 
         $this->start_controls_section( 'section_text_icon_style', [ 'label' => 'Ikon és Szövegek', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
-        $this->add_control( 'icon_heading', [ 'label' => 'Ikon Beállítások', 'type' => \Elementor\Controls_Manager::HEADING, 'condition' => [ 'show_icon' => 'yes' ] ] );
-        
-        // JAVÍTÁS: Szín szelektorok frissítve SVG támogatással
-        $this->add_control( 'icon_color', [
-            'label' => 'Ikon Színe',
-            'type' => \Elementor\Controls_Manager::COLOR,
-            'selectors' => [ 
-                '{{WRAPPER}} .msdl-fc-icon i' => 'color: {{VALUE}};',
-                '{{WRAPPER}} .msdl-fc-icon svg' => 'fill: {{VALUE}};'
-            ],
-            'condition' => [ 'show_icon' => 'yes' ],
-        ]);
-        $this->add_control( 'icon_bg_color', [
-            'label' => 'Ikon Háttere',
-            'type' => \Elementor\Controls_Manager::COLOR,
-            'selectors' => [ '{{WRAPPER}} .msdl-fc-icon' => 'background-color: {{VALUE}};' ],
-            'condition' => [ 'show_icon' => 'yes' ],
-        ]);
-        
-        // JAVÍTÁS: Méret szelektorok frissítve SVG támogatással
-        $this->add_responsive_control( 'icon_size', [
-            'label' => 'Ikon Mérete',
-            'type' => \Elementor\Controls_Manager::SLIDER,
-            'selectors' => [ 
-                '{{WRAPPER}} .msdl-fc-icon i' => 'font-size: {{SIZE}}{{UNIT}};',
-                '{{WRAPPER}} .msdl-fc-icon svg' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};'
-            ],
-            'condition' => [ 'show_icon' => 'yes' ],
-        ]);
-        $this->add_responsive_control( 'icon_padding', [
-            'label' => 'Ikon Belső Margó',
-            'type' => \Elementor\Controls_Manager::DIMENSIONS,
-            'selectors' => [ '{{WRAPPER}} .msdl-fc-icon' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
-            'condition' => [ 'show_icon' => 'yes' ],
-        ]);
-        $this->add_responsive_control( 'icon_border_radius', [
-            'label' => 'Ikon Lekerekítés',
-            'type' => \Elementor\Controls_Manager::DIMENSIONS,
-            'selectors' => [ '{{WRAPPER}} .msdl-fc-icon' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
-            'condition' => [ 'show_icon' => 'yes' ],
-        ]);
-
-        $this->add_control( 'text_heading', [ 'label' => 'Szöveg Beállítások', 'type' => \Elementor\Controls_Manager::HEADING, 'separator' => 'before' ] );
-        $this->add_control( 'title_color', [
-            'label' => 'Cím Színe',
-            'type' => \Elementor\Controls_Manager::COLOR,
-            'selectors' => [ '{{WRAPPER}} .msdl-fc-title' => 'color: {{VALUE}};' ],
-            'condition' => [ 'show_title' => 'yes' ],
-        ]);
-        $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [
-            'name' => 'title_typography',
-            'label' => 'Cím Tipográfia',
-            'selector' => '{{WRAPPER}} .msdl-fc-title',
-            'condition' => [ 'show_title' => 'yes' ],
-        ]);
-        $this->add_control( 'meta_color', [
-            'label' => 'Meta Színe',
-            'type' => \Elementor\Controls_Manager::COLOR,
-            'selectors' => [ '{{WRAPPER}} .msdl-fc-meta' => 'color: {{VALUE}};' ],
-        ]);
-        $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [
-            'name' => 'meta_typography',
-            'label' => 'Meta Tipográfia',
-            'selector' => '{{WRAPPER}} .msdl-fc-meta',
-        ]);
+        $this->add_control( 'icon_color', [ 'label' => 'Ikon Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fc-icon i' => 'color: {{VALUE}};', '{{WRAPPER}} .msdl-fc-icon svg' => 'fill: {{VALUE}};' ] ] );
+        $this->add_control( 'icon_bg_color', [ 'label' => 'Ikon Háttere', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fc-icon' => 'background-color: {{VALUE}};' ] ] );
+        $this->add_responsive_control( 'icon_size', [ 'label' => 'Méret', 'type' => \Elementor\Controls_Manager::SLIDER, 'selectors' => [ '{{WRAPPER}} .msdl-fc-icon i' => 'font-size: {{SIZE}}{{UNIT}};', '{{WRAPPER}} .msdl-fc-icon svg' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};' ] ] );
+        $this->add_responsive_control( 'icon_padding', [ 'label' => 'Padding', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'selectors' => [ '{{WRAPPER}} .msdl-fc-icon' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
+        $this->add_responsive_control( 'icon_border_radius', [ 'label' => 'Lekerekítés', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'selectors' => [ '{{WRAPPER}} .msdl-fc-icon' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
+        $this->add_control( 'title_color', [ 'label' => 'Cím Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'separator' => 'before', 'selectors' => [ '{{WRAPPER}} .msdl-fc-title' => 'color: {{VALUE}};' ] ] );
+        $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'title_typography', 'selector' => '{{WRAPPER}} .msdl-fc-title' ] );
+        $this->add_control( 'meta_color', [ 'label' => 'Meta Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fc-meta' => 'color: {{VALUE}};' ] ] );
+        $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'meta_typography', 'selector' => '{{WRAPPER}} .msdl-fc-meta' ] );
         $this->end_controls_section();
 
-        $this->start_controls_section( 'section_btn_style', [ 'label' => 'Letöltés Gomb', 'tab' => \Elementor\Controls_Manager::TAB_STYLE, 'condition' => [ 'show_button' => 'yes' ] ] );
+        $this->start_controls_section( 'section_btn_style', [ 'label' => 'Letöltés Gomb', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
         $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'btn_typography', 'selector' => '{{WRAPPER}} .msdl-fc-btn' ] );
         $this->start_controls_tabs( 'tabs_btn_style' );
         $this->start_controls_tab( 'tab_btn_normal', [ 'label' => 'Normál' ] );
@@ -164,25 +80,27 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
         $this->start_controls_tab( 'tab_btn_hover', [ 'label' => 'Hover' ] );
         $this->add_control( 'btn_hover_text_color', [ 'label' => 'Szöveg Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fc-btn:hover' => 'color: {{VALUE}};' ] ]);
         $this->add_control( 'btn_hover_bg_color', [ 'label' => 'Háttérszín', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fc-btn:hover' => 'background-color: {{VALUE}};' ] ]);
-        $this->add_control( 'btn_hover_border_color', [ 'label' => 'Keret Színe (ha van)', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fc-btn:hover' => 'border-color: {{VALUE}};' ] ]);
+        $this->add_control( 'btn_hover_border_color', [ 'label' => 'Keret Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fc-btn:hover' => 'border-color: {{VALUE}};' ] ]);
         $this->add_control( 'btn_hover_animation', [ 'label' => 'Hover Animáció', 'type' => \Elementor\Controls_Manager::HOVER_ANIMATION ] );
         $this->end_controls_tab();
         $this->end_controls_tabs();
-
         $this->add_group_control( \Elementor\Group_Control_Border::get_type(), [ 'name' => 'btn_border', 'selector' => '{{WRAPPER}} .msdl-fc-btn', 'separator' => 'before' ] );
-        $this->add_responsive_control( 'btn_border_radius', [ 'label' => 'Lekerekítés', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'size_units' => [ 'px', '%' ], 'selectors' => [ '{{WRAPPER}} .msdl-fc-btn' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ]);
-        $this->add_responsive_control( 'btn_padding', [ 'label' => 'Belső Margó', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'size_units' => [ 'px', 'em' ], 'selectors' => [ '{{WRAPPER}} .msdl-fc-btn' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ]);
+        $this->add_responsive_control( 'btn_border_radius', [ 'label' => 'Lekerekítés', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'selectors' => [ '{{WRAPPER}} .msdl-fc-btn' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ]);
+        $this->add_responsive_control( 'btn_padding', [ 'label' => 'Belső Margó', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'selectors' => [ '{{WRAPPER}} .msdl-fc-btn' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ]);
         $this->end_controls_section();
     }
 
     protected function render() {
+        $is_editor = \Elementor\Plugin::$instance->editor->is_edit_mode();
+        if ( ! $is_editor ) wp_enqueue_style( 'elementor-icons-fa-solid' );
+
         $settings = $this->get_settings_for_display();
         $file_id = intval( $settings['file_id'] );
 
-        $file_name = 'Példa_dokumentum_v2.pdf';
-        $file_size = '2.4 MB';
-        $file_ext = 'pdf';
-        $file_date = date('Y.m.d.');
+        $file_name = 'Kérlek, válassz ki egy fájlt!';
+        $file_size = '-';
+        $file_ext = 'file';
+        $file_date = '-';
         $download_url = '#';
 
         if ( $file_id > 0 ) {
@@ -191,6 +109,11 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
             $file = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE id = %d AND type = 'file'", $file_id ) );
 
             if ( $file ) {
+                // JOGOSULTSÁG VIZSGÁLAT A MEGJELENÍTÉS ELŐTT!
+                if ( ! $is_editor && ! $this->check_access( $file->visibility_roles ) ) {
+                    return; // Frontend látogató számára a kártya rejtve marad!
+                }
+
                 $file_name = esc_html( $file->name );
                 $download_url = site_url( '/?msdl_download=' . $file_id );
                 if ( isset( $file->size ) ) {
@@ -202,8 +125,6 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
                 }
                 $ext = pathinfo( $file->name, PATHINFO_EXTENSION );
                 if ( $ext ) $file_ext = strtolower( $ext );
-            } else {
-                $file_name = 'Hiba: Fájl nem található.';
             }
         }
 
@@ -214,20 +135,11 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
         elseif ( in_array( $file_ext, ['jpg', 'jpeg', 'png', 'gif'] ) ) $icon_class = 'fas fa-file-image';
         elseif ( in_array( $file_ext, ['zip', 'rar'] ) ) $icon_class = 'fas fa-file-archive';
 
-        // JAVÍTÁS: Ikon generálása az Elementor natív motorjával!
         $icon_render = '';
         if ( class_exists( '\Elementor\Icons_Manager' ) ) {
-            ob_start();
-            \Elementor\Icons_Manager::render_icon( 
-                [ 'value' => $icon_class, 'library' => 'fa-solid' ], 
-                [ 'aria-hidden' => 'true' ] 
-            );
-            $icon_render = ob_get_clean();
+            ob_start(); \Elementor\Icons_Manager::render_icon( [ 'value' => $icon_class, 'library' => 'fa-solid' ], [ 'aria-hidden' => 'true' ] ); $icon_render = ob_get_clean();
         }
-        // Fallback, ha valamiért nem hívható meg a manager
-        if ( empty( $icon_render ) ) {
-            $icon_render = sprintf( '<i class="%s" aria-hidden="true"></i>', esc_attr( $icon_class ) );
-        }
+        if ( empty( $icon_render ) ) $icon_render = sprintf( '<i class="%s" aria-hidden="true"></i>', esc_attr( $icon_class ) );
 
         $layout = $settings['layout_style'] ?? 'row';
         $show_icon = $settings['show_icon'] === 'yes';
@@ -242,12 +154,9 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
 
         ?>
         <style>
-            .msdl-fc-wrapper {
-                display: flex; gap: 20px; box-sizing: border-box; transition: all 0.3s ease; font-family: inherit; height: 100%; position: relative; overflow: hidden;
-            }
+            .msdl-fc-wrapper { display: flex; gap: 20px; box-sizing: border-box; transition: all 0.3s ease; font-family: inherit; height: 100%; position: relative; overflow: hidden; }
             .msdl-fc-wrapper:hover { transform: translateY(-2px); }
             
-            /* DESKTOP ELRENDEZÉS */
             .msdl-fc-wrapper.layout-row { flex-direction: row; align-items: center; justify-content: space-between; text-align: left; }
             .msdl-fc-wrapper.layout-row .msdl-fc-content { flex-grow: 1; }
             .msdl-fc-wrapper.layout-row .msdl-fc-action { flex-shrink: 0; margin-left: auto; }
@@ -257,23 +166,16 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
             .msdl-fc-wrapper.layout-column .msdl-fc-btn { display: block; width: 100%; text-align: center; box-sizing: border-box; }
 
             .msdl-fc-icon { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
-            .msdl-fc-icon svg { fill: currentColor; } /* SVG színöröklődés beállítása */
+            .msdl-fc-icon svg { fill: currentColor; }
             .msdl-fc-content { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
             .msdl-fc-title { font-size: 16px; font-weight: 700; margin: 0; word-wrap: break-word; line-height: 1.3; }
             .msdl-fc-meta { font-size: 13px; font-weight: 500; display: flex; flex-wrap: wrap; justify-content: inherit; gap: 4px;}
             .msdl-fc-meta span { display: inline-flex; align-items: center; }
             .msdl-fc-meta span:not(:last-child)::after { content: '•'; margin-left: 8px; opacity: 0.5; }
-            
             .msdl-fc-btn { font-size: 14px; font-weight: 600; text-decoration: none !important; transition: all 0.3s ease; }
 
-            /* MOBIL NÉZET */
             @media (max-width: 767px) {
-                .msdl-fc-wrapper {
-                    flex-direction: column !important;
-                    align-items: stretch !important;
-                    text-align: center !important;
-                    gap: 15px;
-                }
+                .msdl-fc-wrapper { flex-direction: column !important; align-items: stretch !important; text-align: center !important; gap: 15px; }
                 .msdl-fc-wrapper .msdl-fc-icon { margin: 0 auto; }
                 .msdl-fc-wrapper .msdl-fc-meta { justify-content: center; }
                 .msdl-fc-wrapper .msdl-fc-action { width: 100% !important; margin: auto 0 0 0 !important; padding-top: 10px; }
@@ -282,11 +184,7 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
         </style>
 
         <div class="msdl-fc-wrapper layout-<?php echo esc_attr( $layout ); ?>">
-            <?php if ( $show_icon ) : ?>
-                <div class="msdl-fc-icon">
-                    <?php echo $icon_render; // Natív Elementor ikon renderelése ?>
-                </div>
-            <?php endif; ?>
+            <?php if ( $show_icon ) : ?><div class="msdl-fc-icon"><?php echo $icon_render; ?></div><?php endif; ?>
             <div class="msdl-fc-content">
                 <?php if ( $show_title ) : ?><h4 class="msdl-fc-title"><?php echo $file_name; ?></h4><?php endif; ?>
                 <?php if ( $has_meta ) : ?>
