@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MSDL - Központi Hitelesítő (Main)
  * Description: Microsoft Graph API központi token szolgáltató és weblap menedzser a Child pluginok számára.
- * Version: 0.9.2
+ * Version: 0.9.3
  * Author: MFÜI - Szurofka Márton
  */
 
@@ -28,7 +28,7 @@ $msdl_main_update_checker = PucFactory::buildUpdateChecker(
 );
 
 // Kényszerítjük, hogy a csatolt msdl-main.zip fájlt töltse le a nyers forráskód helyett
-$msdl_main_update_checker->getVcsApi()->enableReleaseAssets();
+$msdl_main_update_checker->getVcsApi()->enableReleaseAssets('/msdl-main\.zip$/i');
 // ----------------------------------------------
 
 
