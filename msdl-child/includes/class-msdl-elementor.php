@@ -36,9 +36,13 @@ class MSDL_Child_Elementor {
     }
 
     public function register_widgets( $widgets_manager ) {
-        // JAVÍTVA: Kommentek eltávolítva, widget betöltése
+        // 1. Widget
         require_once MSDL_CHILD_DIR . 'includes/widgets/class-msdl-widget-button.php';
         $widgets_manager->register( new MSDL_Widget_Button() );
+
+        // 2. Widget
+        require_once MSDL_CHILD_DIR . 'includes/widgets/class-msdl-widget-file-card.php';
+        $widgets_manager->register( new MSDL_Widget_File_Card() );
     }
 
     public function enqueue_frontend_assets() {
