@@ -12,12 +12,10 @@ import {
 } from "@wordpress/components";
 import apiFetch from "@wordpress/api-fetch";
 
-// --- ÚJ: Natív WordPress TinyMCE Komponens ---
+// --- ÚJ: Bővített WordPress TinyMCE Komponens ---
 const WpTinyMceEditor = ({ value, onChange }) => {
   useEffect(() => {
     const id = "msdl-tinymce-editor";
-
-    // Ha maradt korábbról egy editor példány a DOM-ban, takarítjuk
     if (
       window.wp &&
       window.wp.editor &&
@@ -26,11 +24,19 @@ const WpTinyMceEditor = ({ value, onChange }) => {
     ) {
       window.wp.editor.remove(id);
     }
-
     if (window.wp && window.wp.editor) {
       window.wp.editor.initialize(id, {
         tinymce: {
           wpautop: true,
+          // Extra pluginok betöltése (pl. table a táblázatokhoz, textcolor a színekhez)
+          plugins:
+            "charmap hr lists paste textcolor wordpress wpdialogs wpeditimage wpemoji wpgallery wplink wpview table",
+          // Felső gombsor: Alcímek (H1-H6), Félkövér, Dőlt, Listák, Igazítás, Link
+          toolbar1:
+            "formatselect bold italic bullist numlist blockquote alignleft aligncenter alignright link unlink wp_adv",
+          // Alsó gombsor (Konyhamosogató): Áthúzott, Vonal, Szövegszín, Táblázat beszúrása, Visszavonás
+          toolbar2:
+            "strikethrough hr forecolor pastetext removeformat charmap outdent indent undo redo table",
           setup: function (editor) {
             editor.on("change keyup", function () {
               onChange(editor.getContent());
@@ -38,16 +44,13 @@ const WpTinyMceEditor = ({ value, onChange }) => {
           },
         },
         quicktags: true,
-        mediaButtons: false,
+        mediaButtons: true, // BEKAPCSOLVA: "Média hozzáadása" gomb a szerkesztő felett
       });
-
-      // Betöltjük a kezdőértéket az inicializálás után
       setTimeout(() => {
         const ed = window.tinymce && window.tinymce.get(id);
         if (ed && value) ed.setContent(value);
       }, 200);
     }
-
     return () => {
       if (window.wp && window.wp.editor) {
         window.wp.editor.remove(id);
@@ -58,14 +61,15 @@ const WpTinyMceEditor = ({ value, onChange }) => {
   return (
     <div style={{ marginTop: "15px", marginBottom: "20px" }}>
       <p style={{ margin: "0 0 8px 0", fontWeight: 500 }}>
-        Fájl HTML Leírása (TinyMCE Vizuális Szerkesztő)
+        Fájl HTML Leírása (Vizuális Szerkesztő)
       </p>
       <textarea
         id="msdl-tinymce-editor"
         defaultValue={value}
-        style={{ width: "100%", height: "200px" }}></textarea>
+        style={{ width: "100%", height: "250px" }}></textarea>
       <p style={{ fontSize: "11px", color: "#666", margin: "5px 0 0 0" }}>
-        Ez a formázott szöveg fog megjelenni a Widgetekben.
+        A "Média hozzáadása" gombbal képeket, az eszköztárból pedig táblázatokat
+        és formázásokat (Szövegszín, Címsorok) szúrhatsz be.
       </p>
     </div>
   );
@@ -76,21 +80,38 @@ const FileManagerApp = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [wpRoles, setWpRoles] = useState({});
 
+  // Navigáció és Keresés
   const [currentFolderId, setCurrentFolderId] = useState(null);
   const [pathHistory, setPathHistory] = useState([
     { id: null, name: "Gyökérmappa" },
   ]);
+  const [searchQuery, setSearchQuery] = useState("");
 
+  // Kijelölés állapota
+  const [selectedNodes, setSelectedNodes] = useState([]);
+
+  // Egyes Modál
   const [isVisModalOpen, setIsVisModalOpen] = useState(false);
   const [editingNode, setEditingNode] = useState(null);
-
   const [visType, setVisType] = useState("public");
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [applyToChildren, setApplyToChildren] = useState(false);
-
   const [customTitle, setCustomTitle] = useState("");
   const [customDesc, setCustomDesc] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+
+  // Tömeges Modál
+  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
+  const [batchVisType, setBatchVisType] = useState("public");
+  const [batchSelectedRoles, setBatchSelectedRoles] = useState([]);
+  const [batchApplyToChildren, setBatchApplyToChildren] = useState(false);
+  const [isBatchSaving, setIsBatchSaving] = useState(false);
+
+  // Gyökérmappa Modál
+  const [isRootModalOpen, setIsRootModalOpen] = useState(false);
+  const [rootVisType, setRootVisType] = useState("public");
+  const [rootSelectedRoles, setRootSelectedRoles] = useState([]);
+  const [isRootSaving, setIsRootSaving] = useState(false);
 
   useEffect(() => {
     loadNodes(currentFolderId);
@@ -108,6 +129,7 @@ const FileManagerApp = () => {
 
   const loadNodes = async (parentId) => {
     setIsLoading(true);
+    setSelectedNodes([]); // Kijelölés törlése mappa váltáskor
     try {
       const url = parentId
         ? `/msdl-child/v1/get-nodes?parent_id=${parentId}`
@@ -120,7 +142,20 @@ const FileManagerApp = () => {
     setIsLoading(false);
   };
 
-  const handleFolderClick = (folder) => {
+  // --- Kereső logika ---
+  const filteredNodes = nodes.filter((node) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    const nameMatch = node.name && node.name.toLowerCase().includes(q);
+    const titleMatch =
+      node.custom_title && node.custom_title.toLowerCase().includes(q);
+    return nameMatch || titleMatch;
+  });
+
+  // JAVÍTVA: Megbízhatóbb állapotfrissítés natív böngésző eseménymegszakítással
+  const handleFolderClick = (e, folder) => {
+    e.preventDefault();
+    setSearchQuery("");
     setCurrentFolderId(folder.graph_id);
     setPathHistory([
       ...pathHistory,
@@ -128,10 +163,29 @@ const FileManagerApp = () => {
     ]);
   };
 
-  const handleBreadcrumbClick = (index) => {
+  const handleBreadcrumbClick = (e, index) => {
+    e.preventDefault();
+    setSearchQuery("");
     const newPath = pathHistory.slice(0, index + 1);
     setPathHistory(newPath);
     setCurrentFolderId(newPath[newPath.length - 1].id);
+  };
+
+  // --- Kijelölés logika ---
+  const handleSelectAll = (checked) => {
+    if (checked) {
+      setSelectedNodes(filteredNodes.map((n) => n.id));
+    } else {
+      setSelectedNodes([]);
+    }
+  };
+
+  const handleSelectNode = (id, checked) => {
+    if (checked) {
+      setSelectedNodes([...selectedNodes, id]);
+    } else {
+      setSelectedNodes(selectedNodes.filter((nId) => nId !== id));
+    }
   };
 
   const formatSize = (bytes) => {
@@ -142,22 +196,67 @@ const FileManagerApp = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
+  // --- Gyökérmappa Logika ---
+  const openRootModal = async () => {
+    try {
+      const settings = await apiFetch({ path: "/wp/v2/settings" });
+      const rootVis = settings.msdl_root_visibility || "public";
+
+      if (
+        rootVis === "public" ||
+        rootVis === "loggedin" ||
+        rootVis === "hidden"
+      ) {
+        setRootVisType(rootVis);
+        setRootSelectedRoles([]);
+      } else {
+        setRootVisType("roles");
+        try {
+          setRootSelectedRoles(JSON.parse(rootVis));
+        } catch (e) {
+          setRootSelectedRoles([]);
+        }
+      }
+    } catch (e) {}
+    setIsRootModalOpen(true);
+  };
+
+  const saveRootVisibility = async () => {
+    setIsRootSaving(true);
+    let finalRolesString = ["public", "loggedin", "hidden"].includes(
+      rootVisType,
+    )
+      ? rootVisType
+      : JSON.stringify(rootSelectedRoles);
+    try {
+      await apiFetch({
+        path: "/wp/v2/settings",
+        method: "POST",
+        data: { msdl_root_visibility: finalRolesString },
+      });
+      setIsRootModalOpen(false);
+    } catch (e) {
+      alert("Hiba a gyökérmappa mentésekor!");
+    }
+    setIsRootSaving(false);
+  };
+
+  // --- Egyes szerkesztés mentése ---
   const openVisibilityModal = (node) => {
     setEditingNode(node);
     setApplyToChildren(false);
-
     setCustomTitle(node.custom_title || "");
     setCustomDesc(node.custom_description || "");
 
     if (!node.visibility_roles) {
       setVisType("public");
       setSelectedRoles([]);
-    } else if (node.visibility_roles === "public") {
-      setVisType("public");
-    } else if (node.visibility_roles === "loggedin") {
-      setVisType("loggedin");
-    } else if (node.visibility_roles === "hidden") {
-      setVisType("hidden");
+    } else if (
+      node.visibility_roles === "public" ||
+      node.visibility_roles === "loggedin" ||
+      node.visibility_roles === "hidden"
+    ) {
+      setVisType(node.visibility_roles);
     } else {
       setVisType("roles");
       try {
@@ -169,22 +268,11 @@ const FileManagerApp = () => {
     setIsVisModalOpen(true);
   };
 
-  const handleRoleToggle = (roleKey) => {
-    if (selectedRoles.includes(roleKey)) {
-      setSelectedRoles(selectedRoles.filter((r) => r !== roleKey));
-    } else {
-      setSelectedRoles([...selectedRoles, roleKey]);
-    }
-  };
-
   const saveVisibility = async () => {
     setIsSaving(true);
-
-    let finalRolesString = "";
-    if (visType === "public") finalRolesString = "public";
-    else if (visType === "loggedin") finalRolesString = "loggedin";
-    else if (visType === "hidden") finalRolesString = "hidden";
-    else finalRolesString = JSON.stringify(selectedRoles);
+    let finalRolesString = ["public", "loggedin", "hidden"].includes(visType)
+      ? visType
+      : JSON.stringify(selectedRoles);
 
     try {
       await apiFetch({
@@ -205,6 +293,38 @@ const FileManagerApp = () => {
     }
     setIsSaving(false);
   };
+
+  // --- Tömeges szerkesztés mentése ---
+  const saveBatchVisibility = async () => {
+    setIsBatchSaving(true);
+    let finalRolesString = ["public", "loggedin", "hidden"].includes(
+      batchVisType,
+    )
+      ? batchVisType
+      : JSON.stringify(batchSelectedRoles);
+
+    try {
+      await apiFetch({
+        path: "/msdl-child/v1/batch-update-visibility",
+        method: "POST",
+        data: {
+          ids: selectedNodes,
+          roles: finalRolesString,
+          apply_to_children: batchApplyToChildren,
+        },
+      });
+      setIsBatchModalOpen(false);
+      setSelectedNodes([]);
+      loadNodes(currentFolderId);
+    } catch (e) {
+      alert("Hiba történt a tömeges mentéskor!");
+    }
+    setIsBatchSaving(false);
+  };
+
+  const hasFolderSelected = selectedNodes.some(
+    (id) => nodes.find((n) => n.id === id)?.type === "folder",
+  );
 
   const getVisibilityBadge = (roleString) => {
     if (!roleString)
@@ -289,7 +409,22 @@ const FileManagerApp = () => {
 
   return (
     <div className="wrap">
-      <h1 style={{ marginBottom: "20px" }}>Fájlkezelő és Jogosultságok</h1>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "20px",
+        }}>
+        <h1 style={{ margin: 0 }}>Fájlkezelő és Jogosultságok</h1>
+        <Button
+          isSecondary
+          onClick={openRootModal}
+          style={{ borderColor: "#2271b1", color: "#2271b1" }}>
+          <Dashicon icon="admin-network" style={{ marginRight: "5px" }} />{" "}
+          Gyökérmappa (Teljes Tár) Levédése
+        </Button>
+      </div>
 
       <div
         style={{
@@ -306,17 +441,18 @@ const FileManagerApp = () => {
           <span
             key={crumb.id || "root"}
             style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <Button
-              isLink
+            {/* JAVÍTVA: Szabványos Link a kenyérmorzsákhoz is! */}
+            <a
+              href="#"
               style={{
                 textDecoration: "none",
                 fontWeight:
                   index === pathHistory.length - 1 ? "bold" : "normal",
                 color: index === pathHistory.length - 1 ? "#1d2327" : "#2271b1",
               }}
-              onClick={() => handleBreadcrumbClick(index)}>
+              onClick={(e) => handleBreadcrumbClick(e, index)}>
               {crumb.name}
-            </Button>
+            </a>
             {index < pathHistory.length - 1 && (
               <span style={{ color: "#82878c" }}>/</span>
             )}
@@ -324,9 +460,52 @@ const FileManagerApp = () => {
         ))}
       </div>
 
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          marginBottom: "15px",
+          alignItems: "center",
+        }}>
+        <div>
+          <Button
+            isSecondary
+            disabled={selectedNodes.length === 0}
+            onClick={() => {
+              setBatchVisType("public");
+              setBatchSelectedRoles([]);
+              setBatchApplyToChildren(false);
+              setIsBatchModalOpen(true);
+            }}>
+            Tömeges Beállítás ({selectedNodes.length})
+          </Button>
+        </div>
+        <div style={{ width: "300px" }}>
+          <div className="components-base-control">
+            <input
+              className="components-text-control__input"
+              type="text"
+              placeholder="Keresés név vagy cím alapján..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
       <table className="wp-list-table widefat fixed striped table-view-list">
         <thead>
           <tr>
+            <th style={{ width: "40px", textAlign: "center" }}>
+              <CheckboxControl
+                checked={
+                  filteredNodes.length > 0 &&
+                  selectedNodes.length === filteredNodes.length
+                }
+                onChange={handleSelectAll}
+                style={{ marginBottom: 0 }}
+              />
+            </th>
             <th style={{ width: "50px", textAlign: "center" }}>Típus</th>
             <th>Eredeti Név</th>
             <th>Megjelenített Cím</th>
@@ -338,20 +517,20 @@ const FileManagerApp = () => {
         <tbody>
           {isLoading ? (
             <tr>
-              <td colSpan="6" style={{ textAlign: "center", padding: "30px" }}>
+              <td colSpan="7" style={{ textAlign: "center", padding: "30px" }}>
                 <Spinner /> Betöltés...
               </td>
             </tr>
-          ) : nodes.length === 0 ? (
+          ) : filteredNodes.length === 0 ? (
             <tr>
               <td
-                colSpan="6"
+                colSpan="7"
                 style={{ textAlign: "center", padding: "30px", color: "#666" }}>
-                A mappa üres.
+                Nincs megjeleníthető elem.
               </td>
             </tr>
           ) : (
-            nodes.map((node) => {
+            filteredNodes.map((node) => {
               const isUntreated = !node.visibility_roles;
               const isHidden = node.visibility_roles === "hidden";
               return (
@@ -361,6 +540,13 @@ const FileManagerApp = () => {
                     backgroundColor: isUntreated ? "#fcf0f1" : "transparent",
                     opacity: isHidden ? 0.6 : 1,
                   }}>
+                  <td style={{ textAlign: "center", verticalAlign: "middle" }}>
+                    <CheckboxControl
+                      checked={selectedNodes.includes(node.id)}
+                      onChange={(val) => handleSelectNode(node.id, val)}
+                      style={{ marginBottom: 0 }}
+                    />
+                  </td>
                   <td style={{ textAlign: "center", verticalAlign: "middle" }}>
                     {node.type === "folder" ? (
                       <Dashicon icon="portfolio" style={{ color: "#f5c342" }} />
@@ -373,16 +559,17 @@ const FileManagerApp = () => {
                   </td>
                   <td style={{ verticalAlign: "middle" }}>
                     {node.type === "folder" ? (
-                      <Button
-                        isLink
-                        onClick={() => handleFolderClick(node)}
+                      /* JAVÍTVA: Szabványos natív Link a mappák belépéséhez, ami mindig megbízhatóan lefut! */
+                      <a
+                        href="#"
+                        onClick={(e) => handleFolderClick(e, node)}
                         style={{
                           fontWeight: "bold",
                           textDecoration: "none",
-                          color: isHidden ? "#777" : "",
+                          color: isHidden ? "#777" : "#2271b1",
                         }}>
                         {node.name}
-                      </Button>
+                      </a>
                     ) : (
                       <strong>{node.name}</strong>
                     )}
@@ -417,6 +604,77 @@ const FileManagerApp = () => {
         </tbody>
       </table>
 
+      {/* --- Gyökérmappa Modál --- */}
+      {isRootModalOpen && (
+        <Modal
+          title="Teljes Dokumentumtár (Gyökérmappa) Jogosultsága"
+          onRequestClose={() => setIsRootModalOpen(false)}
+          style={{ width: "500px" }}>
+          <p style={{ color: "#666", marginBottom: "20px" }}>
+            Aki itt nincs engedélyezve, az <strong>semmit sem fog látni</strong>{" "}
+            a fájlkezelőben (akkor sem, ha az almappák nyilvánosak)!
+          </p>
+          <RadioControl
+            selected={rootVisType}
+            options={[
+              {
+                label: "Nyilvános (Bárki láthatja a fájlkezelőt)",
+                value: "public",
+              },
+              { label: "Csak bejelentkezett felhasználók", value: "loggedin" },
+              { label: "Kizárólag specifikus szerepkörök", value: "roles" },
+            ]}
+            onChange={setRootVisType}
+          />
+          {rootVisType === "roles" && (
+            <div
+              style={{
+                marginTop: "15px",
+                padding: "15px",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                maxHeight: "200px",
+                overflowY: "auto",
+              }}>
+              {Object.entries(wpRoles).map(([key, name]) => (
+                <CheckboxControl
+                  key={key}
+                  label={name}
+                  checked={rootSelectedRoles.includes(key)}
+                  onChange={(val) => {
+                    if (val) setRootSelectedRoles([...rootSelectedRoles, key]);
+                    else
+                      setRootSelectedRoles(
+                        rootSelectedRoles.filter((r) => r !== key),
+                      );
+                  }}
+                />
+              ))}
+            </div>
+          )}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: "20px",
+            }}>
+            <Button
+              isSecondary
+              onClick={() => setIsRootModalOpen(false)}
+              style={{ marginRight: "10px" }}>
+              Mégsem
+            </Button>
+            <Button
+              isPrimary
+              isBusy={isRootSaving}
+              onClick={saveRootVisibility}>
+              Beállítás Mentése
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {/* --- Egyes Módosítás Modál --- */}
       {isVisModalOpen && editingNode && (
         <Modal
           title={`Beállítások: ${editingNode.name}`}
@@ -434,8 +692,6 @@ const FileManagerApp = () => {
               onChange={setCustomTitle}
               help="Ha kitöltöd, a widgetek ezt a nevet mutatják az eredeti fájlnév helyett."
             />
-
-            {/* ÚJ TINYMCE VIZUÁLIS SZERKESZTŐ */}
             <WpTinyMceEditor value={customDesc} onChange={setCustomDesc} />
           </div>
 
@@ -472,7 +728,11 @@ const FileManagerApp = () => {
                   key={key}
                   label={name}
                   checked={selectedRoles.includes(key)}
-                  onChange={() => handleRoleToggle(key)}
+                  onChange={(val) => {
+                    if (val) setSelectedRoles([...selectedRoles, key]);
+                    else
+                      setSelectedRoles(selectedRoles.filter((r) => r !== key));
+                  }}
                 />
               ))}
             </div>
@@ -491,15 +751,6 @@ const FileManagerApp = () => {
                 checked={applyToChildren}
                 onChange={setApplyToChildren}
               />
-              <p
-                style={{
-                  fontSize: "11px",
-                  color: "#666",
-                  margin: "5px 0 0 0",
-                }}>
-                Figyelem: Ez azonnal felülírja a mappán belül lévő összes elem
-                egyedi beállítását (kivéve a Címet és a Leírást)!
-              </p>
             </div>
           )}
 
@@ -517,6 +768,100 @@ const FileManagerApp = () => {
             </Button>
             <Button isPrimary isBusy={isSaving} onClick={saveVisibility}>
               Mentés
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {/* --- Tömeges Módosítás Modál --- */}
+      {isBatchModalOpen && (
+        <Modal
+          title={`Tömeges beállítás (${selectedNodes.length} elem)`}
+          onRequestClose={() => setIsBatchModalOpen(false)}
+          style={{ width: "500px" }}>
+          <p style={{ color: "#666", marginBottom: "20px" }}>
+            A beállított jogosultság az összes kijelölt elemre alkalmazásra
+            kerül.
+          </p>
+          <RadioControl
+            label="Láthatóság (Jogosultság)"
+            selected={batchVisType}
+            options={[
+              { label: "Nyilvános (Bárki láthatja)", value: "public" },
+              { label: "Csak bejelentkezett felhasználók", value: "loggedin" },
+              { label: "Kizárólag specifikus szerepkörök", value: "roles" },
+              {
+                label: "Rejtett (Lomtár / Teljes elrejtés a frontendről)",
+                value: "hidden",
+              },
+            ]}
+            onChange={(value) => setBatchVisType(value)}
+          />
+
+          {batchVisType === "roles" && (
+            <div
+              style={{
+                marginTop: "15px",
+                padding: "15px",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                maxHeight: "200px",
+                overflowY: "auto",
+              }}>
+              <p style={{ margin: "0 0 10px 0", fontWeight: "bold" }}>
+                Válassz szerepköröket:
+              </p>
+              {Object.entries(wpRoles).map(([key, name]) => (
+                <CheckboxControl
+                  key={key}
+                  label={name}
+                  checked={batchSelectedRoles.includes(key)}
+                  onChange={(val) => {
+                    if (val)
+                      setBatchSelectedRoles([...batchSelectedRoles, key]);
+                    else
+                      setBatchSelectedRoles(
+                        batchSelectedRoles.filter((r) => r !== key),
+                      );
+                  }}
+                />
+              ))}
+            </div>
+          )}
+
+          {hasFolderSelected && (
+            <div
+              style={{
+                marginTop: "20px",
+                padding: "15px",
+                backgroundColor: "#f0f6fc",
+                borderLeft: "4px solid #72aee6",
+              }}>
+              <CheckboxControl
+                label="Öröklődés kényszerítése: Mivel a kijelölés mappát is tartalmaz, a jogok ráerőszakolhatók minden almappára és fájlra is!"
+                checked={batchApplyToChildren}
+                onChange={setBatchApplyToChildren}
+              />
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              marginTop: "20px",
+            }}>
+            <Button
+              isSecondary
+              onClick={() => setIsBatchModalOpen(false)}
+              style={{ marginRight: "10px" }}>
+              Mégsem
+            </Button>
+            <Button
+              isPrimary
+              isBusy={isBatchSaving}
+              onClick={saveBatchVisibility}>
+              Tömeges Mentés
             </Button>
           </div>
         </Modal>

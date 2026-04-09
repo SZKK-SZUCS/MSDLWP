@@ -40,7 +40,9 @@ class MSDL_Child_Admin {
         $page = isset( $_GET['page'] ) ? sanitize_text_field( $_GET['page'] ) : '';
         if ( ! in_array( $page, [ 'msdl-child', 'msdl-sync', 'msdl-settings' ], true ) ) return;
         
-        // ÚJ: A WordPress gyári TinyMCE és Media editor scriptjeinek betöltése a React számára!
+        // ÚJ: A WordPress gyári Médiatárának betöltése a képek beillesztéséhez
+        wp_enqueue_media();
+        // A WordPress gyári TinyMCE Editor betöltése
         wp_enqueue_editor();
 
         $asset_file = MSDL_CHILD_DIR . 'build/index.asset.php';
@@ -51,11 +53,13 @@ class MSDL_Child_Admin {
     }
 
     public function register_rest_endpoints() {
+        // ÚJ: msdl_root_visibility regisztrálása, hogy a React tudja olvasni/menteni
         $settings = [ 
             'msdl_main_server_url', 
             'msdl_internal_api_key',
             'msdl_sync_mode',
-            'msdl_local_sync_interval'
+            'msdl_local_sync_interval',
+            'msdl_root_visibility'
         ];
         foreach ( $settings as $setting ) {
             register_setting( 'msdl_options', $setting, [ 'type' => 'string', 'show_in_rest' => true, 'default' => '' ] );
@@ -88,6 +92,13 @@ class MSDL_Child_Admin {
         register_rest_route( 'msdl-child/v1', '/update-visibility', [ 
             'methods' => WP_REST_Server::CREATABLE, 
             'callback' => [ $this, 'update_visibility' ], 
+            'permission_callback' => function() { return current_user_can( 'manage_options' ); } 
+        ]);
+
+        // ÚJ: Tömeges módosítás végpontja
+        register_rest_route( 'msdl-child/v1', '/batch-update-visibility', [ 
+            'methods' => WP_REST_Server::CREATABLE, 
+            'callback' => [ $this, 'batch_update_visibility' ], 
             'permission_callback' => function() { return current_user_can( 'manage_options' ); } 
         ]);
 
@@ -192,6 +203,38 @@ class MSDL_Child_Admin {
                 $this->update_descendants_visibility( $node->graph_id, $roles, $table_name );
             }
         }
+        return rest_ensure_response( ['success' => true] );
+    }
+
+    // ÚJ: Tömeges módosítás feldolgozása (Öröklődéssel együtt!)
+    public function batch_update_visibility( WP_REST_Request $request ) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'msdl_nodes';
+        $params = $request->get_json_params();
+
+        $ids = isset($params['ids']) && is_array($params['ids']) ? array_map('intval', $params['ids']) : [];
+        $roles = sanitize_text_field( $params['roles'] );
+        $apply_to_children = isset($params['apply_to_children']) ? rest_sanitize_boolean($params['apply_to_children']) : false;
+
+        if ( empty($ids) ) {
+            return rest_ensure_response(['success' => false, 'message' => 'Nincs kiválasztott elem.']);
+        }
+
+        $placeholders = implode(',', array_fill(0, count($ids), '%d'));
+        $query = $wpdb->prepare( "UPDATE $table_name SET visibility_roles = %s WHERE id IN ($placeholders)", array_merge([$roles], $ids) );
+        $wpdb->query( $query );
+
+        // Ha a tömeges kijelölésben voltak mappák, és a user kérte az öröklődést:
+        if ( $apply_to_children ) {
+            $nodes_query = $wpdb->prepare( "SELECT graph_id, type FROM $table_name WHERE id IN ($placeholders)", $ids );
+            $nodes = $wpdb->get_results( $nodes_query );
+            foreach ( $nodes as $node ) {
+                if ( $node->type === 'folder' ) {
+                    $this->update_descendants_visibility( $node->graph_id, $roles, $table_name );
+                }
+            }
+        }
+
         return rest_ensure_response( ['success' => true] );
     }
 
