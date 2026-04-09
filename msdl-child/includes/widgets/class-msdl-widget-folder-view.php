@@ -14,10 +14,8 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
     private function check_access( $roles_data ) {
         if ( empty( $roles_data ) || $roles_data === 'public' ) return true;
         if ( $roles_data === 'loggedin' ) return is_user_logged_in();
-        
         $allowed_roles = json_decode( $roles_data, true );
         if ( ! is_array( $allowed_roles ) ) $allowed_roles = [ $roles_data ];
-        
         if ( is_user_logged_in() ) {
             $current_user = wp_get_current_user();
             if ( in_array( 'administrator', $current_user->roles ) ) return true;
@@ -39,7 +37,6 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         $this->start_controls_section( 'section_elements', [ 'label' => 'Megjelenítés', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
         $this->add_control( 'show_icon', [ 'label' => 'Ikon', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'show_title', [ 'label' => 'Fájlnév / Cím', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
-        $this->add_control( 'show_desc', [ 'label' => 'Leírás (SharePoint)', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'divider_1', [ 'type' => \Elementor\Controls_Manager::DIVIDER ] );
         $this->add_control( 'show_meta_ext', [ 'label' => 'Kiterjesztés', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'show_meta_size', [ 'label' => 'Méret', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
@@ -53,17 +50,10 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         $this->add_control( 'folder_template', [ 'label' => 'Sablon Választó', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'tpl-list' => 'Vízszintes Lista', 'tpl-grid' => 'Kompakt Rács (Grid)', 'tpl-carousel-light' => 'Carousel (Világos Kártyák)', 'tpl-carousel-dark' => 'Carousel (Sötét Kártyák)', 'custom' => 'Egyéni (Custom)' ], 'default' => 'tpl-list' ]);
         
         $this->add_control( 'custom_card_base', [
-            'label' => 'Kártya Stílus Alap (Widget 2)',
+            'label' => 'Kártya Stílus Alap',
             'type' => \Elementor\Controls_Manager::SELECT,
-            'options' => [
-                '' => 'Válassz stílust...',
-                'card-list' => 'Letisztult Lista (Vízszintes)',
-                'card-app'  => 'Modern App Kártya (Dobozos)',
-                'card-dark' => 'Kiemelt Sötét Kártya',
-            ],
-            'default' => '',
-            'condition' => [ 'folder_template' => 'custom' ],
-            'description' => 'Gyorsan ráhúzza a kártyákra a 2. widgetből ismert dizájnt, de az elrendezést (Grid/Carousel) nem bántja!',
+            'options' => [ '' => 'Válassz stílust...', 'card-list' => 'Letisztult Lista (Vízszintes)', 'card-app'  => 'Modern App Kártya (Dobozos)', 'card-dark' => 'Kiemelt Sötét Kártya' ],
+            'default' => '', 'condition' => [ 'folder_template' => 'custom' ],
         ]);
 
         $this->add_control( 'layout_style', [ 'label' => 'Elrendezés Bázis', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'list' => 'Lista (Egymás alatt)', 'grid' => 'Rács (Oszlopos)', 'carousel' => 'Carousel' ], 'default' => 'list', 'condition' => [ 'folder_template' => 'custom' ], 'separator' => 'before' ]);
@@ -202,9 +192,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
                             $p_name = !empty($parent->custom_title) ? $parent->custom_title : $parent->name;
                             $breadcrumbs[] = [ 'id' => strval($parent->id), 'name' => $p_name ];
                             $parent_gid = $parent->parent_graph_id;
-                        } else {
-                            break;
-                        }
+                        } else { break; }
                     }
                 }
             }
@@ -245,7 +233,6 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             }
             if ( empty( $icon_render ) ) $icon_render = sprintf( '<i class="%s" aria-hidden="true"></i>', esc_attr( $icon_class ) );
 
-            // JAVÍTÁS: Dinamikus méret és Cím/Leírás
             $size_str = '-';
             if ( $is_folder ) {
                 $size_str = 'Mappa';
@@ -261,9 +248,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             }
             
             $date_str = (!empty($item->last_modified)) ? date('Y.m.d.', strtotime($item->last_modified)) : '-';
-            
             $display_name = !empty($item->custom_title) ? $item->custom_title : $item->name;
-            $desc_html = (!empty($item->custom_description) && $settings['show_desc'] === 'yes') ? '<div class="msdl-fv-desc">' . wp_kses_post($item->custom_description) . '</div>' : '';
 
             $display_style = $is_hidden ? 'display:none;' : '';
             $item_class = 'msdl-fv-item layout-' . esc_attr($item_layout) . ' msdl-page-item';
@@ -282,7 +267,6 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
                 <?php if ( $settings['show_icon'] === 'yes' ) : ?><div class="msdl-fv-icon"><?php echo $icon_render; ?></div><?php endif; ?>
                 <div class="msdl-fv-content">
                     <?php if ( $settings['show_title'] === 'yes' ) : ?><h4 class="msdl-fv-title"><?php echo esc_html($display_name); ?></h4><?php endif; ?>
-                    <?php echo $desc_html; ?>
                     <div class="msdl-fv-meta">
                         <?php if ( $settings['show_meta_ext'] === 'yes' && !$is_folder ) : ?><span><?php echo esc_html( strtoupper($ext) ); ?></span><?php endif; ?>
                         <?php if ( $settings['show_meta_size'] === 'yes' ) : ?><span><?php echo $size_str; ?></span><?php endif; ?>
@@ -333,9 +317,6 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             
             .msdl-fv-content { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
             .msdl-fv-title { font-size: 15px; font-weight: 700; margin: 0; word-wrap: break-word; line-height: 1.3; }
-            
-            /* ÚJ: LEÍRÁS CSS */
-            .msdl-fv-desc { font-size: 13px; color: #787c82; margin-bottom: 8px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-overflow: ellipsis; text-align: left; }
             
             .msdl-fv-meta { font-size: 12px; font-weight: 500; display: flex; flex-wrap: wrap; gap: 4px; }
             .msdl-fv-item.layout-list .msdl-fv-meta { justify-content: flex-start; }

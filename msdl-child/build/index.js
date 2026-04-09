@@ -135,26 +135,89 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
+// --- ÚJ: Natív WordPress TinyMCE Komponens ---
+
+const WpTinyMceEditor = ({
+  value,
+  onChange
+}) => {
+  (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+    const id = "msdl-tinymce-editor";
+
+    // Ha maradt korábbról egy editor példány a DOM-ban, takarítjuk
+    if (window.wp && window.wp.editor && window.tinymce && window.tinymce.get(id)) {
+      window.wp.editor.remove(id);
+    }
+    if (window.wp && window.wp.editor) {
+      window.wp.editor.initialize(id, {
+        tinymce: {
+          wpautop: true,
+          setup: function (editor) {
+            editor.on("change keyup", function () {
+              onChange(editor.getContent());
+            });
+          }
+        },
+        quicktags: true,
+        mediaButtons: false
+      });
+
+      // Betöltjük a kezdőértéket az inicializálás után
+      setTimeout(() => {
+        const ed = window.tinymce && window.tinymce.get(id);
+        if (ed && value) ed.setContent(value);
+      }, 200);
+    }
+    return () => {
+      if (window.wp && window.wp.editor) {
+        window.wp.editor.remove(id);
+      }
+    };
+  }, []);
+  return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
+    style: {
+      marginTop: "15px",
+      marginBottom: "20px"
+    },
+    children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("p", {
+      style: {
+        margin: "0 0 8px 0",
+        fontWeight: 500
+      },
+      children: "F\xE1jl HTML Le\xEDr\xE1sa (TinyMCE Vizu\xE1lis Szerkeszt\u0151)"
+    }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("textarea", {
+      id: "msdl-tinymce-editor",
+      defaultValue: value,
+      style: {
+        width: "100%",
+        height: "200px"
+      }
+    }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("p", {
+      style: {
+        fontSize: "11px",
+        color: "#666",
+        margin: "5px 0 0 0"
+      },
+      children: "Ez a form\xE1zott sz\xF6veg fog megjelenni a Widgetekben."
+    })]
+  });
+};
 const FileManagerApp = () => {
   const [nodes, setNodes] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
   const [isLoading, setIsLoading] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(true);
   const [wpRoles, setWpRoles] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)({});
-
-  // Navigáció
   const [currentFolderId, setCurrentFolderId] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
   const [pathHistory, setPathHistory] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([{
     id: null,
     name: "Gyökérmappa"
   }]);
-
-  // Modális ablak állapota
   const [isVisModalOpen, setIsVisModalOpen] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [editingNode, setEditingNode] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
-
-  // Űrlap állapota a modálon belül
-  const [visType, setVisType] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("public"); // 'public', 'loggedin', 'roles'
+  const [visType, setVisType] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("public");
   const [selectedRoles, setSelectedRoles] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
   const [applyToChildren, setApplyToChildren] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
+  const [customTitle, setCustomTitle] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
+  const [customDesc, setCustomDesc] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [isSaving, setIsSaving] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
     loadNodes(currentFolderId);
@@ -202,11 +265,11 @@ const FileManagerApp = () => {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
-
-  // --- Jogosultság Mentési Logika ---
   const openVisibilityModal = node => {
     setEditingNode(node);
     setApplyToChildren(false);
+    setCustomTitle(node.custom_title || "");
+    setCustomDesc(node.custom_description || "");
     if (!node.visibility_roles) {
       setVisType("public");
       setSelectedRoles([]);
@@ -214,6 +277,8 @@ const FileManagerApp = () => {
       setVisType("public");
     } else if (node.visibility_roles === "loggedin") {
       setVisType("loggedin");
+    } else if (node.visibility_roles === "hidden") {
+      setVisType("hidden");
     } else {
       setVisType("roles");
       try {
@@ -234,7 +299,7 @@ const FileManagerApp = () => {
   const saveVisibility = async () => {
     setIsSaving(true);
     let finalRolesString = "";
-    if (visType === "public") finalRolesString = "public";else if (visType === "loggedin") finalRolesString = "loggedin";else finalRolesString = JSON.stringify(selectedRoles);
+    if (visType === "public") finalRolesString = "public";else if (visType === "loggedin") finalRolesString = "loggedin";else if (visType === "hidden") finalRolesString = "hidden";else finalRolesString = JSON.stringify(selectedRoles);
     try {
       await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
         path: "/msdl-child/v1/update-visibility",
@@ -242,18 +307,18 @@ const FileManagerApp = () => {
         data: {
           id: editingNode.id,
           roles: finalRolesString,
-          apply_to_children: applyToChildren
+          apply_to_children: applyToChildren,
+          custom_title: customTitle,
+          custom_description: customDesc
         }
       });
       setIsVisModalOpen(false);
-      loadNodes(currentFolderId); // Újratöltjük a listát, hogy frissüljenek a plecsnik
+      loadNodes(currentFolderId);
     } catch (e) {
-      alert("Hiba történt a jogosultság mentésekor!");
+      alert("Hiba történt a mentéskor!");
     }
     setIsSaving(false);
   };
-
-  // --- Plecsni generátor ---
   const getVisibilityBadge = roleString => {
     if (!roleString) return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
       style: {
@@ -265,6 +330,25 @@ const FileManagerApp = () => {
         fontSize: "11px"
       },
       children: "Kezelhetetlen (\xDAj)"
+    });
+    if (roleString === "hidden") return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("span", {
+      style: {
+        padding: "3px 8px",
+        borderRadius: "4px",
+        backgroundColor: "#e2e4e7",
+        color: "#50575e",
+        fontWeight: "bold",
+        fontSize: "11px"
+      },
+      children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
+        icon: "hidden",
+        style: {
+          fontSize: "14px",
+          width: "14px",
+          height: "14px",
+          verticalAlign: "middle"
+        }
+      }), " ", "Rejtett"]
     });
     if (roleString === "public") return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
       style: {
@@ -306,7 +390,7 @@ const FileManagerApp = () => {
       style: {
         marginBottom: "20px"
       },
-      children: "Jogosults\xE1gok \xE9s F\xE1jlkezel\u0151"
+      children: "F\xE1jlkezel\u0151 \xE9s Jogosults\xE1gok"
     }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
       style: {
         marginBottom: "15px",
@@ -355,7 +439,9 @@ const FileManagerApp = () => {
             },
             children: "T\xEDpus"
           }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
-            children: "N\xE9v"
+            children: "Eredeti N\xE9v"
+          }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
+            children: "Megjelen\xEDtett C\xEDm"
           }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
             style: {
               width: "150px"
@@ -376,7 +462,7 @@ const FileManagerApp = () => {
       }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("tbody", {
         children: isLoading ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("tr", {
           children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("td", {
-            colSpan: "5",
+            colSpan: "6",
             style: {
               textAlign: "center",
               padding: "30px"
@@ -385,7 +471,7 @@ const FileManagerApp = () => {
           })
         }) : nodes.length === 0 ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("tr", {
           children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
-            colSpan: "5",
+            colSpan: "6",
             style: {
               textAlign: "center",
               padding: "30px",
@@ -395,9 +481,11 @@ const FileManagerApp = () => {
           })
         }) : nodes.map(node => {
           const isUntreated = !node.visibility_roles;
+          const isHidden = node.visibility_roles === "hidden";
           return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("tr", {
             style: {
-              backgroundColor: isUntreated ? "#fcf0f1" : "transparent"
+              backgroundColor: isUntreated ? "#fcf0f1" : "transparent",
+              opacity: isHidden ? 0.6 : 1
             },
             children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
               style: {
@@ -424,11 +512,27 @@ const FileManagerApp = () => {
                 onClick: () => handleFolderClick(node),
                 style: {
                   fontWeight: "bold",
-                  textDecoration: "none"
+                  textDecoration: "none",
+                  color: isHidden ? "#777" : ""
                 },
                 children: node.name
               }) : /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("strong", {
                 children: node.name
+              })
+            }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
+              style: {
+                verticalAlign: "middle"
+              },
+              children: node.custom_title ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("strong", {
+                style: {
+                  color: "#007cba"
+                },
+                children: node.custom_title
+              }) : /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
+                style: {
+                  color: "#999"
+                },
+                children: "- Nincs -"
               })
             }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
               style: {
@@ -448,25 +552,35 @@ const FileManagerApp = () => {
                 isSmall: true,
                 isSecondary: true,
                 onClick: () => openVisibilityModal(node),
-                children: "Jogosults\xE1g"
+                children: "Szerkeszt\xE9s"
               })
             })]
           }, node.id);
         })
       })]
     }), isVisModalOpen && editingNode && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Modal, {
-      title: `Jogosultság: ${editingNode.name}`,
+      title: `Beállítások: ${editingNode.name}`,
       onRequestClose: () => setIsVisModalOpen(false),
       style: {
-        width: "500px"
+        width: "700px"
       },
-      children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("p", {
+      children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
         style: {
-          color: "#666",
-          marginBottom: "20px"
+          marginBottom: "20px",
+          paddingBottom: "15px",
+          borderBottom: "1px solid #eee"
         },
-        children: ["\xC1ll\xEDtsd be, hogy kik l\xE1thatj\xE1k ezt a", " ", editingNode.type === "folder" ? "mappát" : "fájlt", " a frontend widgetekben."]
+        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.TextControl, {
+          label: "Egyedi C\xEDm (Megjelen\xEDtett N\xE9v)",
+          value: customTitle,
+          onChange: setCustomTitle,
+          help: "Ha kit\xF6lt\xF6d, a widgetek ezt a nevet mutatj\xE1k az eredeti f\xE1jln\xE9v helyett."
+        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(WpTinyMceEditor, {
+          value: customDesc,
+          onChange: setCustomDesc
+        })]
       }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.RadioControl, {
+        label: "L\xE1that\xF3s\xE1g (Jogosults\xE1g)",
         selected: visType,
         options: [{
           label: "Nyilvános (Bárki láthatja)",
@@ -477,6 +591,9 @@ const FileManagerApp = () => {
         }, {
           label: "Kizárólag specifikus szerepkörök",
           value: "roles"
+        }, {
+          label: "Rejtett (Lomtár / Teljes elrejtés a frontendről)",
+          value: "hidden"
         }],
         onChange: value => setVisType(value)
       }), visType === "roles" && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
@@ -516,7 +633,7 @@ const FileManagerApp = () => {
             color: "#666",
             margin: "5px 0 0 0"
           },
-          children: "Figyelem: Ez azonnal fel\xFCl\xEDrja a mapp\xE1n bel\xFCl l\xE9v\u0151 \xF6sszes elem egyedi be\xE1ll\xEDt\xE1s\xE1t!"
+          children: "Figyelem: Ez azonnal fel\xFCl\xEDrja a mapp\xE1n bel\xFCl l\xE9v\u0151 \xF6sszes elem egyedi be\xE1ll\xEDt\xE1s\xE1t (kiv\xE9ve a C\xEDmet \xE9s a Le\xEDr\xE1st)!"
         })]
       }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
         style: {
@@ -541,8 +658,6 @@ const FileManagerApp = () => {
     })]
   });
 };
-
-// ... [A SyncApp és a SettingsApp kódja változatlan marad itt] ...
 const SyncApp = () => {
   const [isSyncing, setIsSyncing] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [syncResult, setSyncResult] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
@@ -589,7 +704,6 @@ const SyncApp = () => {
           type: "info",
           msg: "Gyorsítótár törölve. Teljes szinkronizáció indítása..."
         });
-        // Automatikusan indítjuk utána a normál szinkront
         await handleManualSync();
       } else {
         setSyncResult({
@@ -617,7 +731,7 @@ const SyncApp = () => {
           marginBottom: "15px",
           color: "#666"
         },
-        children: "Itt ind\xEDthatod el manu\xE1lisan a Microsoft SharePoint mappa tartalm\xE1nak let\xF6lt\xE9s\xE9t a helyi WordPress adatb\xE1zisba. A norm\xE1l szinkroniz\xE1ci\xF3 csak a v\xE1ltoz\xE1sokat k\xE9ri le. Ha struktur\xE1lis hiba l\xE9p fel, vagy \xFAj mez\u0151k (C\xEDm, Le\xEDr\xE1s) ker\xFCltek a rendszerbe, haszn\xE1ld a gyors\xEDt\xF3t\xE1r \xFCr\xEDt\xE9s\xE9t!"
+        children: "Itt ind\xEDthatod el manu\xE1lisan a Microsoft SharePoint mappa tartalm\xE1nak let\xF6lt\xE9s\xE9t a helyi WordPress adatb\xE1zisba. A norm\xE1l szinkroniz\xE1ci\xF3 csak a v\xE1ltoz\xE1sokat k\xE9ri le. Ha struktur\xE1lis hiba l\xE9p fel, haszn\xE1ld a gyors\xEDt\xF3t\xE1r \xFCr\xEDt\xE9s\xE9t!"
       }), syncResult && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Notice, {
         status: syncResult.type,
         isDismissible: false,

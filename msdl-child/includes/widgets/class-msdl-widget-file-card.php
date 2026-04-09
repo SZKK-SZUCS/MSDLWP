@@ -35,7 +35,7 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
         $this->start_controls_section( 'section_elements', [ 'label' => 'Megjelenítendő Elemek', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
         $this->add_control( 'show_icon', [ 'label' => 'Ikon Mutatása', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'show_title', [ 'label' => 'Fájlnév / Cím Mutatása', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
-        $this->add_control( 'show_desc', [ 'label' => 'Leírás Mutatása (ha van)', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
+        $this->add_control( 'show_desc', [ 'label' => 'Leírás Mutatása a kártya alatt', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'divider_1', [ 'type' => \Elementor\Controls_Manager::DIVIDER ] );
         $this->add_control( 'show_meta_ext', [ 'label' => 'Kiterjesztés', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'show_meta_size', [ 'label' => 'Méret', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
@@ -114,7 +114,6 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
                     return; 
                 }
 
-                // JAVÍTÁS: Egyedi Cím és Leírás betöltése!
                 $file_name = !empty($file->custom_title) ? esc_html( $file->custom_title ) : esc_html( $file->name );
                 $file_desc = !empty($file->custom_description) ? wp_kses_post( $file->custom_description ) : '';
                 
@@ -164,6 +163,7 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
 
         ?>
         <style>
+            .msdl-fc-outer-container { display: flex; flex-direction: column; width: 100%; height: 100%; }
             .msdl-fc-wrapper { display: flex; gap: 20px; box-sizing: border-box; transition: all 0.3s ease; font-family: inherit; height: 100%; position: relative; overflow: hidden; }
             .msdl-fc-wrapper:hover { transform: translateY(-2px); }
             
@@ -180,13 +180,13 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
             .msdl-fc-content { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
             .msdl-fc-title { font-size: 16px; font-weight: 700; margin: 0; word-wrap: break-word; line-height: 1.3; }
             
-            /* LEÍRÁS STÍLUSA */
-            .msdl-fc-desc { font-size: 13px; color: #50575e; margin-top: 2px; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-            
             .msdl-fc-meta { font-size: 13px; font-weight: 500; display: flex; flex-wrap: wrap; justify-content: inherit; gap: 4px;}
             .msdl-fc-meta span { display: inline-flex; align-items: center; }
             .msdl-fc-meta span:not(:last-child)::after { content: '•'; margin-left: 8px; opacity: 0.5; }
             .msdl-fc-btn { font-size: 14px; font-weight: 600; text-decoration: none !important; transition: all 0.3s ease; }
+
+            /* LEÍRÁS STÍLUSA A KÁRTYA ALATT */
+            .msdl-fc-desc-box { margin-top: 15px; padding: 15px 20px; background: rgba(0,0,0,0.02); border-radius: 8px; font-size: 14px; color: #50575e; line-height: 1.6; border-left: 3px solid #e2e4e7; }
 
             @media (max-width: 767px) {
                 .msdl-fc-wrapper { flex-direction: column !important; align-items: stretch !important; text-align: center !important; gap: 15px; }
@@ -197,22 +197,27 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
             }
         </style>
 
-        <div class="msdl-fc-wrapper layout-<?php echo esc_attr( $layout ); ?>">
-            <?php if ( $show_icon ) : ?><div class="msdl-fc-icon"><?php echo $icon_render; ?></div><?php endif; ?>
-            <div class="msdl-fc-content">
-                <?php if ( $show_title ) : ?><h4 class="msdl-fc-title"><?php echo $file_name; ?></h4><?php endif; ?>
-                <?php if ( $show_desc && !empty($file_desc) ) : ?><div class="msdl-fc-desc"><?php echo $file_desc; ?></div><?php endif; ?>
-                
-                <?php if ( $has_meta ) : ?>
-                    <div class="msdl-fc-meta">
-                        <?php if ( $show_ext ) : ?><span><?php echo esc_html( strtoupper($file_ext) ); ?></span><?php endif; ?>
-                        <?php if ( $show_size ) : ?><span><?php echo $file_size; ?></span><?php endif; ?>
-                        <?php if ( $show_date ) : ?><span><?php echo $file_date; ?></span><?php endif; ?>
-                    </div>
+        <div class="msdl-fc-outer-container">
+            <div class="msdl-fc-wrapper layout-<?php echo esc_attr( $layout ); ?>">
+                <?php if ( $show_icon ) : ?><div class="msdl-fc-icon"><?php echo $icon_render; ?></div><?php endif; ?>
+                <div class="msdl-fc-content">
+                    <?php if ( $show_title ) : ?><h4 class="msdl-fc-title"><?php echo $file_name; ?></h4><?php endif; ?>
+                    
+                    <?php if ( $has_meta ) : ?>
+                        <div class="msdl-fc-meta">
+                            <?php if ( $show_ext ) : ?><span><?php echo esc_html( strtoupper($file_ext) ); ?></span><?php endif; ?>
+                            <?php if ( $show_size ) : ?><span><?php echo $file_size; ?></span><?php endif; ?>
+                            <?php if ( $show_date ) : ?><span><?php echo $file_date; ?></span><?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
+                <?php if ( $show_btn ) : ?>
+                    <div class="msdl-fc-action"><a href="<?php echo esc_url( $download_url ); ?>" class="<?php echo esc_attr( $btn_classes ); ?>"><?php echo esc_html( $settings['btn_text'] ); ?></a></div>
                 <?php endif; ?>
             </div>
-            <?php if ( $show_btn ) : ?>
-                <div class="msdl-fc-action"><a href="<?php echo esc_url( $download_url ); ?>" class="<?php echo esc_attr( $btn_classes ); ?>"><?php echo esc_html( $settings['btn_text'] ); ?></a></div>
+            
+            <?php if ( $show_desc && !empty($file_desc) ) : ?>
+                <div class="msdl-fc-desc-box"><?php echo $file_desc; ?></div>
             <?php endif; ?>
         </div>
         <?php

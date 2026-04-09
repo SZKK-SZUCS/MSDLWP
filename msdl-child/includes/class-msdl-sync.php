@@ -7,6 +7,7 @@ class MSDL_Child_Sync {
     }
 
     public function run_manual_sync() {
+        @set_time_limit( 300 );
         $token_data = $this->graph_api->fetch_token_from_main();
         if ( is_wp_error( $token_data ) ) return $token_data;
 
@@ -24,10 +25,8 @@ class MSDL_Child_Sync {
         $delta_link = get_option( 'msdl_delta_link_' . $folder_item_id );
         
         if ( empty( $delta_link ) ) {
-            // ELSŐ SZINKRONIZÁCIÓ: Bekérjük a listItem kiegészítést a Cím és Leírás adatokhoz!
-            $endpoint = "/drives/{$drive_id}/items/{$folder_item_id}/delta?\$expand=listItem";
+            $endpoint = "/drives/{$drive_id}/items/{$folder_item_id}/delta";
         } else {
-            // A delta link alapból tartalmazni fogja az expand paramétert, ha az eredeti kérésben benne volt.
             $endpoint = str_replace( 'https://graph.microsoft.com/v1.0', '', $delta_link );
         }
 
@@ -37,7 +36,7 @@ class MSDL_Child_Sync {
             $response = $this->graph_api->make_request( $endpoint );
             if ( is_wp_error( $response ) ) {
                 delete_option( 'msdl_delta_link_' . $folder_item_id );
-                return new WP_Error( 'sync_error', 'A szinkronizáció megszakadt. A token lejárt, vagy módosult a struktúra. Kérlek indítsd újra.' );
+                return new WP_Error( 'sync_error', 'A szinkronizáció megszakadt. Kérlek ürítsd a gyorsítótárat.' );
             }
 
             $items = isset( $response['value'] ) ? $response['value'] : [];
@@ -58,10 +57,8 @@ class MSDL_Child_Sync {
 
     private function get_item_id_by_path( $drive_id, $path ) {
         if ( empty( $path ) ) return 'root'; 
-        
         $endpoint = "/drives/{$drive_id}/root:/" . rawurlencode( $path ) . "?\$select=id";
         $response = $this->graph_api->make_request( $endpoint );
-        
         if ( is_wp_error( $response ) ) return new WP_Error( 'path_not_found', 'A megadott gyökérmappa nem található a SharePointban.' );
         return $response['id'];
     }
@@ -89,17 +86,6 @@ class MSDL_Child_Sync {
                 $parent_graph_id = null;
             }
 
-            // EXTRA ADATOK: Cím és Leírás kinyerése a listItem-ből!
-            $custom_title = '';
-            $custom_description = '';
-            
-            if ( isset( $item['listItem'] ) && isset( $item['listItem']['fields'] ) ) {
-                $fields = $item['listItem']['fields'];
-                // A SharePoint mezőnevek egyediek is lehetnek, de általában 'Title' és 'Description' néven futnak.
-                $custom_title = isset( $fields['Title'] ) ? sanitize_text_field( $fields['Title'] ) : '';
-                $custom_description = isset( $fields['Description'] ) ? wp_kses_post( $fields['Description'] ) : '';
-            }
-
             $existing = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM $table_name WHERE graph_id = %s", $item['id'] ) );
 
             $data = [
@@ -110,13 +96,15 @@ class MSDL_Child_Sync {
                 'mime_type'          => sanitize_text_field( $mime_type ),
                 'size'               => intval( $item['size'] ?? 0 ),
                 'last_modified'      => wp_date( 'Y-m-d H:i:s', strtotime( $item['lastModifiedDateTime'] ) ),
-                'custom_title'       => $custom_title,
-                'custom_description' => $custom_description,
             ];
 
             if ( $existing ) {
+                // Csak az alap adatokat frissítjük, a custom_title és description érintetlen marad!
                 $wpdb->update( $table_name, $data, [ 'id' => $existing->id ] );
             } else {
+                $data['custom_title'] = '';
+                $data['custom_description'] = '';
+                $data['visibility_roles'] = ''; // Új fájl érkezett
                 $wpdb->insert( $table_name, $data );
             }
             $count++;

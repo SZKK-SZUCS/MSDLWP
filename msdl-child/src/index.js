@@ -9,29 +9,87 @@ import {
   Modal,
   RadioControl,
   CheckboxControl,
-  ToggleControl,
 } from "@wordpress/components";
 import apiFetch from "@wordpress/api-fetch";
+
+// --- ÚJ: Natív WordPress TinyMCE Komponens ---
+const WpTinyMceEditor = ({ value, onChange }) => {
+  useEffect(() => {
+    const id = "msdl-tinymce-editor";
+
+    // Ha maradt korábbról egy editor példány a DOM-ban, takarítjuk
+    if (
+      window.wp &&
+      window.wp.editor &&
+      window.tinymce &&
+      window.tinymce.get(id)
+    ) {
+      window.wp.editor.remove(id);
+    }
+
+    if (window.wp && window.wp.editor) {
+      window.wp.editor.initialize(id, {
+        tinymce: {
+          wpautop: true,
+          setup: function (editor) {
+            editor.on("change keyup", function () {
+              onChange(editor.getContent());
+            });
+          },
+        },
+        quicktags: true,
+        mediaButtons: false,
+      });
+
+      // Betöltjük a kezdőértéket az inicializálás után
+      setTimeout(() => {
+        const ed = window.tinymce && window.tinymce.get(id);
+        if (ed && value) ed.setContent(value);
+      }, 200);
+    }
+
+    return () => {
+      if (window.wp && window.wp.editor) {
+        window.wp.editor.remove(id);
+      }
+    };
+  }, []);
+
+  return (
+    <div style={{ marginTop: "15px", marginBottom: "20px" }}>
+      <p style={{ margin: "0 0 8px 0", fontWeight: 500 }}>
+        Fájl HTML Leírása (TinyMCE Vizuális Szerkesztő)
+      </p>
+      <textarea
+        id="msdl-tinymce-editor"
+        defaultValue={value}
+        style={{ width: "100%", height: "200px" }}></textarea>
+      <p style={{ fontSize: "11px", color: "#666", margin: "5px 0 0 0" }}>
+        Ez a formázott szöveg fog megjelenni a Widgetekben.
+      </p>
+    </div>
+  );
+};
 
 const FileManagerApp = () => {
   const [nodes, setNodes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [wpRoles, setWpRoles] = useState({});
 
-  // Navigáció
   const [currentFolderId, setCurrentFolderId] = useState(null);
   const [pathHistory, setPathHistory] = useState([
     { id: null, name: "Gyökérmappa" },
   ]);
 
-  // Modális ablak állapota
   const [isVisModalOpen, setIsVisModalOpen] = useState(false);
   const [editingNode, setEditingNode] = useState(null);
 
-  // Űrlap állapota a modálon belül
-  const [visType, setVisType] = useState("public"); // 'public', 'loggedin', 'roles'
+  const [visType, setVisType] = useState("public");
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [applyToChildren, setApplyToChildren] = useState(false);
+
+  const [customTitle, setCustomTitle] = useState("");
+  const [customDesc, setCustomDesc] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -84,10 +142,12 @@ const FileManagerApp = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
   };
 
-  // --- Jogosultság Mentési Logika ---
   const openVisibilityModal = (node) => {
     setEditingNode(node);
     setApplyToChildren(false);
+
+    setCustomTitle(node.custom_title || "");
+    setCustomDesc(node.custom_description || "");
 
     if (!node.visibility_roles) {
       setVisType("public");
@@ -96,6 +156,8 @@ const FileManagerApp = () => {
       setVisType("public");
     } else if (node.visibility_roles === "loggedin") {
       setVisType("loggedin");
+    } else if (node.visibility_roles === "hidden") {
+      setVisType("hidden");
     } else {
       setVisType("roles");
       try {
@@ -121,6 +183,7 @@ const FileManagerApp = () => {
     let finalRolesString = "";
     if (visType === "public") finalRolesString = "public";
     else if (visType === "loggedin") finalRolesString = "loggedin";
+    else if (visType === "hidden") finalRolesString = "hidden";
     else finalRolesString = JSON.stringify(selectedRoles);
 
     try {
@@ -131,17 +194,18 @@ const FileManagerApp = () => {
           id: editingNode.id,
           roles: finalRolesString,
           apply_to_children: applyToChildren,
+          custom_title: customTitle,
+          custom_description: customDesc,
         },
       });
       setIsVisModalOpen(false);
-      loadNodes(currentFolderId); // Újratöltjük a listát, hogy frissüljenek a plecsnik
+      loadNodes(currentFolderId);
     } catch (e) {
-      alert("Hiba történt a jogosultság mentésekor!");
+      alert("Hiba történt a mentéskor!");
     }
     setIsSaving(false);
   };
 
-  // --- Plecsni generátor ---
   const getVisibilityBadge = (roleString) => {
     if (!roleString)
       return (
@@ -155,6 +219,29 @@ const FileManagerApp = () => {
             fontSize: "11px",
           }}>
           Kezelhetetlen (Új)
+        </span>
+      );
+    if (roleString === "hidden")
+      return (
+        <span
+          style={{
+            padding: "3px 8px",
+            borderRadius: "4px",
+            backgroundColor: "#e2e4e7",
+            color: "#50575e",
+            fontWeight: "bold",
+            fontSize: "11px",
+          }}>
+          <Dashicon
+            icon="hidden"
+            style={{
+              fontSize: "14px",
+              width: "14px",
+              height: "14px",
+              verticalAlign: "middle",
+            }}
+          />{" "}
+          Rejtett
         </span>
       );
     if (roleString === "public")
@@ -202,9 +289,8 @@ const FileManagerApp = () => {
 
   return (
     <div className="wrap">
-      <h1 style={{ marginBottom: "20px" }}>Jogosultságok és Fájlkezelő</h1>
+      <h1 style={{ marginBottom: "20px" }}>Fájlkezelő és Jogosultságok</h1>
 
-      {/* Kenyérmorzsa */}
       <div
         style={{
           marginBottom: "15px",
@@ -242,7 +328,8 @@ const FileManagerApp = () => {
         <thead>
           <tr>
             <th style={{ width: "50px", textAlign: "center" }}>Típus</th>
-            <th>Név</th>
+            <th>Eredeti Név</th>
+            <th>Megjelenített Cím</th>
             <th style={{ width: "150px" }}>Láthatóság</th>
             <th style={{ width: "100px" }}>Méret</th>
             <th style={{ width: "150px" }}>Műveletek</th>
@@ -251,14 +338,14 @@ const FileManagerApp = () => {
         <tbody>
           {isLoading ? (
             <tr>
-              <td colSpan="5" style={{ textAlign: "center", padding: "30px" }}>
+              <td colSpan="6" style={{ textAlign: "center", padding: "30px" }}>
                 <Spinner /> Betöltés...
               </td>
             </tr>
           ) : nodes.length === 0 ? (
             <tr>
               <td
-                colSpan="5"
+                colSpan="6"
                 style={{ textAlign: "center", padding: "30px", color: "#666" }}>
                 A mappa üres.
               </td>
@@ -266,11 +353,13 @@ const FileManagerApp = () => {
           ) : (
             nodes.map((node) => {
               const isUntreated = !node.visibility_roles;
+              const isHidden = node.visibility_roles === "hidden";
               return (
                 <tr
                   key={node.id}
                   style={{
                     backgroundColor: isUntreated ? "#fcf0f1" : "transparent",
+                    opacity: isHidden ? 0.6 : 1,
                   }}>
                   <td style={{ textAlign: "center", verticalAlign: "middle" }}>
                     {node.type === "folder" ? (
@@ -287,11 +376,24 @@ const FileManagerApp = () => {
                       <Button
                         isLink
                         onClick={() => handleFolderClick(node)}
-                        style={{ fontWeight: "bold", textDecoration: "none" }}>
+                        style={{
+                          fontWeight: "bold",
+                          textDecoration: "none",
+                          color: isHidden ? "#777" : "",
+                        }}>
                         {node.name}
                       </Button>
                     ) : (
                       <strong>{node.name}</strong>
+                    )}
+                  </td>
+                  <td style={{ verticalAlign: "middle" }}>
+                    {node.custom_title ? (
+                      <strong style={{ color: "#007cba" }}>
+                        {node.custom_title}
+                      </strong>
+                    ) : (
+                      <span style={{ color: "#999" }}>- Nincs -</span>
                     )}
                   </td>
                   <td style={{ verticalAlign: "middle" }}>
@@ -305,7 +407,7 @@ const FileManagerApp = () => {
                       isSmall
                       isSecondary
                       onClick={() => openVisibilityModal(node)}>
-                      Jogosultság
+                      Szerkesztés
                     </Button>
                   </td>
                 </tr>
@@ -315,24 +417,39 @@ const FileManagerApp = () => {
         </tbody>
       </table>
 
-      {/* --- JOGOSULTSÁG SZERKESZTŐ MODAL --- */}
       {isVisModalOpen && editingNode && (
         <Modal
-          title={`Jogosultság: ${editingNode.name}`}
+          title={`Beállítások: ${editingNode.name}`}
           onRequestClose={() => setIsVisModalOpen(false)}
-          style={{ width: "500px" }}>
-          <p style={{ color: "#666", marginBottom: "20px" }}>
-            Állítsd be, hogy kik láthatják ezt a{" "}
-            {editingNode.type === "folder" ? "mappát" : "fájlt"} a frontend
-            widgetekben.
-          </p>
+          style={{ width: "700px" }}>
+          <div
+            style={{
+              marginBottom: "20px",
+              paddingBottom: "15px",
+              borderBottom: "1px solid #eee",
+            }}>
+            <TextControl
+              label="Egyedi Cím (Megjelenített Név)"
+              value={customTitle}
+              onChange={setCustomTitle}
+              help="Ha kitöltöd, a widgetek ezt a nevet mutatják az eredeti fájlnév helyett."
+            />
+
+            {/* ÚJ TINYMCE VIZUÁLIS SZERKESZTŐ */}
+            <WpTinyMceEditor value={customDesc} onChange={setCustomDesc} />
+          </div>
 
           <RadioControl
+            label="Láthatóság (Jogosultság)"
             selected={visType}
             options={[
               { label: "Nyilvános (Bárki láthatja)", value: "public" },
               { label: "Csak bejelentkezett felhasználók", value: "loggedin" },
               { label: "Kizárólag specifikus szerepkörök", value: "roles" },
+              {
+                label: "Rejtett (Lomtár / Teljes elrejtés a frontendről)",
+                value: "hidden",
+              },
             ]}
             onChange={(value) => setVisType(value)}
           />
@@ -381,7 +498,7 @@ const FileManagerApp = () => {
                   margin: "5px 0 0 0",
                 }}>
                 Figyelem: Ez azonnal felülírja a mappán belül lévő összes elem
-                egyedi beállítását!
+                egyedi beállítását (kivéve a Címet és a Leírást)!
               </p>
             </div>
           )}
@@ -408,7 +525,6 @@ const FileManagerApp = () => {
   );
 };
 
-// ... [A SyncApp és a SettingsApp kódja változatlan marad itt] ...
 const SyncApp = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState(null);
@@ -443,10 +559,8 @@ const SyncApp = () => {
       )
     )
       return;
-
     setIsSyncing(true);
     setSyncResult({ type: "info", msg: "Gyorsítótár törlése folyamatban..." });
-
     try {
       const res = await apiFetch({
         path: "/msdl-child/v1/reset-sync",
@@ -457,7 +571,6 @@ const SyncApp = () => {
           type: "info",
           msg: "Gyorsítótár törölve. Teljes szinkronizáció indítása...",
         });
-        // Automatikusan indítjuk utána a normál szinkront
         await handleManualSync();
       } else {
         setSyncResult({ type: "error", msg: res.message });
@@ -479,8 +592,8 @@ const SyncApp = () => {
         <p style={{ marginBottom: "15px", color: "#666" }}>
           Itt indíthatod el manuálisan a Microsoft SharePoint mappa tartalmának
           letöltését a helyi WordPress adatbázisba. A normál szinkronizáció csak
-          a változásokat kéri le. Ha strukturális hiba lép fel, vagy új mezők
-          (Cím, Leírás) kerültek a rendszerbe, használd a gyorsítótár ürítését!
+          a változásokat kéri le. Ha strukturális hiba lép fel, használd a
+          gyorsítótár ürítését!
         </p>
         {syncResult && (
           <Notice
@@ -506,6 +619,7 @@ const SyncApp = () => {
     </div>
   );
 };
+
 const SettingsApp = () => {
   const [options, setOptions] = useState({
     msdl_main_server_url: "",
@@ -601,7 +715,6 @@ const SettingsApp = () => {
             setOptions({ ...options, msdl_sync_mode: value })
           }
         />
-
         {options.msdl_sync_mode === "override" && (
           <div
             style={{
@@ -631,7 +744,6 @@ const SettingsApp = () => {
             </select>
           </div>
         )}
-
         <Button
           isPrimary
           isBusy={isSaving}

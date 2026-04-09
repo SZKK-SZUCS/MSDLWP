@@ -315,6 +315,8 @@ class MSDL_Child_Elementor {
     }
 
     private function frontend_check_access( $roles_data ) {
+        if ( $roles_data === 'hidden' ) return false;
+        
         if ( empty( $roles_data ) || $roles_data === 'public' ) return true;
         if ( $roles_data === 'loggedin' ) return is_user_logged_in();
         $allowed_roles = json_decode( $roles_data, true );
