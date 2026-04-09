@@ -9,7 +9,9 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
 
-    # A GITHUB_TOKEN jogosultságainak beállítása a release feltöltéshez
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
     permissions:
       contents: write
 
