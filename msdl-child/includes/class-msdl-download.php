@@ -63,22 +63,19 @@ class MSDL_Child_Download {
     }
 
     private function check_access( $roles_string ) {
-        // Ha nincs megkötés, akkor publikus
-        if ( empty( $roles_string ) ) return true; 
-
-        // Ha van megkötés, de nincs bejelentkezve, azonnal tiltjuk
+        if ( empty( $roles_string ) || $roles_string === 'public' ) return true; 
         if ( ! is_user_logged_in() ) return false;
+        
+        if ( $roles_string === 'loggedin' ) return true;
 
         $user = wp_get_current_user();
-        
-        // Az adminisztrátorok mindent láthatnak
         if ( in_array( 'administrator', (array) $user->roles ) ) return true;
 
-        // Feltételezem, hogy a roles vesszővel elválasztva van elmentve (pl. "editor,subscriber,tanar").
-        // Ha nálad ez esetleg szerializált tömb vagy JSON, akkor ezt a sort javítsd ki, vagy szólj és átírom!
-        $allowed_roles = array_map( 'trim', explode( ',', $roles_string ) );
+        // JSON dekódolás megkísérlése
+        $decoded = json_decode( $roles_string, true );
+        $allowed_roles = is_array( $decoded ) ? $decoded : array_map( 'trim', explode( ',', $roles_string ) );
+        
         $user_roles = (array) $user->roles;
-
         foreach ( $user_roles as $role ) {
             if ( in_array( $role, $allowed_roles ) ) return true;
         }

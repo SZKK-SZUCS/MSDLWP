@@ -112,8 +112,8 @@ class MSDL_Child_Sync {
                 'type'            => $type,
                 'name'            => sanitize_text_field( $item['name'] ),
                 'mime_type'       => sanitize_text_field( $mime_type ),
-                'file_size'       => intval( $item['size'] ?? 0 ), // JAVÍTVA: 'size' helyett 'file_size'
-                'last_modified'   => wp_date( 'Y-m-d H:i:s', strtotime( $item['lastModifiedDateTime'] ) ), // JAVÍTVA: wp_date használata
+                'size'            => intval( $item['size'] ?? 0 ), // JAVÍTVA: Visszaírva 'size'-ra!
+                'last_modified'   => wp_date( 'Y-m-d H:i:s', strtotime( $item['lastModifiedDateTime'] ) ),
             ];
 
             if ( $existing ) {

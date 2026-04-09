@@ -15,6 +15,7 @@ require_once MSDL_CHILD_DIR . 'includes/class-msdl-admin.php';
 require_once MSDL_CHILD_DIR . 'includes/class-msdl-graph-api.php';
 require_once MSDL_CHILD_DIR . 'includes/class-msdl-sync.php';
 require_once MSDL_CHILD_DIR . 'includes/class-msdl-download.php';
+require_once MSDL_CHILD_DIR . 'includes/class-msdl-elementor.php';
 
 // Aktiválási logika
 function activate_msdl_child() {
@@ -39,5 +40,8 @@ function run_msdl_child() {
 
     $download = new MSDL_Child_Download();
     $download->init();
+
+    $elementor = new MSDL_Child_Elementor();
+    $elementor->init();
 }
 run_msdl_child();
