@@ -1,13 +1,10 @@
 <?php
-// Közvetlen hozzáférés tiltása
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 class MSDL_Child_Elementor {
 
     public function init() {
-        if ( ! did_action( 'elementor/loaded' ) ) {
-            return;
-        }
+        if ( ! did_action( 'elementor/loaded' ) ) return;
 
         add_action( 'elementor/elements/categories_registered', [ $this, 'add_elementor_widget_categories' ] );
         add_action( 'elementor/widgets/register', [ $this, 'register_widgets' ] );
@@ -24,13 +21,7 @@ class MSDL_Child_Elementor {
     }
 
     public function add_elementor_widget_categories( $elements_manager ) {
-        $elements_manager->add_category(
-            'msdl-widgets',
-            [
-                'title' => 'Dokumentumtár (MSDL)',
-                'icon' => 'fa fa-folder',
-            ]
-        );
+        $elements_manager->add_category( 'msdl-widgets', [ 'title' => 'Dokumentumtár (MSDL)', 'icon' => 'fa fa-folder' ] );
     }
 
     public function register_widgets( $widgets_manager ) {
@@ -199,7 +190,6 @@ class MSDL_Child_Elementor {
                         }
                     }
 
-                    // JAVÍTÁS: Egyedi cím esetén hozzáfűzzük a kiterjesztést, hogy a JS ikon ne törjön el!
                     $display_name = $item->name;
                     if ( !empty($item->custom_title) ) {
                         $display_name = $item->custom_title;
@@ -296,7 +286,6 @@ class MSDL_Child_Elementor {
             $formatted_size = $bytes . ' B';
         }
 
-        // JAVÍTÁS: Egyedi cím esetén hozzáfűzzük a kiterjesztést, hogy a JS ikon ne törjön el!
         $display_name = $file->name;
         if ( !empty($file->custom_title) ) {
             $display_name = $file->custom_title;
@@ -322,37 +311,55 @@ class MSDL_Child_Elementor {
         ]);
     }
 
-    private function frontend_check_access( $roles_data ) {
-        if ( $roles_data === 'hidden' ) return false;
+    // --- ÚJ, KÖZPONTI BIZTONSÁGI KAPU ---
+    public static function check_item_access( $roles_data ) {
+        // 1. GLOBÁLIS GYÖKÉR VÉDELEM ELLENŐRZÉSE
+        $root_visibility = get_option( 'msdl_root_visibility', 'public' );
+        if ( $root_visibility === 'hidden' ) return false;
+        
+        if ( $root_visibility !== 'public' && ! empty( $root_visibility ) ) {
+            if ( ! is_user_logged_in() ) return false;
+            
+            $current_user = wp_get_current_user();
+            if ( ! in_array( 'administrator', (array) $current_user->roles ) ) {
+                if ( $root_visibility !== 'loggedin' ) {
+                    $root_allowed_roles = json_decode( $root_visibility, true );
+                    if ( ! is_array( $root_allowed_roles ) ) $root_allowed_roles = [ $root_visibility ];
+                    
+                    $intersect = array_intersect( $root_allowed_roles, (array) $current_user->roles );
+                    if ( empty( $intersect ) ) return false; 
+                }
+            }
+        }
+
+        // 2. LOKÁLIS FÁJL/MAPPA SZINTŰ ELLENŐRZÉS
+        if ( $roles_data === 'hidden' ) return false; // A rejtett fájlt SOHA senki nem látja a frontenden!
         
         if ( empty( $roles_data ) || $roles_data === 'public' ) return true;
-        if ( $roles_data === 'loggedin' ) return is_user_logged_in();
+        if ( ! is_user_logged_in() ) return false;
+        if ( $roles_data === 'loggedin' ) return true;
+        
+        $current_user = wp_get_current_user();
+        if ( in_array( 'administrator', (array) $current_user->roles ) ) return true;
+        
         $allowed_roles = json_decode( $roles_data, true );
         if ( ! is_array( $allowed_roles ) ) $allowed_roles = [ $roles_data ];
-        if ( is_user_logged_in() ) {
-            $current_user = wp_get_current_user();
-            if ( in_array( 'administrator', $current_user->roles ) ) return true;
-            $intersect = array_intersect( $allowed_roles, $current_user->roles );
-            if ( ! empty( $intersect ) ) return true;
-        }
+        
+        $intersect = array_intersect( $allowed_roles, (array) $current_user->roles );
+        if ( ! empty( $intersect ) ) return true;
+
         return false;
+    }
+
+    // Visszafelé kompatibilitás a régi AJAX hívásokhoz, ami a fenti kaput használja
+    private function frontend_check_access( $roles_data ) {
+        return self::check_item_access( $roles_data );
     }
 
     private function format_size_for_display( $type, $size ) {
         if ( $type !== 'file' || $size === null ) return '-';
         $size_mb = round( $size / 1048576, 2 );
         return $size_mb > 0 ? $size_mb . ' MB' : '< 1 MB';
-    }
-
-    private function format_roles_for_display( $roles_raw ) {
-        if ( empty( $roles_raw ) || $roles_raw === 'public' ) return 'Mindenki (Nyilvános)';
-        if ( $roles_raw === 'loggedin' ) return 'Bejelentkezett felhasználók';
-        
-        $decoded = json_decode( $roles_raw, true );
-        if ( is_array( $decoded ) ) {
-            return implode( ', ', array_map( 'ucfirst', $decoded ) );
-        }
-        return ucfirst( $roles_raw );
     }
 
     public function enqueue_editor_scripts() {

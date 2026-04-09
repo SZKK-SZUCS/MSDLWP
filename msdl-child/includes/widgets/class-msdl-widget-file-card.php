@@ -10,23 +10,6 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
 
     public function get_style_depends() { return [ 'elementor-icons-fa-solid' ]; }
 
-    private function check_access( $roles_data ) {
-        if ( empty( $roles_data ) || $roles_data === 'public' ) return true;
-        if ( $roles_data === 'loggedin' ) return is_user_logged_in();
-        
-        $allowed_roles = json_decode( $roles_data, true );
-        if ( ! is_array( $allowed_roles ) ) $allowed_roles = [ $roles_data ];
-        
-        if ( is_user_logged_in() ) {
-            $current_user = wp_get_current_user();
-            if ( in_array( 'administrator', $current_user->roles ) ) return true;
-            
-            $intersect = array_intersect( $allowed_roles, $current_user->roles );
-            if ( ! empty( $intersect ) ) return true;
-        }
-        return false;
-    }
-
     protected function register_controls() {
         $this->start_controls_section( 'section_query', [ 'label' => 'Adatforrás', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
         $this->add_control( 'file_id', [ 'label' => 'Fájl Kiválasztása', 'type' => 'msdl_picker', 'item_type' => 'file' ] );
@@ -104,20 +87,42 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
         $file_date = '-';
         $download_url = '#';
 
+        // 1. GYÖKÉR VÉDELEM ELLENŐRZÉSE
+        if ( ! $is_editor && ! MSDL_Child_Elementor::check_item_access( 'public' ) ) {
+            return;
+        }
+
         if ( $file_id > 0 ) {
             global $wpdb;
             $table = $wpdb->prefix . 'msdl_nodes';
             $file = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table WHERE id = %d AND type = 'file'", $file_id ) );
 
             if ( $file ) {
-                if ( ! $is_editor && ! $this->check_access( $file->visibility_roles ) ) {
-                    return; 
+                // Szigorú ellenőrzés
+                if ( $file->visibility_roles === 'hidden' ) {
+                    if ( $is_editor ) {
+                        echo '<div style="padding:10px; background:#f8d7da; color:#d63638; border-radius:4px; margin-bottom:10px; font-size:12px; text-align:center;">Figyelem: Ez a fájl REJTETT (Lomtár). A látogatók nem fogják látni.</div>';
+                    } else {
+                        return; // A frontenden nyoma sem lesz
+                    }
+                } elseif ( ! $is_editor && ! MSDL_Child_Elementor::check_item_access( $file->visibility_roles ) ) {
+                    return; // Nincs joga a fájlhoz, ezért elrejtjük a kártyát
                 }
 
-                $file_name = !empty($file->custom_title) ? esc_html( $file->custom_title ) : esc_html( $file->name );
+                $ext = pathinfo( $file->name, PATHINFO_EXTENSION );
+                if ( $ext ) $file_ext = strtolower( $ext );
+
+                $file_name = $file->name;
+                if ( !empty($file->custom_title) ) {
+                    $file_name = $file->custom_title;
+                    if ( $file_ext !== 'file' && !preg_match('/\.'.$file_ext.'$/i', $file_name) ) {
+                        $file_name .= '.' . $file_ext;
+                    }
+                }
+
                 $file_desc = !empty($file->custom_description) ? wp_kses_post( $file->custom_description ) : '';
-                
                 $download_url = site_url( '/?msdl_download=' . $file_id );
+                
                 if ( isset( $file->size ) ) {
                     $bytes = intval($file->size);
                     if ( $bytes >= 1048576 ) {
@@ -131,8 +136,6 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
                 if ( !empty($file->last_modified) && $file->last_modified !== '0000-00-00 00:00:00' ) {
                     $file_date = date( 'Y.m.d.', strtotime( $file->last_modified ) );
                 }
-                $ext = pathinfo( $file->name, PATHINFO_EXTENSION );
-                if ( $ext ) $file_ext = strtolower( $ext );
             }
         }
 
@@ -185,7 +188,6 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
             .msdl-fc-meta span:not(:last-child)::after { content: '•'; margin-left: 8px; opacity: 0.5; }
             .msdl-fc-btn { font-size: 14px; font-weight: 600; text-decoration: none !important; transition: all 0.3s ease; }
 
-            /* LEÍRÁS STÍLUSA A KÁRTYA ALATT */
             .msdl-fc-desc-box { margin-top: 15px; padding: 15px 20px; background: rgba(0,0,0,0.02); border-radius: 8px; font-size: 14px; color: #50575e; line-height: 1.6; border-left: 3px solid #e2e4e7; }
 
             @media (max-width: 767px) {
@@ -201,7 +203,7 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
             <div class="msdl-fc-wrapper layout-<?php echo esc_attr( $layout ); ?>">
                 <?php if ( $show_icon ) : ?><div class="msdl-fc-icon"><?php echo $icon_render; ?></div><?php endif; ?>
                 <div class="msdl-fc-content">
-                    <?php if ( $show_title ) : ?><h4 class="msdl-fc-title"><?php echo $file_name; ?></h4><?php endif; ?>
+                    <?php if ( $show_title ) : ?><h4 class="msdl-fc-title"><?php echo esc_html($file_name); ?></h4><?php endif; ?>
                     
                     <?php if ( $has_meta ) : ?>
                         <div class="msdl-fc-meta">

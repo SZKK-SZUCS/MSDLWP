@@ -11,22 +11,6 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
     public function get_style_depends() { return [ 'elementor-icons-fa-solid', 'e-swiper', 'swiper' ]; }
     public function get_script_depends() { return [ 'swiper' ]; }
 
-    private function check_access( $roles_data ) {
-        if ( $roles_data === 'hidden' ) return false;
-        
-        if ( empty( $roles_data ) || $roles_data === 'public' ) return true;
-        if ( $roles_data === 'loggedin' ) return is_user_logged_in();
-        $allowed_roles = json_decode( $roles_data, true );
-        if ( ! is_array( $allowed_roles ) ) $allowed_roles = [ $roles_data ];
-        if ( is_user_logged_in() ) {
-            $current_user = wp_get_current_user();
-            if ( in_array( 'administrator', $current_user->roles ) ) return true;
-            $intersect = array_intersect( $allowed_roles, $current_user->roles );
-            if ( ! empty( $intersect ) ) return true;
-        }
-        return false;
-    }
-
     protected function register_controls() {
         $this->start_controls_section( 'section_query', [ 'label' => 'Adatforrás és Rendezés', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
         $this->add_control( 'folder_id', [ 'label' => 'Mappa Kiválasztása (Gyökér)', 'type' => 'msdl_picker', 'item_type' => 'folder' ]);
@@ -125,9 +109,16 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         global $wpdb;
         $table = $wpdb->prefix . 'msdl_nodes';
         
+        // 1. GYÖKÉR VÉDELEM ELLENŐRZÉSE
+        if ( ! $is_editor && ! MSDL_Child_Elementor::check_item_access( 'public' ) ) {
+            echo '<div style="padding:20px; text-align:center; color:#787c82; border:2px dashed #dcdcde; border-radius:8px; font-weight:500;">Nincs jogosultságod a dokumentumtár megtekintéséhez.</div>';
+            return;
+        }
+        
+        // 2. MAPPA SZINTŰ ELLENŐRZÉS
         if ( ! $is_editor && intval($current_folder_id) > 0 ) {
             $current_folder_node = $wpdb->get_row( $wpdb->prepare( "SELECT visibility_roles FROM $table WHERE id = %d", intval($current_folder_id) ) );
-            if ( $current_folder_node && ! $this->check_access( $current_folder_node->visibility_roles ) ) {
+            if ( $current_folder_node && ! MSDL_Child_Elementor::check_item_access( $current_folder_node->visibility_roles ) ) {
                 echo '<div style="padding:20px; text-align:center; color:#787c82; border:2px dashed #dcdcde; border-radius:8px; font-weight:500;">Nincs jogosultságod a mappa megtekintéséhez.</div>';
                 return;
             }
@@ -149,7 +140,10 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
 
         $filtered_items = [];
         foreach ( $items as $item ) {
-            if ( $is_editor || $this->check_access( $item->visibility_roles ) ) {
+            // ÚJ: A rejtett fájlok SOHA ne jelenjenek meg, még szerkesztő módban sem!
+            if ( $item->visibility_roles === 'hidden' ) continue;
+            
+            if ( $is_editor || MSDL_Child_Elementor::check_item_access( $item->visibility_roles ) ) {
                 $filtered_items[] = $item;
             }
         }
@@ -251,7 +245,6 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             
             $date_str = (!empty($item->last_modified)) ? date('Y.m.d.', strtotime($item->last_modified)) : '-';
             
-            // JAVÍTÁS: Egyedi cím esetén hozzáfűzzük a kiterjesztést, hogy itt is konzisztens legyen!
             $display_name = $item->name;
             if ( !empty($item->custom_title) ) {
                 $display_name = $item->custom_title;

@@ -100,7 +100,10 @@ class MSDL_Widget_Button extends \Elementor\Widget_Base {
                 'right'  => [ 'title' => 'Jobbra', 'icon' => 'eicon-text-align-right' ],
                 'justify'=> [ 'title' => 'Sorkizárt', 'icon' => 'eicon-text-align-justify' ],
             ],
-            'selectors' => [ '{{WRAPPER}} .msdl-btn-wrapper' => 'text-align: {{VALUE}};' ],
+            'selectors' => [ 
+                '{{WRAPPER}} .msdl-btn-wrapper' => 'text-align: {{VALUE}};',
+                '{{WRAPPER}} .msdl-btn-helper'  => 'text-align: {{VALUE}};'
+            ],
         ]);
         $this->end_controls_section();
 
@@ -238,35 +241,117 @@ class MSDL_Widget_Button extends \Elementor\Widget_Base {
 
     protected function render() {
         $settings = $this->get_settings_for_display();
-        
         $file_id = intval( $settings['file_id'] );
         $download_url = $file_id > 0 ? site_url( '/?msdl_download=' . $file_id ) : '#';
 
+        $has_access = true;
+        $needs_login = false;
+        $is_editor = \Elementor\Plugin::$instance->editor->is_edit_mode();
+
+        if ( $file_id > 0 && !$is_editor ) {
+            global $wpdb;
+            $table = $wpdb->prefix . 'msdl_nodes';
+            $node = $wpdb->get_row( $wpdb->prepare( "SELECT visibility_roles FROM $table WHERE id = %d AND type = 'file'", $file_id ) );
+
+            // 1. Gyökérmappa szintű ellenőrzés
+            $root_vis = get_option( 'msdl_root_visibility', 'public' );
+            if ( $root_vis === 'hidden' ) {
+                $has_access = false;
+            } elseif ( $root_vis !== 'public' && !empty($root_vis) ) {
+                if ( ! is_user_logged_in() ) {
+                    $has_access = false;
+                    $needs_login = true;
+                } else {
+                    $curr_user = wp_get_current_user();
+                    if ( ! in_array( 'administrator', (array)$curr_user->roles ) ) {
+                        if ( $root_vis !== 'loggedin' ) {
+                            $r_roles = json_decode( $root_vis, true );
+                            if ( !is_array($r_roles) ) $r_roles = [$root_vis];
+                            if ( empty(array_intersect($r_roles, (array)$curr_user->roles)) ) {
+                                $has_access = false;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 2. Fájl szintű ellenőrzés
+            if ( $has_access && $node ) {
+                $f_vis = $node->visibility_roles;
+                if ( $f_vis === 'hidden' ) {
+                    $has_access = false;
+                } elseif ( !empty($f_vis) && $f_vis !== 'public' ) {
+                    if ( ! is_user_logged_in() ) {
+                        $has_access = false;
+                        $needs_login = true;
+                    } else {
+                        $curr_user = wp_get_current_user();
+                        if ( ! in_array( 'administrator', (array)$curr_user->roles ) ) {
+                            if ( $f_vis !== 'loggedin' ) {
+                                $f_roles = json_decode( $f_vis, true );
+                                if ( !is_array($f_roles) ) $f_roles = [$f_vis];
+                                if ( empty(array_intersect($f_roles, (array)$curr_user->roles)) ) {
+                                    $has_access = false;
+                                }
+                            }
+                        }
+                    }
+                }
+            } elseif ( !$node ) {
+                $has_access = false;
+            }
+        }
+
+        // Felülírások, ha nincs hozzáférés
+        $btn_text = $settings['button_text'];
+        $helper_text = '';
+        $extra_style = '';
+        $is_protected = false;
+
+        if ( ! $has_access && $file_id > 0 && !$is_editor ) {
+            $is_protected = true;
+            $btn_text = 'Védett*';
+            $download_url = '#';
+            $extra_style = 'opacity: 0.55; pointer-events: none; cursor: not-allowed; filter: grayscale(100%);';
+            $helper_text = $needs_login ? '*Kérjük, jelentkezzen be a fájl eléréséhez.' : '*Önnek nincs jogosultsága a fájl letöltéséhez.';
+        } elseif ( $file_id === 0 && !$is_editor ) {
+            $btn_text = 'Nincs fájl';
+            $download_url = '#';
+            $extra_style = 'opacity: 0.5; pointer-events: none;';
+        }
+
         $icon_html = '';
-        if ( $settings['show_icon'] === 'yes' && ! empty( $settings['button_icon']['value'] ) ) {
+        if ( $settings['show_icon'] === 'yes' ) {
             $align_class = ($settings['show_text'] === 'yes' && $settings['icon_align'] === 'right') ? 'msdl-btn-icon-right' : 'msdl-btn-icon-left';
             
-            $rendered_icon = '';
-            if ( class_exists( '\Elementor\Icons_Manager' ) ) {
-                ob_start();
-                \Elementor\Icons_Manager::render_icon( $settings['button_icon'], [ 'aria-hidden' => 'true' ] );
-                $rendered_icon = ob_get_clean();
+            if ( $is_protected ) {
+                $rendered_icon = '<i class="fas fa-lock" aria-hidden="true"></i>';
+            } else {
+                $rendered_icon = '';
+                if ( !empty( $settings['button_icon']['value'] ) ) {
+                    if ( class_exists( '\Elementor\Icons_Manager' ) ) {
+                        ob_start();
+                        \Elementor\Icons_Manager::render_icon( $settings['button_icon'], [ 'aria-hidden' => 'true' ] );
+                        $rendered_icon = ob_get_clean();
+                    }
+                    if ( empty( $rendered_icon ) ) {
+                        $rendered_icon = sprintf( '<i class="%s" aria-hidden="true"></i>', esc_attr( $settings['button_icon']['value'] ) );
+                    }
+                }
             }
             
-            if ( empty( $rendered_icon ) ) {
-                $rendered_icon = sprintf( '<i class="%s" aria-hidden="true"></i>', esc_attr( $settings['button_icon']['value'] ) );
+            if ( !empty($rendered_icon) ) {
+                $icon_html = sprintf( '<span class="msdl-btn-icon %s" style="display:inline-flex; align-items:center; justify-content:center; line-height:1; transition:all 0.3s ease;">%s</span>', $align_class, $rendered_icon );
             }
-            
-            $icon_html = sprintf( '<span class="msdl-btn-icon %s" style="display:inline-flex; align-items:center; justify-content:center; line-height:1; transition:all 0.3s ease;">%s</span>', $align_class, $rendered_icon );
         }
 
         $text_html = '';
-        if ( $settings['show_text'] === 'yes' && ! empty( $settings['button_text'] ) ) {
-            $text_html = sprintf( '<span class="msdl-btn-text" style="display:inline-block; transition:all 0.3s ease;">%s</span>', esc_html( $settings['button_text'] ) );
+        if ( $settings['show_text'] === 'yes' ) {
+            $text_html = sprintf( '<span class="msdl-btn-text" style="display:inline-block; transition:all 0.3s ease;">%s</span>', esc_html( $btn_text ) );
         }
 
         $content = ( $settings['icon_align'] === 'right' ) ? ( $text_html . $icon_html ) : ( $icon_html . $text_html );
-        $hover_animation_class = ! empty( $settings['hover_animation'] ) ? ' elementor-animation-' . $settings['hover_animation'] : '';
+        $hover_animation_class = ( ! empty( $settings['hover_animation'] ) && !$is_protected ) ? ' elementor-animation-' . $settings['hover_animation'] : '';
 
         ?>
         <style>
@@ -278,16 +363,21 @@ class MSDL_Widget_Button extends \Elementor\Widget_Base {
             }
             .msdl-btn-wrapper .msdl-btn-icon svg { fill: currentColor; }
             .msdl-btn-wrapper .msdl-btn-icon i { font-weight: 900; }
+            .msdl-btn-helper { display: block; font-size: 13px; margin-top: 8px; opacity: 0.7; font-weight: 500; font-style: italic; }
         </style>
         <?php
 
         echo '<div class="msdl-btn-wrapper">';
         echo sprintf(
-            '<a href="%s" class="msdl-btn%s" style="display: inline-flex; align-items: center; justify-content: center; transition: all 0.3s ease;">%s</a>',
+            '<a href="%s" class="msdl-btn%s" style="display: inline-flex; align-items: center; justify-content: center; transition: all 0.3s ease; %s">%s</a>',
             esc_url( $download_url ),
             $hover_animation_class,
+            $extra_style,
             $content
         );
+        if ( !empty($helper_text) ) {
+            echo '<span class="msdl-btn-helper">' . esc_html($helper_text) . '</span>';
+        }
         echo '</div>';
     }
 }
