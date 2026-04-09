@@ -12,7 +12,6 @@ import {
 } from "@wordpress/components";
 import apiFetch from "@wordpress/api-fetch";
 
-// --- ÚJ: Bővített WordPress TinyMCE Komponens ---
 const WpTinyMceEditor = ({ value, onChange }) => {
   useEffect(() => {
     const id = "msdl-tinymce-editor";
@@ -28,13 +27,10 @@ const WpTinyMceEditor = ({ value, onChange }) => {
       window.wp.editor.initialize(id, {
         tinymce: {
           wpautop: true,
-          // Extra pluginok betöltése (pl. table a táblázatokhoz, textcolor a színekhez)
           plugins:
             "charmap hr lists paste textcolor wordpress wpdialogs wpeditimage wpemoji wpgallery wplink wpview table",
-          // Felső gombsor: Alcímek (H1-H6), Félkövér, Dőlt, Listák, Igazítás, Link
           toolbar1:
             "formatselect bold italic bullist numlist blockquote alignleft aligncenter alignright link unlink wp_adv",
-          // Alsó gombsor (Konyhamosogató): Áthúzott, Vonal, Szövegszín, Táblázat beszúrása, Visszavonás
           toolbar2:
             "strikethrough hr forecolor pastetext removeformat charmap outdent indent undo redo table",
           setup: function (editor) {
@@ -44,7 +40,7 @@ const WpTinyMceEditor = ({ value, onChange }) => {
           },
         },
         quicktags: true,
-        mediaButtons: true, // BEKAPCSOLVA: "Média hozzáadása" gomb a szerkesztő felett
+        mediaButtons: true,
       });
       setTimeout(() => {
         const ed = window.tinymce && window.tinymce.get(id);
@@ -69,7 +65,7 @@ const WpTinyMceEditor = ({ value, onChange }) => {
         style={{ width: "100%", height: "250px" }}></textarea>
       <p style={{ fontSize: "11px", color: "#666", margin: "5px 0 0 0" }}>
         A "Média hozzáadása" gombbal képeket, az eszköztárból pedig táblázatokat
-        és formázásokat (Szövegszín, Címsorok) szúrhatsz be.
+        és formázásokat szúrhatsz be.
       </p>
     </div>
   );
@@ -80,17 +76,19 @@ const FileManagerApp = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [wpRoles, setWpRoles] = useState({});
 
-  // Navigáció és Keresés
   const [currentFolderId, setCurrentFolderId] = useState(null);
   const [pathHistory, setPathHistory] = useState([
     { id: null, name: "Gyökérmappa" },
   ]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Kijelölés állapota
   const [selectedNodes, setSelectedNodes] = useState([]);
 
-  // Egyes Modál
+  const [isRootModalOpen, setIsRootModalOpen] = useState(false);
+  const [rootVisType, setRootVisType] = useState("public");
+  const [rootSelectedRoles, setRootSelectedRoles] = useState([]);
+  const [isRootSaving, setIsRootSaving] = useState(false);
+
   const [isVisModalOpen, setIsVisModalOpen] = useState(false);
   const [editingNode, setEditingNode] = useState(null);
   const [visType, setVisType] = useState("public");
@@ -100,18 +98,11 @@ const FileManagerApp = () => {
   const [customDesc, setCustomDesc] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Tömeges Modál
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [batchVisType, setBatchVisType] = useState("public");
   const [batchSelectedRoles, setBatchSelectedRoles] = useState([]);
   const [batchApplyToChildren, setBatchApplyToChildren] = useState(false);
   const [isBatchSaving, setIsBatchSaving] = useState(false);
-
-  // Gyökérmappa Modál
-  const [isRootModalOpen, setIsRootModalOpen] = useState(false);
-  const [rootVisType, setRootVisType] = useState("public");
-  const [rootSelectedRoles, setRootSelectedRoles] = useState([]);
-  const [isRootSaving, setIsRootSaving] = useState(false);
 
   useEffect(() => {
     loadNodes(currentFolderId);
@@ -122,91 +113,28 @@ const FileManagerApp = () => {
     try {
       const roles = await apiFetch({ path: "/msdl-child/v1/get-roles" });
       setWpRoles(roles);
-    } catch (e) {
-      console.error("Szerepkörök betöltése sikertelen.");
-    }
+    } catch (e) {}
   };
 
   const loadNodes = async (parentId) => {
     setIsLoading(true);
-    setSelectedNodes([]); // Kijelölés törlése mappa váltáskor
+    setSelectedNodes([]);
     try {
       const url = parentId
         ? `/msdl-child/v1/get-nodes?parent_id=${parentId}`
         : `/msdl-child/v1/get-nodes`;
       const data = await apiFetch({ path: url });
       setNodes(data);
-    } catch (error) {
-      console.error("Hiba a fájlok betöltésekor:", error);
-    }
+    } catch (error) {}
     setIsLoading(false);
   };
 
-  // --- Kereső logika ---
-  const filteredNodes = nodes.filter((node) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    const nameMatch = node.name && node.name.toLowerCase().includes(q);
-    const titleMatch =
-      node.custom_title && node.custom_title.toLowerCase().includes(q);
-    return nameMatch || titleMatch;
-  });
-
-  // JAVÍTVA: Megbízhatóbb állapotfrissítés natív böngésző eseménymegszakítással
-  const handleFolderClick = (e, folder) => {
-    e.preventDefault();
-    setSearchQuery("");
-    setCurrentFolderId(folder.graph_id);
-    setPathHistory([
-      ...pathHistory,
-      { id: folder.graph_id, name: folder.name },
-    ]);
-  };
-
-  const handleBreadcrumbClick = (e, index) => {
-    e.preventDefault();
-    setSearchQuery("");
-    const newPath = pathHistory.slice(0, index + 1);
-    setPathHistory(newPath);
-    setCurrentFolderId(newPath[newPath.length - 1].id);
-  };
-
-  // --- Kijelölés logika ---
-  const handleSelectAll = (checked) => {
-    if (checked) {
-      setSelectedNodes(filteredNodes.map((n) => n.id));
-    } else {
-      setSelectedNodes([]);
-    }
-  };
-
-  const handleSelectNode = (id, checked) => {
-    if (checked) {
-      setSelectedNodes([...selectedNodes, id]);
-    } else {
-      setSelectedNodes(selectedNodes.filter((nId) => nId !== id));
-    }
-  };
-
-  const formatSize = (bytes) => {
-    if (bytes === 0 || !bytes) return "--";
-    const k = 1024;
-    const sizes = ["B", "KB", "MB", "GB"];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-  };
-
-  // --- Gyökérmappa Logika ---
   const openRootModal = async () => {
     try {
       const settings = await apiFetch({ path: "/wp/v2/settings" });
       const rootVis = settings.msdl_root_visibility || "public";
 
-      if (
-        rootVis === "public" ||
-        rootVis === "loggedin" ||
-        rootVis === "hidden"
-      ) {
+      if (["public", "loggedin", "hidden"].includes(rootVis)) {
         setRootVisType(rootVis);
         setRootSelectedRoles([]);
       } else {
@@ -223,11 +151,8 @@ const FileManagerApp = () => {
 
   const saveRootVisibility = async () => {
     setIsRootSaving(true);
-    let finalRolesString = ["public", "loggedin", "hidden"].includes(
-      rootVisType,
-    )
-      ? rootVisType
-      : JSON.stringify(rootSelectedRoles);
+    let finalRolesString =
+      rootVisType === "roles" ? JSON.stringify(rootSelectedRoles) : rootVisType;
     try {
       await apiFetch({
         path: "/wp/v2/settings",
@@ -241,7 +166,51 @@ const FileManagerApp = () => {
     setIsRootSaving(false);
   };
 
-  // --- Egyes szerkesztés mentése ---
+  const filteredNodes = nodes.filter((node) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    const nameMatch = node.name && node.name.toLowerCase().includes(q);
+    const titleMatch =
+      node.custom_title && node.custom_title.toLowerCase().includes(q);
+    return nameMatch || titleMatch;
+  });
+
+  const handleFolderClick = (e, folder) => {
+    e.preventDefault();
+    setSearchQuery("");
+    setCurrentFolderId(folder.graph_id);
+    setPathHistory([
+      ...pathHistory,
+      { id: folder.graph_id, name: folder.custom_title || folder.name },
+    ]);
+  };
+
+  const handleBreadcrumbClick = (e, index) => {
+    e.preventDefault();
+    setSearchQuery("");
+    const newPath = pathHistory.slice(0, index + 1);
+    setPathHistory(newPath);
+    setCurrentFolderId(newPath[newPath.length - 1].id);
+  };
+
+  const handleSelectAll = (checked) => {
+    if (checked) setSelectedNodes(filteredNodes.map((n) => n.id));
+    else setSelectedNodes([]);
+  };
+
+  const handleSelectNode = (id, checked) => {
+    if (checked) setSelectedNodes([...selectedNodes, id]);
+    else setSelectedNodes(selectedNodes.filter((nId) => nId !== id));
+  };
+
+  const formatSize = (bytes) => {
+    if (bytes === 0 || !bytes) return "--";
+    const k = 1024;
+    const sizes = ["B", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
   const openVisibilityModal = (node) => {
     setEditingNode(node);
     setApplyToChildren(false);
@@ -252,9 +221,7 @@ const FileManagerApp = () => {
       setVisType("public");
       setSelectedRoles([]);
     } else if (
-      node.visibility_roles === "public" ||
-      node.visibility_roles === "loggedin" ||
-      node.visibility_roles === "hidden"
+      ["public", "loggedin", "hidden"].includes(node.visibility_roles)
     ) {
       setVisType(node.visibility_roles);
     } else {
@@ -270,10 +237,8 @@ const FileManagerApp = () => {
 
   const saveVisibility = async () => {
     setIsSaving(true);
-    let finalRolesString = ["public", "loggedin", "hidden"].includes(visType)
-      ? visType
-      : JSON.stringify(selectedRoles);
-
+    let finalRolesString =
+      visType === "roles" ? JSON.stringify(selectedRoles) : visType;
     try {
       await apiFetch({
         path: "/msdl-child/v1/update-visibility",
@@ -294,15 +259,12 @@ const FileManagerApp = () => {
     setIsSaving(false);
   };
 
-  // --- Tömeges szerkesztés mentése ---
   const saveBatchVisibility = async () => {
     setIsBatchSaving(true);
-    let finalRolesString = ["public", "loggedin", "hidden"].includes(
-      batchVisType,
-    )
-      ? batchVisType
-      : JSON.stringify(batchSelectedRoles);
-
+    let finalRolesString =
+      batchVisType === "roles"
+        ? JSON.stringify(batchSelectedRoles)
+        : batchVisType;
     try {
       await apiFetch({
         path: "/msdl-child/v1/batch-update-visibility",
@@ -359,6 +321,7 @@ const FileManagerApp = () => {
               width: "14px",
               height: "14px",
               verticalAlign: "middle",
+              marginTop: "-2px",
             }}
           />{" "}
           Rejtett
@@ -441,7 +404,6 @@ const FileManagerApp = () => {
           <span
             key={crumb.id || "root"}
             style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            {/* JAVÍTVA: Szabványos Link a kenyérmorzsákhoz is! */}
             <a
               href="#"
               style={{
@@ -481,15 +443,21 @@ const FileManagerApp = () => {
           </Button>
         </div>
         <div style={{ width: "300px" }}>
-          <div className="components-base-control">
-            <input
-              className="components-text-control__input"
-              type="text"
-              placeholder="Keresés név vagy cím alapján..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
+          <input
+            type="text"
+            placeholder="Keresés név vagy cím alapján..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: "100%",
+              padding: "6px 10px",
+              borderRadius: "4px",
+              border: "1px solid #8c8f94",
+              background: "#ffffff",
+              color: "#1d2327",
+              fontSize: "14px",
+            }}
+          />
         </div>
       </div>
 
@@ -507,8 +475,8 @@ const FileManagerApp = () => {
               />
             </th>
             <th style={{ width: "50px", textAlign: "center" }}>Típus</th>
-            <th>Eredeti Név</th>
-            <th>Megjelenített Cím</th>
+            <th>Név / Cím</th>
+            <th style={{ width: "80px", textAlign: "center" }}>Leírás</th>
             <th style={{ width: "150px" }}>Láthatóság</th>
             <th style={{ width: "100px" }}>Méret</th>
             <th style={{ width: "150px" }}>Műveletek</th>
@@ -559,7 +527,6 @@ const FileManagerApp = () => {
                   </td>
                   <td style={{ verticalAlign: "middle" }}>
                     {node.type === "folder" ? (
-                      /* JAVÍTVA: Szabványos natív Link a mappák belépéséhez, ami mindig megbízhatóan lefut! */
                       <a
                         href="#"
                         onClick={(e) => handleFolderClick(e, node)}
@@ -567,20 +534,40 @@ const FileManagerApp = () => {
                           fontWeight: "bold",
                           textDecoration: "none",
                           color: isHidden ? "#777" : "#2271b1",
+                          fontSize: "14px",
                         }}>
-                        {node.name}
+                        {node.custom_title || node.name}
                       </a>
                     ) : (
-                      <strong>{node.name}</strong>
+                      <strong
+                        style={{
+                          color: isHidden ? "#777" : "#1d2327",
+                          fontSize: "14px",
+                        }}>
+                        {node.custom_title || node.name}
+                      </strong>
+                    )}
+                    {node.custom_title && (
+                      <div
+                        style={{
+                          fontSize: "12px",
+                          color: "#8c8f94",
+                          marginTop: "4px",
+                        }}>
+                        Eredeti név: {node.name}
+                      </div>
                     )}
                   </td>
-                  <td style={{ verticalAlign: "middle" }}>
-                    {node.custom_title ? (
-                      <strong style={{ color: "#007cba" }}>
-                        {node.custom_title}
-                      </strong>
+                  <td style={{ textAlign: "center", verticalAlign: "middle" }}>
+                    {node.custom_description &&
+                    node.custom_description.trim() !== "" ? (
+                      <span title="Van leírása" style={{ color: "#00a32a" }}>
+                        <Dashicon icon="yes" />
+                      </span>
                     ) : (
-                      <span style={{ color: "#999" }}>- Nincs -</span>
+                      <span title="Nincs leírás" style={{ color: "#ccd0d4" }}>
+                        -
+                      </span>
                     )}
                   </td>
                   <td style={{ verticalAlign: "middle" }}>
@@ -604,7 +591,6 @@ const FileManagerApp = () => {
         </tbody>
       </table>
 
-      {/* --- Gyökérmappa Modál --- */}
       {isRootModalOpen && (
         <Modal
           title="Teljes Dokumentumtár (Gyökérmappa) Jogosultsága"
@@ -674,12 +660,11 @@ const FileManagerApp = () => {
         </Modal>
       )}
 
-      {/* --- Egyes Módosítás Modál --- */}
       {isVisModalOpen && editingNode && (
         <Modal
           title={`Beállítások: ${editingNode.name}`}
           onRequestClose={() => setIsVisModalOpen(false)}
-          style={{ width: "700px" }}>
+          style={{ width: "800px" }}>
           <div
             style={{
               marginBottom: "20px",
@@ -690,7 +675,6 @@ const FileManagerApp = () => {
               label="Egyedi Cím (Megjelenített Név)"
               value={customTitle}
               onChange={setCustomTitle}
-              help="Ha kitöltöd, a widgetek ezt a nevet mutatják az eredeti fájlnév helyett."
             />
             <WpTinyMceEditor value={customDesc} onChange={setCustomDesc} />
           </div>
@@ -773,7 +757,6 @@ const FileManagerApp = () => {
         </Modal>
       )}
 
-      {/* --- Tömeges Módosítás Modál --- */}
       {isBatchModalOpen && (
         <Modal
           title={`Tömeges beállítás (${selectedNodes.length} elem)`}
@@ -872,7 +855,19 @@ const FileManagerApp = () => {
 
 const SyncApp = () => {
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncInfo, setSyncInfo] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
+
+  const fetchSyncInfo = async () => {
+    try {
+      const data = await apiFetch({ path: "/msdl-child/v1/sync-status" });
+      setSyncInfo(data);
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    fetchSyncInfo();
+  }, []);
 
   const handleManualSync = async () => {
     setIsSyncing(true);
@@ -894,13 +889,14 @@ const SyncApp = () => {
         msg: "Hálózati hiba a szinkronizáció során.",
       });
     }
+    fetchSyncInfo(); // UI Frissítése a futás után
     setIsSyncing(false);
   };
 
   const handleResetSync = async () => {
     if (
       !window.confirm(
-        "Biztosan törlöd a szinkronizációs gyorsítótárat? Ez a következő szinkronizációnál mindent a nulláról tölt le (az eddig beállított jogosultságok természetesen megmaradnak).",
+        "Biztosan törlöd a szinkronizációs gyorsítótárat? Ez a következő szinkronizációnál mindent a nulláról tölt le.",
       )
     )
       return;
@@ -932,7 +928,89 @@ const SyncApp = () => {
 
   return (
     <div className="wrap">
-      <h1>Szinkronizáció</h1>
+      <h1>Szinkronizáció Állapota</h1>
+
+      {/* ÚJ: Szinkronizációs Státuszkártyák */}
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+          gap: "20px",
+          marginBottom: "25px",
+        }}>
+        <div
+          style={{
+            background: "#fff",
+            border: "1px solid #ccd0d4",
+            padding: "20px",
+            borderRadius: "4px",
+            borderLeft: "4px solid #2271b1",
+            boxShadow: "0 1px 1px rgba(0,0,0,0.04)",
+          }}>
+          <div
+            style={{
+              fontSize: "13px",
+              color: "#50575e",
+              textTransform: "uppercase",
+              fontWeight: 600,
+            }}>
+            Utolsó Szinkronizáció
+          </div>
+          <div
+            style={{
+              fontSize: "18px",
+              fontWeight: "bold",
+              color: "#1d2327",
+              marginTop: "8px",
+            }}>
+            {syncInfo ? syncInfo.last_sync : <Spinner />}
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: "#fff",
+            border: "1px solid #ccd0d4",
+            padding: "20px",
+            borderRadius: "4px",
+            borderLeft: "4px solid #00a32a",
+            boxShadow: "0 1px 1px rgba(0,0,0,0.04)",
+          }}>
+          <div
+            style={{
+              fontSize: "13px",
+              color: "#50575e",
+              textTransform: "uppercase",
+              fontWeight: 600,
+            }}>
+            Következő Ütemezett (Cron)
+          </div>
+          <div
+            style={{
+              fontSize: "18px",
+              fontWeight: "bold",
+              color: "#1d2327",
+              marginTop: "8px",
+            }}>
+            {syncInfo ? syncInfo.next_sync : <Spinner />}
+          </div>
+          {syncInfo && (
+            <div
+              style={{ fontSize: "12px", color: "#8c8f94", marginTop: "6px" }}>
+              <span
+                className="dashicons dashicons-admin-settings"
+                style={{
+                  fontSize: "14px",
+                  width: "14px",
+                  height: "14px",
+                }}></span>{" "}
+              Mód: {syncInfo.mode}{" "}
+              {syncInfo.interval !== "-" ? `(${syncInfo.interval})` : ""}
+            </div>
+          )}
+        </div>
+      </div>
+
       <PanelBody title="Kézi Szinkronizáció és Gyorsítótár">
         <p style={{ marginBottom: "15px", color: "#666" }}>
           Itt indíthatod el manuálisan a Microsoft SharePoint mappa tartalmának

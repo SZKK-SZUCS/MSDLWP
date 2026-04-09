@@ -40,9 +40,7 @@ class MSDL_Child_Admin {
         $page = isset( $_GET['page'] ) ? sanitize_text_field( $_GET['page'] ) : '';
         if ( ! in_array( $page, [ 'msdl-child', 'msdl-sync', 'msdl-settings' ], true ) ) return;
         
-        // ÚJ: A WordPress gyári Médiatárának betöltése a képek beillesztéséhez
         wp_enqueue_media();
-        // A WordPress gyári TinyMCE Editor betöltése
         wp_enqueue_editor();
 
         $asset_file = MSDL_CHILD_DIR . 'build/index.asset.php';
@@ -53,65 +51,93 @@ class MSDL_Child_Admin {
     }
 
     public function register_rest_endpoints() {
-        // ÚJ: msdl_root_visibility regisztrálása, hogy a React tudja olvasni/menteni
-        $settings = [ 
-            'msdl_main_server_url', 
-            'msdl_internal_api_key',
-            'msdl_sync_mode',
-            'msdl_local_sync_interval',
-            'msdl_root_visibility'
-        ];
+        $settings = [ 'msdl_main_server_url', 'msdl_internal_api_key', 'msdl_sync_mode', 'msdl_local_sync_interval', 'msdl_root_visibility' ];
         foreach ( $settings as $setting ) {
             register_setting( 'msdl_options', $setting, [ 'type' => 'string', 'show_in_rest' => true, 'default' => '' ] );
         }
 
-        register_rest_route( 'msdl-child/v1', '/test-connection', [
+        register_rest_route( 'msdl-child/v1', '/test-connection', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'test_connection' ], 'permission_callback' => [ $this, 'check_api_or_admin_auth' ] ]);
+        register_rest_route( 'msdl-child/v1', '/sync-now', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'trigger_sync' ], 'permission_callback' => [ $this, 'check_api_or_admin_auth' ] ]);
+        register_rest_route( 'msdl-child/v1', '/get-nodes', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_nodes' ], 'permission_callback' => function() { return current_user_can( 'read' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/get-roles', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_wp_roles' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/update-visibility', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'update_visibility' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/batch-update-visibility', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'batch_update_visibility' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/update-cron', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'handle_cron_update' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/reset-sync', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'reset_sync' ], 'permission_callback' => [ $this, 'check_api_or_admin_auth' ] ]);
+        
+        // ÚJ: Szinkronizáció Állapot API
+        register_rest_route( 'msdl-child/v1', '/sync-status', [
             'methods' => WP_REST_Server::READABLE,
-            'callback' => [ $this, 'test_connection' ],
-            'permission_callback' => [ $this, 'check_api_or_admin_auth' ]
-        ]);
-
-        register_rest_route( 'msdl-child/v1', '/sync-now', [
-            'methods' => WP_REST_Server::CREATABLE,
-            'callback' => [ $this, 'trigger_sync' ],
-            'permission_callback' => [ $this, 'check_api_or_admin_auth' ]
-        ]);
-
-        register_rest_route( 'msdl-child/v1', '/get-nodes', [ 
-            'methods' => WP_REST_Server::READABLE, 
-            'callback' => [ $this, 'get_nodes' ], 
-            'permission_callback' => function() { return current_user_can( 'read' ); } 
-        ]);
-
-        register_rest_route( 'msdl-child/v1', '/get-roles', [ 
-            'methods' => WP_REST_Server::READABLE, 
-            'callback' => [ $this, 'get_wp_roles' ], 
-            'permission_callback' => function() { return current_user_can( 'manage_options' ); } 
-        ]);
-
-        register_rest_route( 'msdl-child/v1', '/update-visibility', [ 
-            'methods' => WP_REST_Server::CREATABLE, 
-            'callback' => [ $this, 'update_visibility' ], 
-            'permission_callback' => function() { return current_user_can( 'manage_options' ); } 
-        ]);
-
-        // ÚJ: Tömeges módosítás végpontja
-        register_rest_route( 'msdl-child/v1', '/batch-update-visibility', [ 
-            'methods' => WP_REST_Server::CREATABLE, 
-            'callback' => [ $this, 'batch_update_visibility' ], 
-            'permission_callback' => function() { return current_user_can( 'manage_options' ); } 
-        ]);
-
-        register_rest_route( 'msdl-child/v1', '/update-cron', [
-            'methods' => WP_REST_Server::CREATABLE,
-            'callback' => [ $this, 'handle_cron_update' ],
+            'callback' => [ $this, 'get_sync_status' ],
             'permission_callback' => function() { return current_user_can( 'manage_options' ); }
         ]);
+    }
 
-        register_rest_route( 'msdl-child/v1', '/reset-sync', [
-            'methods' => WP_REST_Server::CREATABLE,
-            'callback' => [ $this, 'reset_sync' ],
-            'permission_callback' => [ $this, 'check_api_or_admin_auth' ]
+    public function get_sync_status() {
+        // Utolsó szinkronizáció ideje
+        $last_ts = get_option( 'msdl_last_sync_timestamp' );
+        $last_sync = $last_ts ? wp_date( 'Y.m.d. H:i:s', $last_ts ) : 'Még nem volt szinkronizálva';
+
+        // Mód és helyi gyakoriság
+        $mode = get_option( 'msdl_sync_mode', 'central' );
+        $interval = get_option( 'msdl_local_sync_interval', 'hourly' );
+
+        $intervals = [
+            'msdl_1min' => '1 percenként', 'msdl_15min' => '15 percenként', 'msdl_30min' => '30 percenként',
+            'hourly' => 'Óránként', 'twicedaily' => 'Naponta kétszer', 'daily' => 'Naponta egyszer'
+        ];
+
+        $next_sync = '';
+        $mode_display = '';
+
+        if ( $mode === 'override' ) {
+            $timestamp = wp_next_scheduled( 'msdl_scheduled_sync' );
+            $next_sync = $timestamp ? wp_date( 'Y.m.d. H:i:s', $timestamp ) : 'Hiba: Nincs beütemezve!';
+            $mode_display = 'Helyi felülbírálás';
+            $interval_display = isset($intervals[$interval]) ? $intervals[$interval] : $interval;
+        } elseif ( $mode === 'disabled' ) {
+            $next_sync = 'Kikapcsolva';
+            $mode_display = 'Kikapcsolva';
+            $interval_display = '-';
+        } else {
+            // ÚJ: KÖZPONTI (CENTRAL) VEZÉRLÉS ESETÉN LEKÉRJÜK A MAIN SZERVERTŐL AZ ADATOKAT!
+            $main_url = rtrim( get_option( 'msdl_main_server_url' ), '/' );
+            $api_key = get_option( 'msdl_internal_api_key' );
+            
+            $next_sync = 'Központi ütemezés lekérése sikertelen.';
+            $mode_display = 'Központi szerver (Kapcsolódási hiba)';
+            $interval_display = '-';
+
+            if ( !empty($main_url) && !empty($api_key) ) {
+                $response = wp_remote_get( $main_url . '/wp-json/msdl-main/v1/get-next-sync', [
+                    'headers'   => [ 'X-MSDL-API-Key' => $api_key ],
+                    'timeout'   => 5,
+                    'sslverify' => false
+                ]);
+
+                if ( ! is_wp_error( $response ) ) {
+                    $body = json_decode( wp_remote_retrieve_body( $response ), true );
+                    if ( isset( $body['next_sync'] ) && $body['next_sync'] > 0 ) {
+                        // Kiszámoljuk, mikor kerül ránk a sor a queue-ban (biztosra véve, hogy hamarosan)
+                        $next_sync = wp_date( 'Y.m.d. H:i:s', $body['next_sync'] ) . ' (Becsült)';
+                    } else {
+                        $next_sync = 'Jelenleg nincs ütemezve';
+                    }
+                    
+                    if ( isset( $body['interval'] ) ) {
+                        $main_interval = $body['interval'];
+                        $interval_display = isset($intervals[$main_interval]) ? $intervals[$main_interval] : $main_interval;
+                        $mode_display = 'Központi szerverről vezérelt';
+                    }
+                }
+            }
+        }
+
+        return rest_ensure_response([
+            'last_sync' => $last_sync,
+            'next_sync' => $next_sync,
+            'mode'      => $mode_display,
+            'interval'  => $interval_display
         ]);
     }
 
@@ -206,7 +232,6 @@ class MSDL_Child_Admin {
         return rest_ensure_response( ['success' => true] );
     }
 
-    // ÚJ: Tömeges módosítás feldolgozása (Öröklődéssel együtt!)
     public function batch_update_visibility( WP_REST_Request $request ) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'msdl_nodes';
@@ -224,7 +249,6 @@ class MSDL_Child_Admin {
         $query = $wpdb->prepare( "UPDATE $table_name SET visibility_roles = %s WHERE id IN ($placeholders)", array_merge([$roles], $ids) );
         $wpdb->query( $query );
 
-        // Ha a tömeges kijelölésben voltak mappák, és a user kérte az öröklődést:
         if ( $apply_to_children ) {
             $nodes_query = $wpdb->prepare( "SELECT graph_id, type FROM $table_name WHERE id IN ($placeholders)", $ids );
             $nodes = $wpdb->get_results( $nodes_query );

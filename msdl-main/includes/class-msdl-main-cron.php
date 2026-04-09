@@ -12,6 +12,14 @@ class MSDL_Main_Cron {
 
         // Ha a React felületen elmentjük a központi időzítést, automatikusan beállítjuk a Cron-t
         add_action( 'update_option_msdl_global_sync_interval', [ $this, 'update_master_schedule' ], 10, 2 );
+
+        // ÚJ: Öngyógyító Cron - Ha valamiért kiesett az időzítő, újra beállítja magát!
+        if ( ! wp_next_scheduled( 'msdl_main_master_sync' ) ) {
+            $interval = get_option( 'msdl_global_sync_interval', 'hourly' );
+            if ( ! empty( $interval ) && $interval !== 'disabled' ) {
+                wp_schedule_event( time(), $interval, 'msdl_main_master_sync' );
+            }
+        }
     }
 
     public function add_cron_schedules( $schedules ) {

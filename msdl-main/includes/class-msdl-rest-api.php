@@ -60,10 +60,11 @@ class MSDL_Main_REST_API {
             'permission_callback' => [ $this, 'check_api_key' ]
         ]);
 
+        // JAVÍTVA: check_admin_permissions helyett check_api_key!
         register_rest_route( 'msdl-main/v1', '/get-next-sync', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ $this, 'get_next_sync_time' ],
-            'permission_callback' => [ $this, 'check_admin_permissions' ]
+            'permission_callback' => [ $this, 'check_api_key' ] 
         ]);
 
         register_setting( 'msdl_options', 'msdl_global_sync_interval', [
@@ -78,7 +79,10 @@ class MSDL_Main_REST_API {
         if ( empty($stored) || $provided !== $stored ) return new WP_Error( 'forbidden', 'Érvénytelen belső API kulcs.', ['status' => 403] );
         return true;
     }
-    public function check_admin_permissions() { return current_user_can( 'manage_options' ); }
+    
+    public function check_admin_permissions() { 
+        return current_user_can( 'manage_options' ); 
+    }
 
     public function serve_token( WP_REST_Request $request ) {
         global $wpdb;
@@ -102,7 +106,6 @@ class MSDL_Main_REST_API {
                 [ 'id' => $site_data->id ] );
             }
 
-        // ÚJ: Felfüggesztés ellenőrzése
         if ( isset($site_data->is_active) && $site_data->is_active == 0 ) {
             return new WP_Error( 'site_suspended', 'A webhely kapcsolata karbantartás vagy tiltás miatt ideiglenesen fel van függesztve a központban.', ['status' => 403] );
         }
@@ -140,16 +143,14 @@ class MSDL_Main_REST_API {
     }
     public function delete_site( WP_REST_Request $request ) { global $wpdb; $table_name = $wpdb->prefix . 'msdl_sites'; $wpdb->delete( $table_name, [ 'id' => intval( $request->get_param( 'id' ) ) ] ); return rest_ensure_response( ['status' => 'deleted'] ); }
 
-    // --- Kereső Metódusok (Maradnak ahogy voltak) ---
     public function search_sites( WP_REST_Request $request ) { $query = sanitize_text_field( $request->get_param( 'q' ) ); if ( empty( $query ) ) return rest_ensure_response( [] ); $response = $this->graph_api->make_request( "/sites?search=" . rawurlencode( $query ) . "&\$select=id,name,webUrl" ); return is_wp_error( $response ) ? $response : rest_ensure_response( $response['value'] ?? [] ); }
     public function get_drives( WP_REST_Request $request ) { $site_id = sanitize_text_field( $request->get_param( 'site_id' ) ); if ( empty( $site_id ) ) return new WP_Error( 'missing_id', 'Site ID hiányzik', ['status'=>400] ); $response = $this->graph_api->make_request( "/sites/{$site_id}/drives?\$select=id,name,webUrl" ); return is_wp_error( $response ) ? $response : rest_ensure_response( $response['value'] ?? [] ); }
     public function search_folders( WP_REST_Request $request ) { $query = sanitize_text_field( $request->get_param( 'q' ) ); $drive_id = !empty($request->get_param('drive_id')) ? sanitize_text_field($request->get_param('drive_id')) : get_option('msdl_drive_id'); if (empty($drive_id)) return new WP_Error( 'missing_drive', 'Nincs Drive ID', ['status'=>400] ); $endpoint = empty($query) ? "/drives/{$drive_id}/root/children?\$filter=folder ne null&\$select=id,name,parentReference,folder" : "/drives/{$drive_id}/root/search(q='" . rawurlencode($query) . "')?\$select=id,name,parentReference,folder"; $response = $this->graph_api->make_request( $endpoint ); if ( is_wp_error( $response ) ) return $response; $folders = []; if ( isset($response['value']) ) foreach ( $response['value'] as $item ) if ( isset($item['folder']) ) $folders[] = $item; return rest_ensure_response( $folders ); }
 
-    // Távoli Parancsok Végrehajtója
     public function remote_command( WP_REST_Request $request ) {
         $params = $request->get_json_params();
         $domain = $params['domain'] ?? '';
-        $command = $params['command'] ?? ''; // 'ping' vagy 'sync'
+        $command = $params['command'] ?? ''; 
         
         $internal_key = get_option('msdl_internal_api_key');
         if (empty($domain) || empty($command)) return new WP_Error('bad_request', 'Hiányzó paraméterek');
@@ -181,7 +182,6 @@ class MSDL_Main_REST_API {
         
         if ( json_last_error() !== JSON_ERROR_NONE ) return new WP_Error('invalid_response', 'A kliens érvénytelen választ adott.', ['raw' => $body]);
 
-        // ÚJ: Ha a szinkronizáció sikeres volt, frissítsük az utolsó szinkronizáció idejét a DB-ben!
         if ( $command === 'sync' && isset($decoded['success']) && $decoded['success'] === true ) {
             global $wpdb;
             $table_name = $wpdb->prefix . 'msdl_sites';
@@ -196,12 +196,10 @@ class MSDL_Main_REST_API {
         return rest_ensure_response( $decoded );
     }
 
-    // ÚJ: Dinamikus URL generátor a Graph API-val
     public function get_sp_url( WP_REST_Request $request ) {
         $type = sanitize_text_field( $request->get_param( 'type' ) );
         $site_id = intval( $request->get_param( 'site_id' ) );
 
-        // 1. Eset: Központi SharePoint
         if ( $type === 'central' ) {
             $drive_id = get_option( 'msdl_drive_id' );
             if ( empty( $drive_id ) ) return new WP_Error('no_drive', 'Nincs központi Dokumentumtár beállítva.', ['status'=>400]);
@@ -212,7 +210,6 @@ class MSDL_Main_REST_API {
             return rest_ensure_response( ['url' => $response['webUrl']] );
         }
 
-        // 2. Eset: Konkrét webhely mappája
         if ( $type === 'folder' && $site_id > 0 ) {
             global $wpdb;
             $table_name = $wpdb->prefix . 'msdl_sites';
@@ -225,7 +222,6 @@ class MSDL_Main_REST_API {
             
             if ( empty($drive_id) ) return new WP_Error('no_drive', 'Nincs Dokumentumtár beállítva ehhez az oldalhoz.', ['status'=>400]);
             
-            // Ha a gyökeret kérik, vagy egy konkrét mappát
             $endpoint = empty($folder_path) 
                 ? "/drives/{$drive_id}/root?\$select=webUrl" 
                 : "/drives/{$drive_id}/root:/" . rawurlencode($folder_path) . "?\$select=webUrl";
@@ -239,8 +235,15 @@ class MSDL_Main_REST_API {
         return new WP_Error('invalid_request', 'Érvénytelen kérés.', ['status'=>400]);
     }
 
+    public function report_sync() {} // Ide jöhet a webhook fogadó
+
     public function get_next_sync_time() {
-    $next = wp_next_scheduled( 'msdl_main_master_sync' );
-    return rest_ensure_response( [ 'next_sync' => $next ? $next : 0 ] );
-}
+        $next = wp_next_scheduled( 'msdl_main_master_sync' );
+        $interval = get_option( 'msdl_global_sync_interval', 'hourly' );
+        
+        return rest_ensure_response( [ 
+            'next_sync' => $next ? $next : 0,
+            'interval'  => $interval
+        ] );
+    }
 }

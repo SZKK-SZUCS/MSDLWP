@@ -22,9 +22,10 @@ class MSDL_Child_Download {
 
         if ( ! $node ) wp_die( 'A fájl nem található a helyi adatbázisban.', 'Hiba', [ 'response' => 404 ] );
 
-        // 1. LÉPÉS: Jogosultság ellenőrzése
-        if ( ! $this->check_access( $node->visibility_roles ) ) {
-            wp_die( 'Nincs jogosultságod a fájl megtekintéséhez/letöltéséhez.', 'Hozzáférés megtagadva', [ 'response' => 403 ] );
+        // 1. LÉPÉS: KÖZPONTI JOGOSULTSÁG ELLENŐRZÉS (Gyökérmappa + Fájl szint)
+        // Behúzzuk a frissített Elementor osztályunk metódusát!
+        if ( ! class_exists('MSDL_Child_Elementor') || ! MSDL_Child_Elementor::check_item_access( $node->visibility_roles ) ) {
+            wp_die( 'Nincs jogosultságod a fájl megtekintéséhez vagy letöltéséhez.', 'Hozzáférés megtagadva', [ 'response' => 403 ] );
         }
 
         // 2. LÉPÉS: Fájl lekérése a Microsoft Graph API-tól
@@ -49,37 +50,11 @@ class MSDL_Child_Download {
         }
 
         if ( empty( $response['@microsoft.graph.downloadUrl'] ) ) {
-            // ÚJ DEBUG BLOKK: Ha még mindig nincs letöltési link, nézzük meg, mit kaptunk pontosan!
-            echo '<h3>Hibakeresés: A Microsoft Graph API nyers válasza</h3>';
-            echo '<pre style="background:#fff; padding:15px; border:1px solid #ccc; max-width: 800px; overflow: auto;">';
-            print_r( $response );
-            echo '</pre>';
-            wp_die( 'A Microsoft nem adott vissza letöltési linket.', 'Hiba', [ 'response' => 404 ] );
+            wp_die( 'A Microsoft nem adott vissza letöltési linket. Lehet, hogy a fájl sérült vagy a megosztási beállítások tiltják a letöltést.', 'Hiba', [ 'response' => 404 ] );
         }
 
         // 3. LÉPÉS: Átirányítás a pre-autentikált, ideiglenes URL-re
         wp_redirect( $response['@microsoft.graph.downloadUrl'] );
         exit;
-    }
-
-    private function check_access( $roles_string ) {
-        if ( empty( $roles_string ) || $roles_string === 'public' ) return true; 
-        if ( ! is_user_logged_in() ) return false;
-        
-        if ( $roles_string === 'loggedin' ) return true;
-
-        $user = wp_get_current_user();
-        if ( in_array( 'administrator', (array) $user->roles ) ) return true;
-
-        // JSON dekódolás megkísérlése
-        $decoded = json_decode( $roles_string, true );
-        $allowed_roles = is_array( $decoded ) ? $decoded : array_map( 'trim', explode( ',', $roles_string ) );
-        
-        $user_roles = (array) $user->roles;
-        foreach ( $user_roles as $role ) {
-            if ( in_array( $role, $allowed_roles ) ) return true;
-        }
-
-        return false;
     }
 }

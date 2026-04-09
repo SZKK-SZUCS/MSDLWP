@@ -52,6 +52,9 @@ class MSDL_Child_Sync {
             }
         }
 
+        // ÚJ: Elmentjük a sikeres szinkronizáció pontos idejét!
+        update_option( 'msdl_last_sync_timestamp', time() );
+
         return [ 'success' => true, 'processed' => $processed_count ];
     }
 
@@ -72,7 +75,7 @@ class MSDL_Child_Sync {
             if ( $item['id'] === $root_folder_id ) continue;
 
             if ( isset( $item['deleted'] ) ) {
-                $wpdb->delete( $table_name, [ 'graph_id' => $item['id'] ] );
+                $this->delete_node_and_descendants( $item['id'], $table_name );
                 $count++;
                 continue;
             }
@@ -99,16 +102,28 @@ class MSDL_Child_Sync {
             ];
 
             if ( $existing ) {
-                // Csak az alap adatokat frissítjük, a custom_title és description érintetlen marad!
                 $wpdb->update( $table_name, $data, [ 'id' => $existing->id ] );
             } else {
                 $data['custom_title'] = '';
                 $data['custom_description'] = '';
-                $data['visibility_roles'] = ''; // Új fájl érkezett
+                $data['visibility_roles'] = ''; 
                 $wpdb->insert( $table_name, $data );
             }
             $count++;
         }
         return $count;
+    }
+
+    private function delete_node_and_descendants( $graph_id, $table_name ) {
+        global $wpdb;
+        $children = $wpdb->get_results( $wpdb->prepare( "SELECT graph_id, type FROM $table_name WHERE parent_graph_id = %s", $graph_id ) );
+        $wpdb->delete( $table_name, [ 'graph_id' => $graph_id ] );
+        foreach ( $children as $child ) {
+            if ( $child->type === 'folder' ) {
+                $this->delete_node_and_descendants( $child->graph_id, $table_name );
+            } else {
+                $wpdb->delete( $table_name, [ 'graph_id' => $child->graph_id ] );
+            }
+        }
     }
 }
