@@ -10,7 +10,7 @@ class MSDL_Child_Admin {
     }
 
     public function add_cron_schedules( $schedules ) {
-        $schedules['msdl_1min'] = [ 'interval' => 60, 'display' => '1 percenként (CSAK TESZTRE)' ];
+        $schedules['msdl_5min'] = [ 'interval' => 300, 'display' => '5 percenként' ];
         $schedules['msdl_15min'] = [ 'interval' => 900, 'display' => '15 percenként' ];
         $schedules['msdl_30min'] = [ 'interval' => 1800, 'display' => '30 percenként' ];
         return $schedules;
@@ -83,7 +83,7 @@ class MSDL_Child_Admin {
         $interval = get_option( 'msdl_local_sync_interval', 'hourly' );
 
         $intervals = [
-            'msdl_1min' => '1 percenként', 'msdl_15min' => '15 percenként', 'msdl_30min' => '30 percenként',
+            'msdl_5min' => '5 percenként', 'msdl_15min' => '15 percenként', 'msdl_30min' => '30 percenként',
             'hourly' => 'Óránként', 'twicedaily' => 'Naponta kétszer', 'daily' => 'Naponta egyszer'
         ];
 

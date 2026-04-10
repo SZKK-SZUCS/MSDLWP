@@ -1277,8 +1277,8 @@ const SettingsApp = () => {
             padding: "8px"
           },
           children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
-            value: "msdl_1min",
-            children: "1 percenk\xE9nt (CSAK TESZTRE)"
+            value: "msdl_5min",
+            children: "5 percenk\xE9nt"
           }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
             value: "msdl_15min",
             children: "15 percenk\xE9nt"

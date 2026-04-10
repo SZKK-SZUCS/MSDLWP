@@ -551,9 +551,7 @@ const App = () => {
                     <option value="">
                       -- Kikapcsolva (Nincs központi szinkron) --
                     </option>
-                    <option value="msdl_1min">
-                      1 percenként (CSAK TESZTRE)
-                    </option>
+                    <option value="msdl_5min">5 percenként</option>
                     <option value="msdl_15min">15 percenként</option>
                     <option value="msdl_30min">30 percenként</option>
                     <option value="hourly">Óránként</option>
