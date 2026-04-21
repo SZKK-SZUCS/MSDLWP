@@ -1,6 +1,6 @@
 {
   "name": "msdl-main",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MS Graph Dokumentumtar - KOZPONT",
   "main": "build/index.js",
   "scripts": {

@@ -135,8 +135,11 @@ __webpack_require__.r(__webpack_exports__);
 
 
 
+const cleanDomain = val => {
+  if (!val) return "";
+  return val.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].split("?")[0];
+};
 const App = () => {
-  // --- State-ek ---
   const [options, setOptions] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)({
     msdl_tenant_id: "",
     msdl_client_id: "",
@@ -148,8 +151,6 @@ const App = () => {
   });
   const [sites, setSites] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
   const [statusText, setStatusText] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
-
-  // Visszaszámláló state-ek
   const [nextSyncTimestamp, setNextSyncTimestamp] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(0);
   const [countdownText, setCountdownText] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [siteSearchFilter, setSiteSearchFilter] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
@@ -160,6 +161,9 @@ const App = () => {
   const [editingSite, setEditingSite] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
   const [showAdvanced, setShowAdvanced] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [isFolderBrowserActive, setIsFolderBrowserActive] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
+
+  // ÚJ: Állapotjelző, hogy a kereső ablak a "Központi" (main) vagy az "Egyedi" (site) azonosítókat frissítse-e
+  const [finderTarget, setFinderTarget] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("main");
   const [isFinderOpen, setIsFinderOpen] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [searchQuery, setSearchQuery] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [isSearching, setIsSearching] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
@@ -170,23 +174,17 @@ const App = () => {
   const [folderSearchQuery, setFolderSearchQuery] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [isSearchingFolders, setIsSearchingFolders] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [foundFolders, setFoundFolders] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
-
-  // Visszaszámláló és folyamatjelző state-ek
   const [isProcessingBatch, setIsProcessingBatch] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [syncProgress, setSyncProgress] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)({
     current: 0,
     total: 0
   });
   const syncSnapshots = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useRef)({});
-
-  // --- Adatbetöltés ---
   (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
     loadSettings();
     loadSites();
     fetchNextSyncTime();
   }, []);
-
-  // Visszaszámláló logika (1 másodperces frissítés)
   (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
     const timer = setInterval(() => {
       const now = Math.floor(Date.now() / 1000);
@@ -205,12 +203,9 @@ const App = () => {
         const h = Math.floor(diff / 3600);
         const m = Math.floor(diff % 3600 / 60);
         const s = diff % 60;
-
-        // Ha több mint egy óra van hátra, kiírjuk az órát is
         if (h > 0) {
           setCountdownText(`${h}:${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`);
         } else {
-          // Ha kevesebb mint egy óra, marad a megszokott MM:SS
           setCountdownText(`${m}:${s < 10 ? "0" : ""}${s}`);
         }
       }
@@ -233,9 +228,9 @@ const App = () => {
       fetchNextSyncTime();
       return;
     }
-
-    // Snapshot készítése: elmentjük, mi volt a dátum a kezdéskor
-    const snapshots = {};
+    const snapshots = {
+      startTime: Date.now()
+    };
     centralSites.forEach(s => {
       snapshots[s.id] = s.last_sync;
     });
@@ -248,26 +243,22 @@ const App = () => {
     setCountdownText(`0 / ${centralSites.length}`);
   };
   const handleBatchPolling = async () => {
-    // 3 másodpercenként kérünk új adatokat a szervertől (Soft Refresh)
     if (Date.now() % 3000 < 1000) {
       try {
         const freshSites = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
           path: "/msdl-main/v1/sites"
         });
-        setSites(freshSites); // Frissítjük a táblázatot az oldalon belül
-
+        setSites(freshSites);
         const centralSites = freshSites.filter(s => s.is_active == 1 && s.sync_mode === "central" && s.folder_path);
-
-        // Ellenőrizzük, hánynak változott meg a dátuma a kezdés óta
-        const updatedCount = centralSites.filter(s => {
-          return s.last_sync !== syncSnapshots.current[s.id];
-        }).length;
+        const updatedCount = centralSites.filter(s => s.last_sync !== syncSnapshots.current[s.id]).length;
         setSyncProgress({
           current: updatedCount,
           total: centralSites.length
         });
         setCountdownText(`${updatedCount} / ${centralSites.length}`);
-        if (updatedCount >= centralSites.length) {
+        const maxTime = centralSites.length * 15000 + 10000;
+        const isTimeout = Date.now() - syncSnapshots.current.startTime > maxTime;
+        if (updatedCount >= centralSites.length || isTimeout) {
           setIsProcessingBatch(false);
           fetchNextSyncTime();
         }
@@ -296,8 +287,6 @@ const App = () => {
       path: "/msdl-main/v1/sites"
     }).then(setSites).catch(console.error);
   };
-
-  // --- Műveletek ---
   const handleSaveSettings = async () => {
     setStatusText("Mentés...");
     try {
@@ -307,7 +296,7 @@ const App = () => {
         data: options
       });
       setStatusText("Beállítások sikeresen elmentve!");
-      fetchNextSyncTime(); // Újraütemezés miatt lekérjük az új időpontot
+      fetchNextSyncTime();
       setTimeout(() => setStatusText(""), 3000);
     } catch (e) {
       setStatusText("Hiba a mentéskor!");
@@ -375,8 +364,6 @@ const App = () => {
       setStatusText(`${site.domain}: Kapcsolódási hiba!`);
     }
   };
-
-  // Dinamikus URL nyitó
   const handleOpenSharePoint = async (type, siteId = null) => {
     setStatusText("SharePoint URL lekérése a Microsofttól...");
     try {
@@ -385,7 +372,7 @@ const App = () => {
         path: `/msdl-main/v1/get-sp-url${query}`
       });
       if (response && response.url) {
-        setStatusText(""); // Sáv törlése
+        setStatusText("");
         window.open(response.url, "_blank");
       } else {
         setStatusText("Hiba: Nem kaptam vissza URL-t.");
@@ -394,8 +381,6 @@ const App = () => {
       setStatusText(`Hiba az URL lekérésekor: ${err.message || "Ismeretlen hiba"}`);
     }
   };
-
-  // --- Tömeges műveletek ---
   const filteredSites = sites.filter(s => s.domain.toLowerCase().includes(siteSearchFilter.toLowerCase()));
   const handleSelectAll = isChecked => {
     if (isChecked) setSelectedSites(filteredSites.map(s => s.id));else setSelectedSites([]);
@@ -412,8 +397,8 @@ const App = () => {
       if (bulkAction === "ping" || bulkAction === "sync") {
         if (bulkAction === "sync" && (!site.folder_path || site.is_active == 0)) continue;
         await handleRemoteCommand(site, bulkAction);
-      } else if (bulkAction === "suspend") {
-        if (site.is_active == 1) await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
+      } else if (bulkAction === "suspend" && site.is_active == 1) {
+        await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
           path: "/msdl-main/v1/sites",
           method: "POST",
           data: {
@@ -421,8 +406,8 @@ const App = () => {
             is_active: 0
           }
         });
-      } else if (bulkAction === "activate") {
-        if (site.is_active == 0) await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
+      } else if (bulkAction === "activate" && site.is_active == 0) {
+        await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
           path: "/msdl-main/v1/sites",
           method: "POST",
           data: {
@@ -454,8 +439,13 @@ const App = () => {
       alert("Hiba az állapot mentésekor!");
     }
   };
-
-  // --- Graph Kereső Metódusok ---
+  const openFinderModal = target => {
+    setFinderTarget(target);
+    setSearchQuery("");
+    setFoundSites([]);
+    setFoundDrives([]);
+    setIsFinderOpen(true);
+  };
   const handleSearchSites = async e => {
     e.preventDefault();
     setIsSearching(true);
@@ -463,6 +453,7 @@ const App = () => {
     setSelectedFoundSite(null);
     setFoundDrives([]);
     try {
+      // Itt már a teljes URL átmegy a backendnek szétbontás nélkül
       const results = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
         path: `/msdl-main/v1/search-sites?q=${encodeURIComponent(searchQuery)}`
       });
@@ -486,11 +477,19 @@ const App = () => {
     setIsLoadingDrives(false);
   };
   const handleApplyIds = (siteId, driveId) => {
-    setOptions({
-      ...options,
-      msdl_site_id: siteId,
-      msdl_drive_id: driveId
-    });
+    if (finderTarget === "main") {
+      setOptions({
+        ...options,
+        msdl_site_id: siteId,
+        msdl_drive_id: driveId
+      });
+    } else {
+      setEditingSite({
+        ...editingSite,
+        custom_site_id: siteId,
+        custom_drive_id: driveId
+      });
+    }
     setIsFinderOpen(false);
     setStatusText("Azonosítók bemásolva!");
   };
@@ -611,7 +610,7 @@ const App = () => {
                 }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
                   isSecondary: true,
                   icon: "search",
-                  onClick: () => setIsFinderOpen(true),
+                  onClick: () => openFinderModal("main"),
                   children: "Azonos\xEDt\xF3k Keres\xE9se"
                 })]
               }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.TextControl, {
@@ -652,7 +651,7 @@ const App = () => {
                 style: {
                   color: "#666"
                 },
-                children: "Ezzel a be\xE1ll\xEDt\xE1ssal fel\xFCl\xEDrhatod az \xF6sszes bek\xF6t\xF6tt webhely szinkroniz\xE1ci\xF3s idej\xE9t, hacsak \u0151k azt helyileg m\xE1sk\xE9nt nem \xE1ll\xEDtj\xE1k be."
+                children: "Ezzel a be\xE1ll\xEDt\xE1ssal fel\xFCl\xEDrhatod az \xF6sszes bek\xF6t\xF6tt webhely szinkroniz\xE1ci\xF3s idej\xE9t."
               }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("select", {
                 value: options.msdl_global_sync_interval,
                 onChange: e => setOptions({
@@ -681,8 +680,8 @@ const App = () => {
                   value: "hourly",
                   children: "\xD3r\xE1nk\xE9nt"
                 }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
-                  value: "twicedaily",
-                  children: "Naponta k\xE9tszer"
+                  value: "msdl_thricedaily",
+                  children: "Naponta h\xE1romszor (8, 12, 16)"
                 }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
                   value: "daily",
                   children: "Naponta egyszer"
@@ -751,9 +750,9 @@ const App = () => {
                     children: ["Alkalmaz (", selectedSites.length, ")"]
                   })]
                 }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.TextControl, {
-                  placeholder: "Keres\xE9s domain szerint...",
+                  placeholder: "Keres\xE9s (Link is)...",
                   value: siteSearchFilter,
-                  onChange: setSiteSearchFilter,
+                  onChange: val => setSiteSearchFilter(cleanDomain(val)),
                   style: {
                     margin: 0,
                     width: "200px"
@@ -1069,7 +1068,7 @@ const App = () => {
             flexGrow: 1
           },
           children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.TextControl, {
-            placeholder: "Keres\xE9s webhely nev\xE9re...",
+            placeholder: "Teljes webhely linkje vagy n\xE9v...",
             value: searchQuery,
             onChange: setSearchQuery
           })
@@ -1277,11 +1276,11 @@ const App = () => {
       }) : /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("form", {
         onSubmit: handleSaveSite,
         children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.TextControl, {
-          label: "Kliens Domain",
+          label: "Kliens Domain (Link is megadhat\xF3)",
           value: editingSite.domain,
           onChange: val => setEditingSite({
             ...editingSite,
-            domain: val
+            domain: cleanDomain(val)
           }),
           required: true
         }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
@@ -1331,7 +1330,28 @@ const App = () => {
               backgroundColor: "#f6f7f7",
               borderLeft: "4px solid #72aee6"
             },
-            children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.TextControl, {
+            children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
+              style: {
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "15px"
+              },
+              children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("p", {
+                style: {
+                  margin: 0,
+                  fontWeight: "bold"
+                },
+                children: "Egyedi T\xE1rol\xF3 Azonos\xEDt\xF3i"
+              }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+                isSecondary: true,
+                type: "button",
+                isSmall: true,
+                icon: "search",
+                onClick: () => openFinderModal("site"),
+                children: "Keres\xE9s"
+              })]
+            }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.TextControl, {
               label: "Egyedi Site ID",
               value: editingSite.custom_site_id,
               onChange: val => setEditingSite({

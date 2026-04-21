@@ -109,13 +109,11 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         global $wpdb;
         $table = $wpdb->prefix . 'msdl_nodes';
         
-        // 1. GYÖKÉR VÉDELEM ELLENŐRZÉSE
         if ( ! $is_editor && ! MSDL_Child_Elementor::check_item_access( 'public' ) ) {
             echo '<div style="padding:20px; text-align:center; color:#787c82; border:2px dashed #dcdcde; border-radius:8px; font-weight:500;">Nincs jogosultságod a dokumentumtár megtekintéséhez.</div>';
             return;
         }
         
-        // 2. MAPPA SZINTŰ ELLENŐRZÉS
         if ( ! $is_editor && intval($current_folder_id) > 0 ) {
             $current_folder_node = $wpdb->get_row( $wpdb->prepare( "SELECT visibility_roles FROM $table WHERE id = %d", intval($current_folder_id) ) );
             if ( $current_folder_node && ! MSDL_Child_Elementor::check_item_access( $current_folder_node->visibility_roles ) ) {
@@ -140,9 +138,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
 
         $filtered_items = [];
         foreach ( $items as $item ) {
-            // ÚJ: A rejtett fájlok SOHA ne jelenjenek meg, még szerkesztő módban sem!
             if ( $item->visibility_roles === 'hidden' ) continue;
-            
             if ( $is_editor || MSDL_Child_Elementor::check_item_access( $item->visibility_roles ) ) {
                 $filtered_items[] = $item;
             }
@@ -269,17 +265,36 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
 
             ?>
             <div class="<?php echo esc_attr($item_class); ?>" style="<?php echo $display_style; ?>">
-                <?php if ( $settings['show_icon'] === 'yes' ) : ?><div class="msdl-fv-icon"><?php echo $icon_render; ?></div><?php endif; ?>
+                <?php if ( $settings['show_icon'] === 'yes' ) : ?>
+                    <div class="msdl-fv-icon">
+                        <?php if ( $is_folder ) : ?>
+                            <a href="<?php echo esc_url($url); ?>" class="msdl-ajax-link" style="color:inherit; text-decoration:none; display:inherit; align-items:inherit; justify-content:inherit;"><?php echo $icon_render; ?></a>
+                        <?php else : ?>
+                            <?php echo $icon_render; ?>
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+                
                 <div class="msdl-fv-content">
-                    <?php if ( $settings['show_title'] === 'yes' ) : ?><h4 class="msdl-fv-title"><?php echo esc_html($display_name); ?></h4><?php endif; ?>
+                    <?php if ( $settings['show_title'] === 'yes' ) : ?>
+                        <h4 class="msdl-fv-title">
+                            <?php if ( $is_folder ) : ?>
+                                <a href="<?php echo esc_url($url); ?>" class="msdl-ajax-link" style="color:inherit; text-decoration:none;"><?php echo esc_html($display_name); ?></a>
+                            <?php else : ?>
+                                <?php echo esc_html($display_name); ?>
+                            <?php endif; ?>
+                        </h4>
+                    <?php endif; ?>
+                    
                     <div class="msdl-fv-meta">
                         <?php if ( $settings['show_meta_ext'] === 'yes' && !$is_folder ) : ?><span><?php echo esc_html( strtoupper($ext) ); ?></span><?php endif; ?>
                         <?php if ( $settings['show_meta_size'] === 'yes' ) : ?><span><?php echo $size_str; ?></span><?php endif; ?>
                         <?php if ( $settings['show_meta_date'] === 'yes' ) : ?><span><?php echo $date_str; ?></span><?php endif; ?>
                     </div>
                 </div>
+                
                 <?php if ( $settings['show_button'] === 'yes' ) : ?>
-                    <div class="msdl-fv-action"><a href="<?php echo esc_url($url); ?>" class="msdl-fv-btn"><?php echo $btn_text; ?></a></div>
+                    <div class="msdl-fv-action"><a href="<?php echo esc_url($url); ?>" class="msdl-fv-btn <?php echo $is_folder ? 'msdl-ajax-link' : ''; ?>"><?php echo $btn_text; ?></a></div>
                 <?php endif; ?>
             </div>
             <?php
@@ -287,7 +302,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
 
         ?>
         <style>
-            #msdl-fv-<?php echo $uid; ?>-container { position: relative; width: 100%; }
+            #msdl-fv-<?php echo $uid; ?>-container { position: relative; width: 100%; min-height: 100px; }
             #msdl-fv-<?php echo $uid; ?> { display: <?php echo $layout === 'grid' ? 'grid' : 'flex'; ?>; flex-direction: column; gap: 20px; <?php echo $grid_template; ?> }
 
             .msdl-fv-breadcrumbs { margin-bottom: 25px; font-size: 14px; font-weight: 500; display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
@@ -355,7 +370,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
                         echo '<span class="msdl-bc-current">' . esc_html($crumb['name']) . '</span>';
                     } else {
                         $b_url = ($crumb['id'] === '0') ? remove_query_arg($param_name) : add_query_arg($param_name, $crumb['id']);
-                        echo '<a href="' . esc_url($b_url) . '">' . esc_html($crumb['name']) . '</a> <span class="msdl-bc-sep">/</span> ';
+                        echo '<a href="' . esc_url($b_url) . '" class="msdl-ajax-link">' . esc_html($crumb['name']) . '</a> <span class="msdl-bc-sep">/</span> ';
                     }
                 }
                 echo '</div>';
@@ -416,56 +431,123 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         jQuery(document).ready(function($) {
             var layout = "<?php echo $layout; ?>";
             var uid = "<?php echo $uid; ?>";
-            
-            if ( layout === 'carousel' && $('#swiper-' + uid).length > 0 ) {
-                var cols = <?php echo intval($cols); ?>;
-                var initSwiper = function() {
-                    if (typeof Swiper === 'undefined') {
-                        setTimeout(initSwiper, 100);
-                        return;
-                    }
-                    new Swiper('#swiper-' + uid, {
-                        slidesPerView: 1, spaceBetween: 20, loop: false,
-                        navigation: { nextEl: '#swiper-' + uid + ' .swiper-button-next', prevEl: '#swiper-' + uid + ' .swiper-button-prev' },
-                        breakpoints: { 768: { slidesPerView: cols > 1 ? 2 : 1 }, 1024: { slidesPerView: cols } }
-                    });
-                };
-                initSwiper();
-            } 
-            else if ( layout !== 'carousel' ) {
+            var cols = <?php echo intval($cols); ?>;
+            var perPage = <?php echo $per_page; ?>;
+
+            function initMSDLFolderView() {
                 var $container = $('#msdl-fv-' + uid);
-                var $files = $container.find('.msdl-page-item:not(.msdl-is-folder)');
-                var perPage = <?php echo $per_page; ?>;
-                var totalFiles = $files.length;
                 
-                if (totalFiles > perPage) {
-                    var totalPages = Math.ceil(totalFiles / perPage);
-                    var currentPage = 1;
-                    var $pagContainer = $('#pag-' + uid);
-                    var $numContainer = $pagContainer.find('.msdl-pag-numbers');
-
-                    for (var i = 1; i <= totalPages; i++) {
-                        $numContainer.append('<button class="msdl-pag-btn ' + (i === 1 ? 'active' : '') + '" data-page="'+i+'">'+i+'</button>');
+                if ( layout === 'carousel' && $('#swiper-' + uid).length > 0 ) {
+                    if (typeof Swiper !== 'undefined') {
+                        new Swiper('#swiper-' + uid, {
+                            slidesPerView: 1, spaceBetween: 20, loop: false,
+                            navigation: { nextEl: '#swiper-' + uid + ' .swiper-button-next', prevEl: '#swiper-' + uid + ' .swiper-button-prev' },
+                            breakpoints: { 768: { slidesPerView: cols > 1 ? 2 : 1 }, 1024: { slidesPerView: cols } }
+                        });
                     }
+                } 
+                else if ( layout !== 'carousel' ) {
+                    var $files = $container.find('.msdl-page-item:not(.msdl-is-folder)');
+                    var totalFiles = $files.length;
+                    
+                    if (totalFiles > perPage) {
+                        var totalPages = Math.ceil(totalFiles / perPage);
+                        var currentPage = 1;
+                        var $pagContainer = $('#pag-' + uid);
+                        var $numContainer = $pagContainer.find('.msdl-pag-numbers');
 
-                    function showPage(page) {
-                        currentPage = page;
-                        var start = (page - 1) * perPage;
-                        var end = start + perPage;
-                        $files.hide().slice(start, end).fadeIn(300);
-                        
-                        $numContainer.find('button').removeClass('active');
-                        $numContainer.find('button[data-page="'+page+'"]').addClass('active');
-                        
-                        $pagContainer.find('.msdl-pag-prev').prop('disabled', page === 1);
-                        $pagContainer.find('.msdl-pag-next').prop('disabled', page === totalPages);
+                        $numContainer.empty();
+                        for (var i = 1; i <= totalPages; i++) {
+                            $numContainer.append('<button class="msdl-pag-btn ' + (i === 1 ? 'active' : '') + '" data-page="'+i+'">'+i+'</button>');
+                        }
+
+                        function showPage(page) {
+                            currentPage = page;
+                            var start = (page - 1) * perPage;
+                            var end = start + perPage;
+                            $files.hide().slice(start, end).fadeIn(300);
+                            
+                            $numContainer.find('button').removeClass('active');
+                            $numContainer.find('button[data-page="'+page+'"]').addClass('active');
+                            
+                            $pagContainer.find('.msdl-pag-prev').prop('disabled', page === 1);
+                            $pagContainer.find('.msdl-pag-next').prop('disabled', page === totalPages);
+                        }
+
+                        $pagContainer.off('click').on('click', '.msdl-pag-numbers button', function() { showPage($(this).data('page')); });
+                        $pagContainer.on('click', '.msdl-pag-prev', function() { if (currentPage > 1) showPage(currentPage - 1); });
+                        $pagContainer.on('click', '.msdl-pag-next', function() { if (currentPage < totalPages) showPage(currentPage + 1); });
                     }
-
-                    $pagContainer.on('click', '.msdl-pag-numbers button', function() { showPage($(this).data('page')); });
-                    $pagContainer.on('click', '.msdl-pag-prev', function() { if (currentPage > 1) showPage(currentPage - 1); });
-                    $pagContainer.on('click', '.msdl-pag-next', function() { if (currentPage < totalPages) showPage(currentPage + 1); });
                 }
             }
+
+            initMSDLFolderView();
+
+            // VÉGLEGES, BIZTONSÁGOS PJAX NAVIGÁCIÓ
+            $('#msdl-fv-' + uid + '-container').on('click', '.msdl-ajax-link', function(e) {
+                var url = $(this).attr('href');
+                if (!url || url === '#') return;
+                
+                e.preventDefault();
+                var $wrapper = $('#msdl-fv-' + uid + '-container');
+                
+                if (!$('style#msdl-ajax-anim').length) {
+                    $('head').append('<style id="msdl-ajax-anim">@keyframes msdl-spin-loader { 100% { transform:rotate(360deg); } }</style>');
+                }
+                
+                $wrapper.append('<div class="msdl-ajax-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; z-index:10; border-radius:8px;"><div style="width:40px;height:40px;border:3px solid #ccc;border-top-color:#2271b1;border-radius:50%;animation:msdl-spin-loader 1s linear infinite;"></div></div>');
+                
+                $.ajax({
+                    url: url,
+                    type: 'GET',
+                    success: function(response) {
+                        try {
+                            // DOMParser használata, hogy elkerüljük az Elementor oldalak JS feldolgozási hibáit
+                            var doc = new DOMParser().parseFromString(response, 'text/html');
+                            var newHtml = $(doc).find('#msdl-fv-' + uid + '-container').html();
+                            
+                            if (newHtml) {
+                                $wrapper.html(newHtml);
+                                window.history.pushState({path: url, type: 'msdl-folder-view'}, '', url);
+                                initMSDLFolderView();
+                                
+                                var wrapperTop = $wrapper.offset().top;
+                                if ($(window).scrollTop() > wrapperTop) {
+                                    $('html, body').animate({ scrollTop: wrapperTop - 100 }, 300);
+                                }
+                            } else {
+                                window.location.href = url; // Biztonsági visszalépés
+                            }
+                        } catch (err) {
+                            window.location.href = url;
+                        }
+                    },
+                    error: function() {
+                        window.location.href = url;
+                    }
+                });
+            });
+
+            window.addEventListener('popstate', function(e) {
+                if (e.state && e.state.type === 'msdl-folder-view') {
+                    var $wrapper = $('#msdl-fv-' + uid + '-container');
+                    $wrapper.append('<div class="msdl-ajax-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; z-index:10; border-radius:8px;"><div style="width:40px;height:40px;border:3px solid #ccc;border-top-color:#2271b1;border-radius:50%;animation:msdl-spin-loader 1s linear infinite;"></div></div>');
+                    $.get(e.state.path, function(html) {
+                        try {
+                            var doc = new DOMParser().parseFromString(html, 'text/html');
+                            var newHtml = $(doc).find('#msdl-fv-' + uid + '-container').html();
+                            if (newHtml) {
+                                $wrapper.html(newHtml);
+                                initMSDLFolderView();
+                            } else {
+                                window.location.reload();
+                            }
+                        } catch (err) {
+                            window.location.reload();
+                        }
+                    });
+                }
+            });
         });
         </script>
         <?php

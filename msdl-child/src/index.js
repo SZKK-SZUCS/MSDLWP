@@ -9,6 +9,7 @@ import {
   Modal,
   RadioControl,
   CheckboxControl,
+  ToggleControl,
 } from "@wordpress/components";
 import apiFetch from "@wordpress/api-fetch";
 
@@ -20,19 +21,19 @@ const WpTinyMceEditor = ({ value, onChange }) => {
       window.wp.editor &&
       window.tinymce &&
       window.tinymce.get(id)
-    ) {
+    )
       window.wp.editor.remove(id);
-    }
     if (window.wp && window.wp.editor) {
       window.wp.editor.initialize(id, {
         tinymce: {
           wpautop: true,
+          // JAVÍTÁS: A 'table' kikerült a pluginek és a toolbar listából
           plugins:
-            "charmap hr lists paste textcolor wordpress wpdialogs wpeditimage wpemoji wpgallery wplink wpview table",
+            "charmap hr lists paste textcolor wordpress wpdialogs wpeditimage wpemoji wpgallery wplink wpview",
           toolbar1:
             "formatselect bold italic bullist numlist blockquote alignleft aligncenter alignright link unlink wp_adv",
           toolbar2:
-            "strikethrough hr forecolor pastetext removeformat charmap outdent indent undo redo table",
+            "strikethrough hr forecolor pastetext removeformat charmap outdent indent undo redo",
           setup: function (editor) {
             editor.on("change keyup", function () {
               onChange(editor.getContent());
@@ -48,9 +49,7 @@ const WpTinyMceEditor = ({ value, onChange }) => {
       }, 200);
     }
     return () => {
-      if (window.wp && window.wp.editor) {
-        window.wp.editor.remove(id);
-      }
+      if (window.wp && window.wp.editor) window.wp.editor.remove(id);
     };
   }, []);
 
@@ -64,24 +63,35 @@ const WpTinyMceEditor = ({ value, onChange }) => {
         defaultValue={value}
         style={{ width: "100%", height: "250px" }}></textarea>
       <p style={{ fontSize: "11px", color: "#666", margin: "5px 0 0 0" }}>
-        A "Média hozzáadása" gombbal képeket, az eszköztárból pedig táblázatokat
-        és formázásokat szúrhatsz be.
+        A "Média hozzáadása" gombbal képeket, az eszköztárból pedig formázásokat
+        szúrhatsz be.
       </p>
     </div>
   );
 };
 
 const FileManagerApp = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialFolder = urlParams.get("folder") || null;
+  const initialOpenFile = urlParams.get("open_file") || null;
+
   const [nodes, setNodes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [wpRoles, setWpRoles] = useState({});
 
-  const [currentFolderId, setCurrentFolderId] = useState(null);
-  const [pathHistory, setPathHistory] = useState([
-    { id: null, name: "Gyökérmappa" },
-  ]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [currentFolderId, setCurrentFolderId] = useState(initialFolder);
+  const [pathHistory, setPathHistory] = useState(
+    initialFolder
+      ? [
+          { id: null, name: "Gyökérmappa" },
+          { id: initialFolder, name: "Keresett mappa (Linkből)" },
+        ]
+      : [{ id: null, name: "Gyökérmappa" }],
+  );
+  const [autoOpenFileId, setAutoOpenFileId] = useState(initialOpenFile);
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showUnhandledOnly, setShowUnhandledOnly] = useState(false);
   const [selectedNodes, setSelectedNodes] = useState([]);
 
   const [isRootModalOpen, setIsRootModalOpen] = useState(false);
@@ -109,6 +119,23 @@ const FileManagerApp = () => {
     if (Object.keys(wpRoles).length === 0) loadRoles();
   }, [currentFolderId]);
 
+  useEffect(() => {
+    if (autoOpenFileId && nodes.length > 0) {
+      const nodeToOpen = nodes.find(
+        (n) => String(n.id) === String(autoOpenFileId),
+      );
+      if (nodeToOpen) {
+        openVisibilityModal(nodeToOpen);
+        setAutoOpenFileId(null);
+
+        const newUrl = new URL(window.location);
+        newUrl.searchParams.delete("folder");
+        newUrl.searchParams.delete("open_file");
+        window.history.replaceState({}, "", newUrl);
+      }
+    }
+  }, [nodes, autoOpenFileId]);
+
   const loadRoles = async () => {
     try {
       const roles = await apiFetch({ path: "/msdl-child/v1/get-roles" });
@@ -133,7 +160,6 @@ const FileManagerApp = () => {
     try {
       const settings = await apiFetch({ path: "/wp/v2/settings" });
       const rootVis = settings.msdl_root_visibility || "public";
-
       if (["public", "loggedin", "hidden"].includes(rootVis)) {
         setRootVisType(rootVis);
         setRootSelectedRoles([]);
@@ -167,6 +193,12 @@ const FileManagerApp = () => {
   };
 
   const filteredNodes = nodes.filter((node) => {
+    if (
+      showUnhandledOnly &&
+      node.visibility_roles &&
+      node.visibility_roles !== ""
+    )
+      return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     const nameMatch = node.name && node.name.toLowerCase().includes(q);
@@ -178,6 +210,7 @@ const FileManagerApp = () => {
   const handleFolderClick = (e, folder) => {
     e.preventDefault();
     setSearchQuery("");
+    setShowUnhandledOnly(false);
     setCurrentFolderId(folder.graph_id);
     setPathHistory([
       ...pathHistory,
@@ -188,6 +221,7 @@ const FileManagerApp = () => {
   const handleBreadcrumbClick = (e, index) => {
     e.preventDefault();
     setSearchQuery("");
+    setShowUnhandledOnly(false);
     const newPath = pathHistory.slice(0, index + 1);
     setPathHistory(newPath);
     setCurrentFolderId(newPath[newPath.length - 1].id);
@@ -442,20 +476,23 @@ const FileManagerApp = () => {
             Tömeges Beállítás ({selectedNodes.length})
           </Button>
         </div>
-        <div style={{ width: "300px" }}>
+        <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
+          <ToggleControl
+            label="Csak kezeletlen új fájlok"
+            checked={showUnhandledOnly}
+            onChange={setShowUnhandledOnly}
+            style={{ margin: 0, marginTop: "6px" }}
+          />
           <input
             type="text"
             placeholder="Keresés név vagy cím alapján..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
-              width: "100%",
+              width: "300px",
               padding: "6px 10px",
               borderRadius: "4px",
               border: "1px solid #8c8f94",
-              background: "#ffffff",
-              color: "#1d2327",
-              fontSize: "14px",
             }}
           />
         </div>
@@ -527,17 +564,40 @@ const FileManagerApp = () => {
                   </td>
                   <td style={{ verticalAlign: "middle" }}>
                     {node.type === "folder" ? (
-                      <a
-                        href="#"
-                        onClick={(e) => handleFolderClick(e, node)}
-                        style={{
-                          fontWeight: "bold",
-                          textDecoration: "none",
-                          color: isHidden ? "#777" : "#2271b1",
-                          fontSize: "14px",
-                        }}>
-                        {node.custom_title || node.name}
-                      </a>
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        <a
+                          href="#"
+                          onClick={(e) => handleFolderClick(e, node)}
+                          style={{
+                            fontWeight: "bold",
+                            textDecoration: "none",
+                            color: isHidden ? "#777" : "#2271b1",
+                            fontSize: "14px",
+                          }}>
+                          {node.custom_title || node.name}
+                        </a>
+                        {node.has_unhandled && (
+                          <span
+                            style={{
+                              marginLeft: "8px",
+                              color: "#d63638",
+                              fontSize: "12px",
+                              fontWeight: "bold",
+                              display: "flex",
+                              alignItems: "center",
+                            }}
+                            title="A mappában mélyen kezeletlen fájl található!">
+                            <Dashicon
+                              icon="warning"
+                              style={{
+                                fontSize: "14px",
+                                width: "14px",
+                                height: "14px",
+                              }}
+                            />
+                          </span>
+                        )}
+                      </div>
                     ) : (
                       <strong
                         style={{
@@ -676,9 +736,10 @@ const FileManagerApp = () => {
               value={customTitle}
               onChange={setCustomTitle}
             />
-            <WpTinyMceEditor value={customDesc} onChange={setCustomDesc} />
+            {editingNode.type !== "folder" && (
+              <WpTinyMceEditor value={customDesc} onChange={setCustomDesc} />
+            )}
           </div>
-
           <RadioControl
             label="Láthatóság (Jogosultság)"
             selected={visType}
@@ -693,7 +754,6 @@ const FileManagerApp = () => {
             ]}
             onChange={(value) => setVisType(value)}
           />
-
           {visType === "roles" && (
             <div
               style={{
@@ -721,7 +781,6 @@ const FileManagerApp = () => {
               ))}
             </div>
           )}
-
           {editingNode.type === "folder" && (
             <div
               style={{
@@ -737,7 +796,6 @@ const FileManagerApp = () => {
               />
             </div>
           )}
-
           <div
             style={{
               display: "flex",
@@ -780,7 +838,6 @@ const FileManagerApp = () => {
             ]}
             onChange={(value) => setBatchVisType(value)}
           />
-
           {batchVisType === "roles" && (
             <div
               style={{
@@ -811,7 +868,6 @@ const FileManagerApp = () => {
               ))}
             </div>
           )}
-
           {hasFolderSelected && (
             <div
               style={{
@@ -827,7 +883,6 @@ const FileManagerApp = () => {
               />
             </div>
           )}
-
           <div
             style={{
               display: "flex",
@@ -858,15 +913,15 @@ const SyncApp = () => {
   const [syncInfo, setSyncInfo] = useState(null);
   const [syncResult, setSyncResult] = useState(null);
 
-  const fetchSyncInfo = async () => {
+  const fetchDashboardData = async () => {
     try {
-      const data = await apiFetch({ path: "/msdl-child/v1/sync-status" });
-      setSyncInfo(data);
+      const sInfo = await apiFetch({ path: "/msdl-child/v1/sync-status" });
+      setSyncInfo(sInfo);
     } catch (e) {}
   };
 
   useEffect(() => {
-    fetchSyncInfo();
+    fetchDashboardData();
   }, []);
 
   const handleManualSync = async () => {
@@ -889,7 +944,7 @@ const SyncApp = () => {
         msg: "Hálózati hiba a szinkronizáció során.",
       });
     }
-    fetchSyncInfo(); // UI Frissítése a futás után
+    fetchDashboardData();
     setIsSyncing(false);
   };
 
@@ -930,7 +985,6 @@ const SyncApp = () => {
     <div className="wrap">
       <h1>Szinkronizáció Állapota</h1>
 
-      {/* ÚJ: Szinkronizációs Státuszkártyák */}
       <div
         style={{
           display: "grid",
@@ -1116,7 +1170,6 @@ const SettingsApp = () => {
           }
         />
       </PanelBody>
-
       <PanelBody title="Automata Szinkronizáció Irányítása">
         <RadioControl
           selected={options.msdl_sync_mode}
@@ -1162,7 +1215,9 @@ const SettingsApp = () => {
               <option value="msdl_15min">15 percenként</option>
               <option value="msdl_30min">30 percenként</option>
               <option value="hourly">Óránként</option>
-              <option value="twicedaily">Naponta kétszer</option>
+              <option value="msdl_thricedaily">
+                Naponta háromszor (8, 12, 16)
+              </option>
               <option value="daily">Naponta egyszer</option>
             </select>
           </div>

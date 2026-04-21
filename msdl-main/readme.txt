@@ -26,6 +26,9 @@ Nem tartalmaz frontend megjelenítőket; kizárólag a hálózatbiztonságra, az
 == Changelog ==
 
 = 1.0.0 =
+* Néhány hiba javítása.
+
+= 1.0.0 =
 * Kezdeti stabil kiadás.
 * Hálózati elosztó (Master Cron) és egyedi feladatkezelő beépítése.
 * Token generátor és REST API végpontok publikálása a kliensek számára.

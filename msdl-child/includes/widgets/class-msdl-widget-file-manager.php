@@ -58,52 +58,64 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         $this->add_control( 'fv_show_copy', [ 'label' => 'Link Másolása Gomb', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->end_controls_section();
 
-        $this->start_controls_section( 'section_style', [ 'label' => 'Színek és Stílus', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
-        $this->add_control( 'primary_color', [
-            'label' => 'Fő Szín (Ikonok, Gombok, Hover)',
-            'type' => \Elementor\Controls_Manager::COLOR,
-            'default' => '#50ADC9',
-            'selectors' => [
-                '{{WRAPPER}} .msdl-fm-breadcrumbs a' => 'color: {{VALUE}};',
-                '{{WRAPPER}} .msdl-fm-item-name:hover' => 'color: {{VALUE}};',
-                '{{WRAPPER}} .msdl-fm-item-file .msdl-fm-icon svg' => 'fill: {{VALUE}};',
-                '{{WRAPPER}} .msdl-fm-item-file .msdl-fm-icon i' => 'color: {{VALUE}};',
-                '{{WRAPPER}} .msdl-fm-btn' => 'background: {{VALUE}}; border-color: {{VALUE}};',
-                '{{WRAPPER}} .msdl-fm-btn-outline' => 'color: {{VALUE}}; border-color: {{VALUE}};',
-                '{{WRAPPER}} .msdl-fm-dir-link.msdl-fm-btn' => 'color: {{VALUE}}; border-color: {{VALUE}}; background: transparent;',
-                '{{WRAPPER}} .msdl-fm-search input:focus' => 'border-color: {{VALUE}};',
-                '{{WRAPPER}} .msdl-fm-loader' => 'color: {{VALUE}};',
-                '{{WRAPPER}} .msdl-fm-fv-icon' => 'background-color: {{VALUE}};',
-                '{{WRAPPER}} .msdl-fm-fv-desc' => 'border-left-color: {{VALUE}};',
-            ]
-        ]);
-        $this->add_control( 'text_color', [
-            'label' => 'Szövegszín',
-            'type' => \Elementor\Controls_Manager::COLOR,
-            'default' => '#242943',
-            'selectors' => [
-                '{{WRAPPER}} .msdl-fm-table td' => 'color: {{VALUE}};',
-                '{{WRAPPER}} .msdl-fm-item-name' => 'color: {{VALUE}};',
-                '{{WRAPPER}} .msdl-fm-breadcrumbs span.msdl-fm-current' => 'color: {{VALUE}};',
-                '{{WRAPPER}} .msdl-fm-fv-title' => 'color: {{VALUE}};',
-            ]
-        ]);
-        $this->add_control( 'bg_color', [
-            'label' => 'Táblázat Háttere',
-            'type' => \Elementor\Controls_Manager::COLOR,
-            'default' => '#ffffff',
-            'selectors' => [ '{{WRAPPER}} .msdl-fm-wrapper' => 'background-color: {{VALUE}};' ]
-        ]);
-        $this->add_control( 'header_bg_color', [
-            'label' => 'Fejléc Háttere',
-            'type' => \Elementor\Controls_Manager::COLOR,
-            'default' => '#f6f7f7',
-            'selectors' => [ '{{WRAPPER}} .msdl-fm-header' => 'background-color: {{VALUE}};' ],
-            'condition' => [ 'show_header' => 'yes' ]
-        ]);
+        // --- ÚJ STÍLUS BONTÁSOK ---
+
+        // 1. Globális és Hátterek
+        $this->start_controls_section( 'style_global', [ 'label' => 'Globális Stílus', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
+        $this->add_control( 'bg_color', [ 'label' => 'Külső Háttérszín', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#ffffff', 'selectors' => [ '{{WRAPPER}} .msdl-fm-wrapper' => 'background-color: {{VALUE}};' ] ] );
         $this->add_group_control( \Elementor\Group_Control_Border::get_type(), [ 'name' => 'wrapper_border', 'selector' => '{{WRAPPER}} .msdl-fm-wrapper' ] );
         $this->add_responsive_control( 'wrapper_radius', [ 'label' => 'Lekerekítés', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'selectors' => [ '{{WRAPPER}} .msdl-fm-wrapper' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
         $this->add_group_control( \Elementor\Group_Control_Box_Shadow::get_type(), [ 'name' => 'wrapper_shadow', 'selector' => '{{WRAPPER}} .msdl-fm-wrapper' ] );
+        $this->add_control( 'text_color', [ 'label' => 'Általános Szövegszín', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#242943', 'separator' => 'before', 'selectors' => [ '{{WRAPPER}} .msdl-fm-table td' => 'color: {{VALUE}};', '{{WRAPPER}} .msdl-fm-item-name' => 'color: {{VALUE}};', '{{WRAPPER}} .msdl-fm-fv-title' => 'color: {{VALUE}};', '{{WRAPPER}} .msdl-fm-fv-desc' => 'color: {{VALUE}};' ] ] );
+        $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'text_typo', 'selector' => '{{WRAPPER}} .msdl-fm-wrapper' ] );
+        $this->end_controls_section();
+
+        // 2. Fejléc és Kereső
+        $this->start_controls_section( 'style_header', [ 'label' => 'Fejléc és Navigáció', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
+        $this->add_control( 'header_bg_color', [ 'label' => 'Fejléc Háttere', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#f6f7f7', 'selectors' => [ '{{WRAPPER}} .msdl-fm-header' => 'background-color: {{VALUE}};' ] ] );
+        $this->add_control( 'bc_link_color', [ 'label' => 'Útvonal Linkek (Navigáció)', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#50ADC9', 'selectors' => [ '{{WRAPPER}} .msdl-fm-breadcrumbs a' => 'color: {{VALUE}};' ] ] );
+        $this->add_control( 'bc_active_color', [ 'label' => 'Aktuális Mappa Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#242943', 'selectors' => [ '{{WRAPPER}} .msdl-fm-breadcrumbs span.msdl-fm-current' => 'color: {{VALUE}};' ] ] );
+        $this->add_control( 'search_focus_color', [ 'label' => 'Kereső Kerete (Fókusz)', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#50ADC9', 'separator' => 'before', 'selectors' => [ '{{WRAPPER}} .msdl-fm-search input:focus' => 'border-color: {{VALUE}};' ] ] );
+        $this->end_controls_section();
+
+        // 3. Táblázat
+        $this->start_controls_section( 'style_table', [ 'label' => 'Táblázat', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
+        $this->add_control( 'th_color', [ 'label' => 'Oszlop Fejléc Szövege', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#787c82', 'selectors' => [ '{{WRAPPER}} .msdl-fm-table th' => 'color: {{VALUE}};' ] ] );
+        $this->add_control( 'row_border', [ 'label' => 'Sor Elválasztó Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#f0f2f5', 'selectors' => [ '{{WRAPPER}} .msdl-fm-table td' => 'border-bottom-color: {{VALUE}};' ] ] );
+        $this->add_control( 'row_hover', [ 'label' => 'Sor Hover Háttér', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#f8f9fa', 'selectors' => [ '{{WRAPPER}} .msdl-fm-table tr:hover td' => 'background-color: {{VALUE}};' ] ] );
+        $this->end_controls_section();
+
+        // 4. Ikonok
+        $this->start_controls_section( 'style_icons', [ 'label' => 'Ikonok', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
+        $this->add_control( 'folder_icon_color', [ 'label' => 'Mappa Ikon Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#f5c342', 'selectors' => [ '{{WRAPPER}} .msdl-fm-item-folder .msdl-fm-icon svg' => 'fill: {{VALUE}} !important;', '{{WRAPPER}} .msdl-fm-item-folder .msdl-fm-icon i' => 'color: {{VALUE}} !important;' ] ] );
+        $this->add_control( 'file_icon_color', [ 'label' => 'Fájl Ikon Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#50ADC9', 'selectors' => [ '{{WRAPPER}} .msdl-fm-item-file .msdl-fm-icon svg' => 'fill: {{VALUE}};', '{{WRAPPER}} .msdl-fm-item-file .msdl-fm-icon i' => 'color: {{VALUE}};' ] ] );
+        $this->add_control( 'fv_icon_bg', [ 'label' => 'Adatlap Nagy Ikon Háttere', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#50ADC9', 'separator' => 'before', 'selectors' => [ '{{WRAPPER}} .msdl-fm-fv-icon' => 'background-color: {{VALUE}};' ] ] );
+        $this->end_controls_section();
+
+        // 5. Akció Gombok (Letöltés, Megnyitás)
+        $this->start_controls_section( 'style_buttons', [ 'label' => 'Fő Gombok', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
+        $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'btn_typo', 'selector' => '{{WRAPPER}} .msdl-fm-btn, {{WRAPPER}} .msdl-fm-btn-outline' ] );
+        
+        $this->start_controls_tabs( 'tabs_btn' );
+        $this->start_controls_tab( 'tab_btn_normal', [ 'label' => 'Normál' ] );
+        $this->add_control( 'btn_bg', [ 'label' => 'Gomb Háttere', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#50ADC9', 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn' => 'background-color: {{VALUE}}; border-color: {{VALUE}};' ] ] );
+        $this->add_control( 'btn_color', [ 'label' => 'Gomb Szövege', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#ffffff', 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn' => 'color: {{VALUE}};' ] ] );
+        $this->end_controls_tab();
+        
+        $this->start_controls_tab( 'tab_btn_hover', [ 'label' => 'Hover' ] );
+        $this->add_control( 'btn_hover_bg', [ 'label' => 'Hover Háttér', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#3E8EAA', 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn:hover' => 'background-color: {{VALUE}}; border-color: {{VALUE}};' ] ] );
+        $this->add_control( 'btn_hover_color', [ 'label' => 'Hover Szöveg', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#ffffff', 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn:hover' => 'color: {{VALUE}};' ] ] );
+        $this->end_controls_tab();
+        $this->end_controls_tabs();
+
+        $this->add_control( 'outline_color', [ 'label' => 'Másolás (Másodlagos) Gomb Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#50ADC9', 'separator' => 'before', 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn-outline' => 'color: {{VALUE}}; border-color: {{VALUE}};' ] ] );
+        $this->end_controls_section();
+
+        // 6. Vissza a mappába gomb
+        $this->start_controls_section( 'style_back_btn', [ 'label' => 'Vissza Gomb', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
+        $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'back_btn_typo', 'selector' => '{{WRAPPER}} .msdl-fm-back-btn' ] );
+        $this->add_control( 'back_btn_color', [ 'label' => 'Normál Szín', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#787c82', 'selectors' => [ '{{WRAPPER}} .msdl-fm-back-btn' => 'color: {{VALUE}};' ] ] );
+        $this->add_control( 'back_btn_hover', [ 'label' => 'Hover Szín', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#242943', 'selectors' => [ '{{WRAPPER}} .msdl-fm-back-btn:hover' => 'color: {{VALUE}};' ] ] );
         $this->end_controls_section();
     }
 
@@ -135,7 +147,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         ?>
         <style>
             .msdl-fm-wrapper { font-family: inherit; border: 1px solid #e2e4e7; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 25px rgba(0,0,0,0.04); background: #fff; }
-            .msdl-fm-header { padding: 20px 25px; border-bottom: 1px solid #e2e4e7; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; }
+            .msdl-fm-header { padding: 20px 25px; border-bottom: 1px solid #e2e4e7; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; background: #f6f7f7; }
             
             .msdl-fm-breadcrumbs { font-size: 15px; font-weight: 600; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
             .msdl-fm-breadcrumbs a { text-decoration: none; cursor: pointer; transition: all 0.2s; padding: 6px 10px; border-radius: 6px; background: rgba(0,0,0,0.03); }
@@ -172,28 +184,31 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
             .msdl-fm-icon { display: inline-flex; align-items: center; justify-content: center; width: 26px; flex-shrink: 0; }
             .msdl-fm-icon svg { width: 24px; height: 24px; }
             .msdl-fm-icon i { font-size: 22px; }
-            .msdl-fm-item-folder .msdl-fm-icon svg { fill: #f5c342 !important; }
-            .msdl-fm-item-folder .msdl-fm-icon i { color: #f5c342 !important; }
             
-            .msdl-fm-btn { padding: 8px 18px; color: #fff; border-radius: 6px; text-decoration: none !important; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; border: 1px solid; text-align: center; cursor: pointer; white-space: nowrap;}
-            .msdl-fm-btn:hover { opacity: 0.85; color: #fff; transform: translateY(-1px); }
-            .msdl-fm-dir-link.msdl-fm-btn:hover { background: rgba(0,0,0,0.05); transform: translateY(0); }
+            .msdl-fm-btn { padding: 8px 18px; border-radius: 6px; text-decoration: none !important; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s; border: 1px solid; text-align: center; cursor: pointer; white-space: nowrap;}
+            .msdl-fm-btn:hover { opacity: 0.9; transform: translateY(-1px); }
             
-            .msdl-fm-btn-outline { padding: 8px 18px; background: transparent; border-radius: 6px; font-size: 13px; font-weight: 600; border: 1px solid #dcdcde; color: currentColor; cursor: pointer; transition: all 0.2s; margin-left: 10px; display: inline-flex; align-items: center; gap: 6px; font-family: inherit;}
+            /* A mappa link is egy gomb formájú, de beállítjuk, hogy ne térjen el vizuálisan zavaróan */
+            .msdl-fm-dir-link.msdl-fm-btn { background: transparent; border: 1px solid #dcdcde; color: inherit; }
+            .msdl-fm-dir-link.msdl-fm-btn:hover { background: rgba(0,0,0,0.05); transform: translateY(0); color: inherit; border-color: inherit;}
+            
+            .msdl-fm-btn-outline { padding: 8px 18px; background: transparent; border-radius: 6px; border: 1px solid; cursor: pointer; transition: all 0.2s; margin-left: 10px; display: inline-flex; align-items: center; gap: 6px; font-family: inherit;}
             .msdl-fm-btn-outline:hover { background: rgba(0,0,0,0.05); }
 
             /* FÁJL ADATLAP */
             .msdl-fm-file-view { display: none; padding: 40px 20px; text-align: center; animation: msdl-fade-in 0.3s ease; }
             @keyframes msdl-fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
             .msdl-fm-fv-header { text-align: left; margin-bottom: 30px; }
-            .msdl-fm-back-btn { background: none; border: none; font-size: 14px; font-weight: 600; color: #787c82; cursor: pointer; transition: color 0.2s; padding: 0; display: flex; align-items: center; gap: 8px; }
-            .msdl-fm-back-btn:hover { color: #242943; }
+            
+            /* Vékony gomb javítása - Defaultban 700-as vastagság, amit most már az Elementorból felülírhatsz */
+            .msdl-fm-back-btn { background: none; border: none; font-size: 15px; font-weight: 700; cursor: pointer; transition: color 0.2s; padding: 0; display: flex; align-items: center; gap: 8px; }
+            
             .msdl-fm-fv-card { max-width: 500px; margin: 0 auto; padding: 40px; background: #fff; border: 1px solid #f0f2f5; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.05); }
             .msdl-fm-fv-icon { width: 80px; height: 80px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; }
             .msdl-fm-fv-icon svg { width: 40px; height: 40px; fill: #fff; }
             .msdl-fm-fv-icon i { font-size: 36px; color: #fff; }
             .msdl-fm-fv-title { font-size: 22px; font-weight: 700; margin: 0 0 15px 0; word-wrap: break-word; line-height: 1.3;}
-            .msdl-fm-fv-desc { font-size: 14px; color: #50575e; line-height: 1.6; margin-bottom: 25px; padding: 15px; background: rgba(0,0,0,0.02); border-radius: 8px; border-left: 3px solid; text-align: left; }
+            .msdl-fm-fv-desc { font-size: 14px; line-height: 1.6; margin-bottom: 25px; padding: 15px; background: rgba(0,0,0,0.02); border-radius: 8px; border-left: 3px solid #dcdcde; text-align: left; }
             .msdl-fm-fv-meta { display: flex; justify-content: center; flex-wrap: wrap; gap: 15px; margin-bottom: 30px; font-size: 14px; color: #787c82; font-weight: 500;}
             .msdl-fm-fv-meta span { background: #f6f7f7; padding: 6px 12px; border-radius: 20px; }
             .msdl-fm-fv-actions { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; }

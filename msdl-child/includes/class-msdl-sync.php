@@ -21,38 +21,32 @@ class MSDL_Child_Sync {
         $folder_item_id = $this->get_item_id_by_path( $drive_id, $folder_path );
         if ( is_wp_error( $folder_item_id ) ) return $folder_item_id;
 
-        $processed_count = 0;
-        $delta_link = get_option( 'msdl_delta_link_' . $folder_item_id );
-        
-        if ( empty( $delta_link ) ) {
-            $endpoint = "/drives/{$drive_id}/items/{$folder_item_id}/delta";
-        } else {
-            $endpoint = str_replace( 'https://graph.microsoft.com/v1.0', '', $delta_link );
-        }
+        delete_option( 'msdl_delta_link_' . $folder_item_id );
 
+        $processed_count = 0;
+        $endpoint = "/drives/{$drive_id}/items/{$folder_item_id}/delta";
         $has_more = true;
+        
+        $fetched_graph_ids = [];
         
         while ( $has_more ) {
             $response = $this->graph_api->make_request( $endpoint );
             if ( is_wp_error( $response ) ) {
-                delete_option( 'msdl_delta_link_' . $folder_item_id );
-                return new WP_Error( 'sync_error', 'A szinkronizáció megszakadt. Kérlek ürítsd a gyorsítótárat.' );
+                return new WP_Error( 'sync_error', 'A szinkronizáció megszakadt az API válasz miatt.' );
             }
 
             $items = isset( $response['value'] ) ? $response['value'] : [];
-            $processed_count += $this->process_delta_items( $items, $folder_item_id );
+            $processed_count += $this->process_delta_items( $items, $folder_item_id, $fetched_graph_ids );
 
             if ( isset( $response['@odata.nextLink'] ) ) {
                 $endpoint = str_replace( 'https://graph.microsoft.com/v1.0', '', $response['@odata.nextLink'] );
             } else {
                 $has_more = false;
-                if ( isset( $response['@odata.deltaLink'] ) ) {
-                    update_option( 'msdl_delta_link_' . $folder_item_id, $response['@odata.deltaLink'] );
-                }
             }
         }
 
-        // ÚJ: Elmentjük a sikeres szinkronizáció pontos idejét!
+        $this->cleanup_deleted_nodes( $fetched_graph_ids );
+
         update_option( 'msdl_last_sync_timestamp', time() );
 
         return [ 'success' => true, 'processed' => $processed_count ];
@@ -66,7 +60,7 @@ class MSDL_Child_Sync {
         return $response['id'];
     }
 
-    private function process_delta_items( $items, $root_folder_id ) {
+    private function process_delta_items( $items, $root_folder_id, &$fetched_graph_ids ) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'msdl_nodes';
         $count = 0;
@@ -79,6 +73,8 @@ class MSDL_Child_Sync {
                 $count++;
                 continue;
             }
+
+            $fetched_graph_ids[] = $item['id'];
 
             $is_folder = isset( $item['folder'] );
             $type = $is_folder ? 'folder' : 'file';
@@ -112,6 +108,22 @@ class MSDL_Child_Sync {
             $count++;
         }
         return $count;
+    }
+
+    private function cleanup_deleted_nodes( $fetched_graph_ids ) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'msdl_nodes';
+        
+        $existing_nodes = $wpdb->get_results( "SELECT graph_id FROM $table_name", ARRAY_A );
+        if ( empty($existing_nodes) ) return;
+        
+        $existing_ids = array_column( $existing_nodes, 'graph_id' );
+        
+        $to_delete = array_diff( $existing_ids, $fetched_graph_ids );
+        
+        foreach( $to_delete as $graph_id ) {
+            $this->delete_node_and_descendants( $graph_id, $table_name );
+        }
     }
 
     private function delete_node_and_descendants( $graph_id, $table_name ) {

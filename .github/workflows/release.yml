@@ -3,7 +3,7 @@ name: Build and Release Plugins
 on:
   push:
     tags:
-      - "v*" # Csak akkor fut le, ha egy "v" betűvel kezdődő taget hozol létre (pl. v1.0.0)
+      - "v*"
 
 jobs:
   build-and-release:

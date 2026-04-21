@@ -61,7 +61,7 @@ class MSDL_Main_REST_API {
         register_rest_route( 'msdl-main/v1', '/get-next-sync', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ $this, 'get_next_sync_time' ],
-            'permission_callback' => [ $this, 'check_api_key_or_admin' ] // <--- JAVÍTVA!
+            'permission_callback' => [ $this, 'check_api_key_or_admin' ]
         ]);
 
         register_setting( 'msdl_options', 'msdl_global_sync_interval', [
@@ -77,7 +77,6 @@ class MSDL_Main_REST_API {
         return true;
     }
 
-    // ÚJ: Kettős ellenőrzés (API kulcs VAGY bejelentkezett Admin)
     public function check_api_key_or_admin( WP_REST_Request $request ) {
         if ( current_user_can( 'manage_options' ) ) return true;
         
@@ -151,7 +150,42 @@ class MSDL_Main_REST_API {
     
     public function delete_site( WP_REST_Request $request ) { global $wpdb; $table_name = $wpdb->prefix . 'msdl_sites'; $wpdb->delete( $table_name, [ 'id' => intval( $request->get_param( 'id' ) ) ] ); return rest_ensure_response( ['status' => 'deleted'] ); }
 
-    public function search_sites( WP_REST_Request $request ) { $query = sanitize_text_field( $request->get_param( 'q' ) ); if ( empty( $query ) ) return rest_ensure_response( [] ); $response = $this->graph_api->make_request( "/sites?search=" . rawurlencode( $query ) . "&\$select=id,name,webUrl" ); return is_wp_error( $response ) ? $response : rest_ensure_response( $response['value'] ?? [] ); }
+    // ÚJ LOGIKA: Intelligens URL parse és közvetlen SharePoint elérés
+    public function search_sites( WP_REST_Request $request ) { 
+        $query = sanitize_text_field( $request->get_param( 'q' ) ); 
+        if ( empty( $query ) ) return rest_ensure_response( [] ); 
+
+        if ( strpos( $query, '.sharepoint.com' ) !== false ) {
+            $url_to_parse = $query;
+            if ( strpos( $url_to_parse, 'http' ) !== 0 ) {
+                $url_to_parse = 'https://' . $url_to_parse;
+            }
+
+            $parsed = parse_url( $url_to_parse );
+            if ( isset($parsed['host']) && isset($parsed['path']) ) {
+                $host = $parsed['host'];
+                $path = rtrim($parsed['path'], '/');
+                
+                if ( !empty($path) && $path !== '/' ) {
+                    $endpoint = "/sites/{$host}:{$path}?\$select=id,name,webUrl";
+                    $response = $this->graph_api->make_request( $endpoint );
+                    
+                    if ( !is_wp_error($response) && isset($response['id']) ) {
+                        return rest_ensure_response( [ $response ] );
+                    }
+                }
+            }
+            
+            // Fallback: Ha az URL formátum nem volt tökéletes, kinyerjük a végét keresőszónak
+            $path_parts = explode('/', trim($parsed['path'] ?? '', '/'));
+            $query = end($path_parts);
+            if ( empty($query) ) return rest_ensure_response( [] );
+        }
+
+        $response = $this->graph_api->make_request( "/sites?search=" . rawurlencode( $query ) . "&\$select=id,name,webUrl" ); 
+        return is_wp_error( $response ) ? $response : rest_ensure_response( $response['value'] ?? [] ); 
+    }
+
     public function get_drives( WP_REST_Request $request ) { $site_id = sanitize_text_field( $request->get_param( 'site_id' ) ); if ( empty( $site_id ) ) return new WP_Error( 'missing_id', 'Site ID hiányzik', ['status'=>400] ); $response = $this->graph_api->make_request( "/sites/{$site_id}/drives?\$select=id,name,webUrl" ); return is_wp_error( $response ) ? $response : rest_ensure_response( $response['value'] ?? [] ); }
     public function search_folders( WP_REST_Request $request ) { $query = sanitize_text_field( $request->get_param( 'q' ) ); $drive_id = !empty($request->get_param('drive_id')) ? sanitize_text_field($request->get_param('drive_id')) : get_option('msdl_drive_id'); if (empty($drive_id)) return new WP_Error( 'missing_drive', 'Nincs Drive ID', ['status'=>400] ); $endpoint = empty($query) ? "/drives/{$drive_id}/root/children?\$filter=folder ne null&\$select=id,name,parentReference,folder" : "/drives/{$drive_id}/root/search(q='" . rawurlencode($query) . "')?\$select=id,name,parentReference,folder"; $response = $this->graph_api->make_request( $endpoint ); if ( is_wp_error( $response ) ) return $response; $folders = []; if ( isset($response['value']) ) foreach ( $response['value'] as $item ) if ( isset($item['folder']) ) $folders[] = $item; return rest_ensure_response( $folders ); }
 

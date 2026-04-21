@@ -141,16 +141,15 @@ const WpTinyMceEditor = ({
 }) => {
   (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
     const id = "msdl-tinymce-editor";
-    if (window.wp && window.wp.editor && window.tinymce && window.tinymce.get(id)) {
-      window.wp.editor.remove(id);
-    }
+    if (window.wp && window.wp.editor && window.tinymce && window.tinymce.get(id)) window.wp.editor.remove(id);
     if (window.wp && window.wp.editor) {
       window.wp.editor.initialize(id, {
         tinymce: {
           wpautop: true,
-          plugins: "charmap hr lists paste textcolor wordpress wpdialogs wpeditimage wpemoji wpgallery wplink wpview table",
+          // JAVÍTÁS: A 'table' kikerült a pluginek és a toolbar listából
+          plugins: "charmap hr lists paste textcolor wordpress wpdialogs wpeditimage wpemoji wpgallery wplink wpview",
           toolbar1: "formatselect bold italic bullist numlist blockquote alignleft aligncenter alignright link unlink wp_adv",
-          toolbar2: "strikethrough hr forecolor pastetext removeformat charmap outdent indent undo redo table",
+          toolbar2: "strikethrough hr forecolor pastetext removeformat charmap outdent indent undo redo",
           setup: function (editor) {
             editor.on("change keyup", function () {
               onChange(editor.getContent());
@@ -166,9 +165,7 @@ const WpTinyMceEditor = ({
       }, 200);
     }
     return () => {
-      if (window.wp && window.wp.editor) {
-        window.wp.editor.remove(id);
-      }
+      if (window.wp && window.wp.editor) window.wp.editor.remove(id);
     };
   }, []);
   return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
@@ -195,20 +192,31 @@ const WpTinyMceEditor = ({
         color: "#666",
         margin: "5px 0 0 0"
       },
-      children: "A \"M\xE9dia hozz\xE1ad\xE1sa\" gombbal k\xE9peket, az eszk\xF6zt\xE1rb\xF3l pedig t\xE1bl\xE1zatokat \xE9s form\xE1z\xE1sokat sz\xFArhatsz be."
+      children: "A \"M\xE9dia hozz\xE1ad\xE1sa\" gombbal k\xE9peket, az eszk\xF6zt\xE1rb\xF3l pedig form\xE1z\xE1sokat sz\xFArhatsz be."
     })]
   });
 };
 const FileManagerApp = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const initialFolder = urlParams.get("folder") || null;
+  const initialOpenFile = urlParams.get("open_file") || null;
   const [nodes, setNodes] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
   const [isLoading, setIsLoading] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(true);
   const [wpRoles, setWpRoles] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)({});
-  const [currentFolderId, setCurrentFolderId] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
-  const [pathHistory, setPathHistory] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([{
+  const [currentFolderId, setCurrentFolderId] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(initialFolder);
+  const [pathHistory, setPathHistory] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(initialFolder ? [{
+    id: null,
+    name: "Gyökérmappa"
+  }, {
+    id: initialFolder,
+    name: "Keresett mappa (Linkből)"
+  }] : [{
     id: null,
     name: "Gyökérmappa"
   }]);
+  const [autoOpenFileId, setAutoOpenFileId] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(initialOpenFile);
   const [searchQuery, setSearchQuery] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
+  const [showUnhandledOnly, setShowUnhandledOnly] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [selectedNodes, setSelectedNodes] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
   const [isRootModalOpen, setIsRootModalOpen] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [rootVisType, setRootVisType] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("public");
@@ -231,6 +239,19 @@ const FileManagerApp = () => {
     loadNodes(currentFolderId);
     if (Object.keys(wpRoles).length === 0) loadRoles();
   }, [currentFolderId]);
+  (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
+    if (autoOpenFileId && nodes.length > 0) {
+      const nodeToOpen = nodes.find(n => String(n.id) === String(autoOpenFileId));
+      if (nodeToOpen) {
+        openVisibilityModal(nodeToOpen);
+        setAutoOpenFileId(null);
+        const newUrl = new URL(window.location);
+        newUrl.searchParams.delete("folder");
+        newUrl.searchParams.delete("open_file");
+        window.history.replaceState({}, "", newUrl);
+      }
+    }
+  }, [nodes, autoOpenFileId]);
   const loadRoles = async () => {
     try {
       const roles = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
@@ -289,6 +310,7 @@ const FileManagerApp = () => {
     setIsRootSaving(false);
   };
   const filteredNodes = nodes.filter(node => {
+    if (showUnhandledOnly && node.visibility_roles && node.visibility_roles !== "") return false;
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     const nameMatch = node.name && node.name.toLowerCase().includes(q);
@@ -298,6 +320,7 @@ const FileManagerApp = () => {
   const handleFolderClick = (e, folder) => {
     e.preventDefault();
     setSearchQuery("");
+    setShowUnhandledOnly(false);
     setCurrentFolderId(folder.graph_id);
     setPathHistory([...pathHistory, {
       id: folder.graph_id,
@@ -307,6 +330,7 @@ const FileManagerApp = () => {
   const handleBreadcrumbClick = (e, index) => {
     e.preventDefault();
     setSearchQuery("");
+    setShowUnhandledOnly(false);
     const newPath = pathHistory.slice(0, index + 1);
     setPathHistory(newPath);
     setCurrentFolderId(newPath[newPath.length - 1].id);
@@ -538,25 +562,32 @@ const FileManagerApp = () => {
           },
           children: ["T\xF6meges Be\xE1ll\xEDt\xE1s (", selectedNodes.length, ")"]
         })
-      }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("div", {
+      }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
         style: {
-          width: "300px"
+          display: "flex",
+          gap: "15px",
+          alignItems: "center"
         },
-        children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("input", {
+        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.ToggleControl, {
+          label: "Csak kezeletlen \xFAj f\xE1jlok",
+          checked: showUnhandledOnly,
+          onChange: setShowUnhandledOnly,
+          style: {
+            margin: 0,
+            marginTop: "6px"
+          }
+        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("input", {
           type: "text",
           placeholder: "Keres\xE9s n\xE9v vagy c\xEDm alapj\xE1n...",
           value: searchQuery,
           onChange: e => setSearchQuery(e.target.value),
           style: {
-            width: "100%",
+            width: "300px",
             padding: "6px 10px",
             borderRadius: "4px",
-            border: "1px solid #8c8f94",
-            background: "#ffffff",
-            color: "#1d2327",
-            fontSize: "14px"
+            border: "1px solid #8c8f94"
           }
-        })
+        })]
       })]
     }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("table", {
       className: "wp-list-table widefat fixed striped table-view-list",
@@ -665,16 +696,40 @@ const FileManagerApp = () => {
               style: {
                 verticalAlign: "middle"
               },
-              children: [node.type === "folder" ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("a", {
-                href: "#",
-                onClick: e => handleFolderClick(e, node),
+              children: [node.type === "folder" ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
                 style: {
-                  fontWeight: "bold",
-                  textDecoration: "none",
-                  color: isHidden ? "#777" : "#2271b1",
-                  fontSize: "14px"
+                  display: "flex",
+                  alignItems: "center"
                 },
-                children: node.custom_title || node.name
+                children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("a", {
+                  href: "#",
+                  onClick: e => handleFolderClick(e, node),
+                  style: {
+                    fontWeight: "bold",
+                    textDecoration: "none",
+                    color: isHidden ? "#777" : "#2271b1",
+                    fontSize: "14px"
+                  },
+                  children: node.custom_title || node.name
+                }), node.has_unhandled && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
+                  style: {
+                    marginLeft: "8px",
+                    color: "#d63638",
+                    fontSize: "12px",
+                    fontWeight: "bold",
+                    display: "flex",
+                    alignItems: "center"
+                  },
+                  title: "A mapp\xE1ban m\xE9lyen kezeletlen f\xE1jl tal\xE1lhat\xF3!",
+                  children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
+                    icon: "warning",
+                    style: {
+                      fontSize: "14px",
+                      width: "14px",
+                      height: "14px"
+                    }
+                  })
+                })]
               }) : /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("strong", {
                 style: {
                   color: isHidden ? "#777" : "#1d2327",
@@ -812,7 +867,7 @@ const FileManagerApp = () => {
           label: "Egyedi C\xEDm (Megjelen\xEDtett N\xE9v)",
           value: customTitle,
           onChange: setCustomTitle
-        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(WpTinyMceEditor, {
+        }), editingNode.type !== "folder" && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(WpTinyMceEditor, {
           value: customDesc,
           onChange: setCustomDesc
         })]
@@ -977,16 +1032,16 @@ const SyncApp = () => {
   const [isSyncing, setIsSyncing] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [syncInfo, setSyncInfo] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
   const [syncResult, setSyncResult] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
-  const fetchSyncInfo = async () => {
+  const fetchDashboardData = async () => {
     try {
-      const data = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
+      const sInfo = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
         path: "/msdl-child/v1/sync-status"
       });
-      setSyncInfo(data);
+      setSyncInfo(sInfo);
     } catch (e) {}
   };
   (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useEffect)(() => {
-    fetchSyncInfo();
+    fetchDashboardData();
   }, []);
   const handleManualSync = async () => {
     setIsSyncing(true);
@@ -1012,7 +1067,7 @@ const SyncApp = () => {
         msg: "Hálózati hiba a szinkronizáció során."
       });
     }
-    fetchSyncInfo(); // UI Frissítése a futás után
+    fetchDashboardData();
     setIsSyncing(false);
   };
   const handleResetSync = async () => {
@@ -1289,8 +1344,8 @@ const SettingsApp = () => {
             value: "hourly",
             children: "\xD3r\xE1nk\xE9nt"
           }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
-            value: "twicedaily",
-            children: "Naponta k\xE9tszer"
+            value: "msdl_thricedaily",
+            children: "Naponta h\xE1romszor (8, 12, 16)"
           }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("option", {
             value: "daily",
             children: "Naponta egyszer"

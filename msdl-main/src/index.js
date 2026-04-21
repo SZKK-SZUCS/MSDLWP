@@ -13,8 +13,16 @@ import {
 } from "@wordpress/components";
 import apiFetch from "@wordpress/api-fetch";
 
+const cleanDomain = (val) => {
+  if (!val) return "";
+  return val
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .split("/")[0]
+    .split("?")[0];
+};
+
 const App = () => {
-  // --- State-ek ---
   const [options, setOptions] = useState({
     msdl_tenant_id: "",
     msdl_client_id: "",
@@ -27,7 +35,6 @@ const App = () => {
   const [sites, setSites] = useState([]);
   const [statusText, setStatusText] = useState("");
 
-  // Visszaszámláló state-ek
   const [nextSyncTimestamp, setNextSyncTimestamp] = useState(0);
   const [countdownText, setCountdownText] = useState("");
 
@@ -41,6 +48,9 @@ const App = () => {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isFolderBrowserActive, setIsFolderBrowserActive] = useState(false);
 
+  // ÚJ: Állapotjelző, hogy a kereső ablak a "Központi" (main) vagy az "Egyedi" (site) azonosítókat frissítse-e
+  const [finderTarget, setFinderTarget] = useState("main");
+
   const [isFinderOpen, setIsFinderOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -53,19 +63,16 @@ const App = () => {
   const [isSearchingFolders, setIsSearchingFolders] = useState(false);
   const [foundFolders, setFoundFolders] = useState([]);
 
-  // Visszaszámláló és folyamatjelző state-ek
   const [isProcessingBatch, setIsProcessingBatch] = useState(false);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   const syncSnapshots = useRef({});
 
-  // --- Adatbetöltés ---
   useEffect(() => {
     loadSettings();
     loadSites();
     fetchNextSyncTime();
   }, []);
 
-  // Visszaszámláló logika (1 másodperces frissítés)
   useEffect(() => {
     const timer = setInterval(() => {
       const now = Math.floor(Date.now() / 1000);
@@ -88,13 +95,11 @@ const App = () => {
         const m = Math.floor((diff % 3600) / 60);
         const s = diff % 60;
 
-        // Ha több mint egy óra van hátra, kiírjuk az órát is
         if (h > 0) {
           setCountdownText(
             `${h}:${m < 10 ? "0" : ""}${m}:${s < 10 ? "0" : ""}${s}`,
           );
         } else {
-          // Ha kevesebb mint egy óra, marad a megszokott MM:SS
           setCountdownText(`${m}:${s < 10 ? "0" : ""}${s}`);
         }
       }
@@ -120,8 +125,7 @@ const App = () => {
       return;
     }
 
-    // Snapshot készítése: elmentjük, mi volt a dátum a kezdéskor
-    const snapshots = {};
+    const snapshots = { startTime: Date.now() };
     centralSites.forEach((s) => {
       snapshots[s.id] = s.last_sync;
     });
@@ -133,25 +137,26 @@ const App = () => {
   };
 
   const handleBatchPolling = async () => {
-    // 3 másodpercenként kérünk új adatokat a szervertől (Soft Refresh)
     if (Date.now() % 3000 < 1000) {
       try {
         const freshSites = await apiFetch({ path: "/msdl-main/v1/sites" });
-        setSites(freshSites); // Frissítjük a táblázatot az oldalon belül
+        setSites(freshSites);
 
         const centralSites = freshSites.filter(
           (s) => s.is_active == 1 && s.sync_mode === "central" && s.folder_path,
         );
-
-        // Ellenőrizzük, hánynak változott meg a dátuma a kezdés óta
-        const updatedCount = centralSites.filter((s) => {
-          return s.last_sync !== syncSnapshots.current[s.id];
-        }).length;
+        const updatedCount = centralSites.filter(
+          (s) => s.last_sync !== syncSnapshots.current[s.id],
+        ).length;
 
         setSyncProgress({ current: updatedCount, total: centralSites.length });
         setCountdownText(`${updatedCount} / ${centralSites.length}`);
 
-        if (updatedCount >= centralSites.length) {
+        const maxTime = centralSites.length * 15000 + 10000;
+        const isTimeout =
+          Date.now() - syncSnapshots.current.startTime > maxTime;
+
+        if (updatedCount >= centralSites.length || isTimeout) {
           setIsProcessingBatch(false);
           fetchNextSyncTime();
         }
@@ -160,6 +165,7 @@ const App = () => {
       }
     }
   };
+
   const loadSettings = () => {
     apiFetch({ path: "/wp/v2/settings" })
       .then((settings) => {
@@ -182,7 +188,6 @@ const App = () => {
       .catch(console.error);
   };
 
-  // --- Műveletek ---
   const handleSaveSettings = async () => {
     setStatusText("Mentés...");
     try {
@@ -192,7 +197,7 @@ const App = () => {
         data: options,
       });
       setStatusText("Beállítások sikeresen elmentve!");
-      fetchNextSyncTime(); // Újraütemezés miatt lekérjük az új időpontot
+      fetchNextSyncTime();
       setTimeout(() => setStatusText(""), 3000);
     } catch (e) {
       setStatusText("Hiba a mentéskor!");
@@ -265,7 +270,6 @@ const App = () => {
     }
   };
 
-  // Dinamikus URL nyitó
   const handleOpenSharePoint = async (type, siteId = null) => {
     setStatusText("SharePoint URL lekérése a Microsofttól...");
     try {
@@ -275,7 +279,7 @@ const App = () => {
         path: `/msdl-main/v1/get-sp-url${query}`,
       });
       if (response && response.url) {
-        setStatusText(""); // Sáv törlése
+        setStatusText("");
         window.open(response.url, "_blank");
       } else {
         setStatusText("Hiba: Nem kaptam vissza URL-t.");
@@ -287,10 +291,10 @@ const App = () => {
     }
   };
 
-  // --- Tömeges műveletek ---
   const filteredSites = sites.filter((s) =>
     s.domain.toLowerCase().includes(siteSearchFilter.toLowerCase()),
   );
+
   const handleSelectAll = (isChecked) => {
     if (isChecked) setSelectedSites(filteredSites.map((s) => s.id));
     else setSelectedSites([]);
@@ -310,20 +314,18 @@ const App = () => {
         if (bulkAction === "sync" && (!site.folder_path || site.is_active == 0))
           continue;
         await handleRemoteCommand(site, bulkAction);
-      } else if (bulkAction === "suspend") {
-        if (site.is_active == 1)
-          await apiFetch({
-            path: "/msdl-main/v1/sites",
-            method: "POST",
-            data: { ...site, is_active: 0 },
-          });
-      } else if (bulkAction === "activate") {
-        if (site.is_active == 0)
-          await apiFetch({
-            path: "/msdl-main/v1/sites",
-            method: "POST",
-            data: { ...site, is_active: 1 },
-          });
+      } else if (bulkAction === "suspend" && site.is_active == 1) {
+        await apiFetch({
+          path: "/msdl-main/v1/sites",
+          method: "POST",
+          data: { ...site, is_active: 0 },
+        });
+      } else if (bulkAction === "activate" && site.is_active == 0) {
+        await apiFetch({
+          path: "/msdl-main/v1/sites",
+          method: "POST",
+          data: { ...site, is_active: 1 },
+        });
       }
     }
     setStatusText("Tömeges művelet befejezve!");
@@ -347,7 +349,14 @@ const App = () => {
     }
   };
 
-  // --- Graph Kereső Metódusok ---
+  const openFinderModal = (target) => {
+    setFinderTarget(target);
+    setSearchQuery("");
+    setFoundSites([]);
+    setFoundDrives([]);
+    setIsFinderOpen(true);
+  };
+
   const handleSearchSites = async (e) => {
     e.preventDefault();
     setIsSearching(true);
@@ -355,6 +364,7 @@ const App = () => {
     setSelectedFoundSite(null);
     setFoundDrives([]);
     try {
+      // Itt már a teljes URL átmegy a backendnek szétbontás nélkül
       const results = await apiFetch({
         path: `/msdl-main/v1/search-sites?q=${encodeURIComponent(searchQuery)}`,
       });
@@ -364,6 +374,7 @@ const App = () => {
     }
     setIsSearching(false);
   };
+
   const handleSelectSiteAPI = async (site) => {
     setSelectedFoundSite(site);
     setIsLoadingDrives(true);
@@ -377,11 +388,21 @@ const App = () => {
     }
     setIsLoadingDrives(false);
   };
+
   const handleApplyIds = (siteId, driveId) => {
-    setOptions({ ...options, msdl_site_id: siteId, msdl_drive_id: driveId });
+    if (finderTarget === "main") {
+      setOptions({ ...options, msdl_site_id: siteId, msdl_drive_id: driveId });
+    } else {
+      setEditingSite({
+        ...editingSite,
+        custom_site_id: siteId,
+        custom_drive_id: driveId,
+      });
+    }
     setIsFinderOpen(false);
     setStatusText("Azonosítók bemásolva!");
   };
+
   const openFolderFinder = () => {
     const driveId = editingSite?.custom_drive_id || options.msdl_drive_id;
     if (!driveId) {
@@ -393,6 +414,7 @@ const App = () => {
     setIsFolderBrowserActive(true);
     handleSearchFolders(null, driveId, "");
   };
+
   const handleSearchFolders = async (
     e,
     driveIdOverride = null,
@@ -416,6 +438,7 @@ const App = () => {
     }
     setIsSearchingFolders(false);
   };
+
   const handleApplyFolder = (folder) => {
     let relativePath = "";
     if (folder.parentReference && folder.parentReference.path) {
@@ -498,7 +521,7 @@ const App = () => {
                     <Button
                       isSecondary
                       icon="search"
-                      onClick={() => setIsFinderOpen(true)}>
+                      onClick={() => openFinderModal("main")}>
                       Azonosítók Keresése
                     </Button>
                   </div>
@@ -526,13 +549,11 @@ const App = () => {
                       setOptions({ ...options, msdl_internal_api_key: v })
                     }
                   />
-
                   <hr style={{ margin: "20px 0" }} />
                   <h3>Központi Automata Szinkronizáció</h3>
                   <p style={{ color: "#666" }}>
                     Ezzel a beállítással felülírhatod az összes bekötött webhely
-                    szinkronizációs idejét, hacsak ők azt helyileg másként nem
-                    állítják be.
+                    szinkronizációs idejét.
                   </p>
                   <select
                     value={options.msdl_global_sync_interval}
@@ -555,7 +576,9 @@ const App = () => {
                     <option value="msdl_15min">15 percenként</option>
                     <option value="msdl_30min">30 percenként</option>
                     <option value="hourly">Óránként</option>
-                    <option value="twicedaily">Naponta kétszer</option>
+                    <option value="msdl_thricedaily">
+                      Naponta háromszor (8, 12, 16)
+                    </option>
                     <option value="daily">Naponta egyszer</option>
                   </select>
                   <br />
@@ -614,9 +637,9 @@ const App = () => {
                       </Button>
                     </div>
                     <TextControl
-                      placeholder="Keresés domain szerint..."
+                      placeholder="Keresés (Link is)..."
                       value={siteSearchFilter}
-                      onChange={setSiteSearchFilter}
+                      onChange={(val) => setSiteSearchFilter(cleanDomain(val))}
                       style={{ margin: 0, width: "200px" }}
                     />
                   </div>
@@ -649,7 +672,6 @@ const App = () => {
                           : countdownText}
                       </span>
                     </div>
-
                     <Button
                       isSecondary
                       icon="external"
@@ -845,7 +867,6 @@ const App = () => {
                                     ? site.last_sync
                                     : "Még nem szinkronizált"}
                                 </span>
-
                                 {!isPending && (
                                   <Dashicon
                                     icon={syncModeIcon}
@@ -858,7 +879,6 @@ const App = () => {
                                     title={`Ütemezés: ${syncModeText}`}
                                   />
                                 )}
-
                                 {!isPending && !isSuspended && (
                                   <Button
                                     isSmall
@@ -931,7 +951,6 @@ const App = () => {
         }}
       </TabPanel>
 
-      {/* --- Modálok --- */}
       {isFinderOpen && (
         <Modal
           title="SharePoint Azonosító Kereső"
@@ -942,7 +961,7 @@ const App = () => {
             style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
             <div style={{ flexGrow: 1 }}>
               <TextControl
-                placeholder="Keresés webhely nevére..."
+                placeholder="Teljes webhely linkje vagy név..."
                 value={searchQuery}
                 onChange={setSearchQuery}
               />
@@ -1158,10 +1177,10 @@ const App = () => {
           ) : (
             <form onSubmit={handleSaveSite}>
               <TextControl
-                label="Kliens Domain"
+                label="Kliens Domain (Link is megadható)"
                 value={editingSite.domain}
                 onChange={(val) =>
-                  setEditingSite({ ...editingSite, domain: val })
+                  setEditingSite({ ...editingSite, domain: cleanDomain(val) })
                 }
                 required
               />
@@ -1208,6 +1227,26 @@ const App = () => {
                       backgroundColor: "#f6f7f7",
                       borderLeft: "4px solid #72aee6",
                     }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: "15px",
+                      }}>
+                      <p style={{ margin: 0, fontWeight: "bold" }}>
+                        Egyedi Tároló Azonosítói
+                      </p>
+                      <Button
+                        isSecondary
+                        type="button"
+                        isSmall
+                        icon="search"
+                        onClick={() => openFinderModal("site")}>
+                        Keresés
+                      </Button>
+                    </div>
+
                     <TextControl
                       label="Egyedi Site ID"
                       value={editingSite.custom_site_id}
