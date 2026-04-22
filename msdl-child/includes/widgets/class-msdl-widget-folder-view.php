@@ -15,9 +15,9 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         $this->start_controls_section( 'section_query', [ 'label' => 'Adatforrás és Rendezés', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
         $this->add_control( 'folder_id', [ 'label' => 'Mappa Kiválasztása (Gyökér)', 'type' => 'msdl_picker', 'item_type' => 'folder' ]);
         $this->add_control( 'allow_subfolders', [ 'label' => 'Almappák megjelenítése (Navigáció)', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes', 'separator' => 'before' ]);
-        $this->add_control( 'orderby', [ 'label' => 'Rendezés alapja', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'name' => 'Fájlnév (A-Z)', 'date' => 'Módosítás Dátuma' ], 'default' => 'name', 'description' => 'A mappák mindig a lista legelején fognak megjelenni.' ]);
+        $this->add_control( 'orderby', [ 'label' => 'Rendezés alapja', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'name' => 'Fájlnév (A-Z)', 'date' => 'Módosítás Dátuma' ], 'default' => 'name' ]);
         $this->add_control( 'order', [ 'label' => 'Irány', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'ASC' => 'Növekvő (A-Z / Régebbi elöl)', 'DESC' => 'Csökkenő (Z-A / Újabb elöl)' ], 'default' => 'ASC' ]);
-        $this->add_control( 'items_per_page', [ 'label' => 'Fájlok száma oldalanként', 'type' => \Elementor\Controls_Manager::NUMBER, 'default' => 12, 'description' => 'A mappák nem számítanak bele a limitbe.', 'separator' => 'before' ]);
+        $this->add_control( 'items_per_page', [ 'label' => 'Fájlok száma oldalanként', 'type' => \Elementor\Controls_Manager::NUMBER, 'default' => 12, 'separator' => 'before' ]);
         $this->end_controls_section();
 
         $this->start_controls_section( 'section_elements', [ 'label' => 'Megjelenítés', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
@@ -33,37 +33,61 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         $this->end_controls_section();
 
         $this->start_controls_section( 'section_template', [ 'label' => 'Dizájn Sablon', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
-        $this->add_control( 'folder_template', [ 'label' => 'Sablon Választó', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'tpl-list' => 'Vízszintes Lista', 'tpl-grid' => 'Kompakt Rács (Grid)', 'tpl-carousel-light' => 'Carousel (Világos Kártyák)', 'tpl-carousel-dark' => 'Carousel (Sötét Kártyák)', 'custom' => 'Egyéni (Custom)' ], 'default' => 'tpl-list' ]);
+        $this->add_control( 'folder_template', [ 
+            'label' => 'Sablon Választó', 
+            'type' => \Elementor\Controls_Manager::SELECT, 
+            'options' => [ 
+                'tpl-list' => 'Vízszintes Lista', 
+                'tpl-grid' => 'Kompakt Rács (Grid)', 
+                'tpl-carousel-light' => 'Carousel (Világos Kártyák)', 
+                'tpl-carousel-dark' => 'Carousel (Sötét Kártyák)', 
+                'custom' => 'Egyéni Haladó (Custom)' 
+            ], 
+            'default' => 'tpl-grid' 
+        ]);
         
         $this->add_control( 'custom_card_base', [
             'label' => 'Kártya Stílus Alap',
             'type' => \Elementor\Controls_Manager::SELECT,
-            'options' => [ '' => 'Válassz stílust...', 'card-list' => 'Letisztult Lista (Vízszintes)', 'card-app'  => 'Modern App Kártya (Dobozos)', 'card-dark' => 'Kiemelt Sötét Kártya' ],
-            'default' => '', 'condition' => [ 'folder_template' => 'custom' ],
+            'options' => [ 'card-list' => 'Letisztult Lista (Vízszintes)', 'card-app'  => 'Modern App Kártya (Dobozos)', 'card-dark' => 'Kiemelt Sötét Kártya' ],
+            'default' => 'card-app', 'condition' => [ 'folder_template' => 'custom' ],
         ]);
 
-        $this->add_control( 'layout_style', [ 'label' => 'Elrendezés Bázis', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'list' => 'Lista (Egymás alatt)', 'grid' => 'Rács (Oszlopos)', 'carousel' => 'Carousel' ], 'default' => 'list', 'condition' => [ 'folder_template' => 'custom' ], 'separator' => 'before' ]);
-        $this->add_responsive_control( 'items_per_row', [ 'label' => 'Oszlopok Száma', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ '1' => '1', '2' => '2', '3' => '3', '4' => '4' ], 'default' => '3', 'condition' => [ 'layout_style!' => 'list' ] ]);
+        $this->add_control( 'layout_style', [ 
+            'label' => 'Elrendezés Bázis', 
+            'type' => \Elementor\Controls_Manager::SELECT, 
+            'options' => [ 'list' => 'Lista (Egymás alatt)', 'grid' => 'Rács (Oszlopos)', 'carousel' => 'Carousel' ], 
+            'default' => 'grid', 'condition' => [ 'folder_template' => 'custom' ], 'separator' => 'before' 
+        ]);
+        
+        // JAVÍTÁS: Az oszlopszám szinte mindig látszik, ha nem a sima lista van kiválasztva
+        $this->add_responsive_control( 'items_per_row', [ 
+            'label' => 'Oszlopok Száma', 
+            'type' => \Elementor\Controls_Manager::SELECT, 
+            'options' => [ '1' => '1', '2' => '2', '3' => '3', '4' => '4' ], 
+            'default' => '3', 
+            'conditions' => [
+                'relation' => 'or',
+                'terms' => [
+                    [ 'name' => 'folder_template', 'operator' => 'in', 'value' => ['tpl-grid', 'tpl-carousel-light', 'tpl-carousel-dark'] ],
+                    [ 'name' => 'layout_style', 'operator' => 'in', 'value' => ['grid', 'carousel'] ]
+                ]
+            ]
+        ]);
         $this->end_controls_section();
 
-        $this->start_controls_section( 'section_card_style', [ 'label' => 'Kártyák Stílusa', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
-        $this->add_control( 'card_bg_color', [ 'label' => 'Háttér', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => 'rgba(255,255,255,0)', 'selectors' => [ '{{WRAPPER}} .msdl-fv-item' => 'background-color: {{VALUE}};' ] ] );
+        // Egyedi stílus felülbírálások a TAB_STYLE alatt
+        $this->start_controls_section( 'section_card_style', [ 'label' => 'Kártyák Színezése (Felülbírálás)', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
+        $this->add_control( 'card_bg_color', [ 'label' => 'Háttér', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fv-item' => 'background-color: {{VALUE}};' ] ] );
         $this->add_group_control( \Elementor\Group_Control_Border::get_type(), [ 'name' => 'card_border', 'selector' => '{{WRAPPER}} .msdl-fv-item' ] );
-        $this->add_responsive_control( 'card_border_radius', [ 'label' => 'Lekerekítés', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '0', 'right' => '0', 'bottom' => '0', 'left' => '0', 'unit' => 'px', 'isLinked' => true ], 'selectors' => [ '{{WRAPPER}} .msdl-fv-item' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
-        $this->add_responsive_control( 'card_padding', [ 'label' => 'Belső Margó', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '20', 'right' => '0', 'bottom' => '20', 'left' => '0', 'unit' => 'px', 'isLinked' => false ], 'selectors' => [ '{{WRAPPER}} .msdl-fv-item' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
-        $this->add_group_control( \Elementor\Group_Control_Box_Shadow::get_type(), [ 'name' => 'card_box_shadow', 'selector' => '{{WRAPPER}} .msdl-fv-item' ] );
+        $this->add_responsive_control( 'card_border_radius', [ 'label' => 'Lekerekítés', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'selectors' => [ '{{WRAPPER}} .msdl-fv-item' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
         $this->end_controls_section();
 
         $this->start_controls_section( 'section_text_style', [ 'label' => 'Szövegek és Ikon', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
-        $this->add_control( 'icon_color', [ 'label' => 'Ikon Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#50ADC9', 'selectors' => [ '{{WRAPPER}} .msdl-fv-item:not(.msdl-is-folder) .msdl-fv-icon i' => 'color: {{VALUE}};', '{{WRAPPER}} .msdl-fv-item:not(.msdl-is-folder) .msdl-fv-icon svg' => 'fill: {{VALUE}};' ] ] );
-        $this->add_control( 'icon_bg_color', [ 'label' => 'Ikon Háttere', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => 'rgba(255,255,255,0)', 'selectors' => [ '{{WRAPPER}} .msdl-fv-item:not(.msdl-is-folder) .msdl-fv-icon' => 'background-color: {{VALUE}};' ] ] );
-        $this->add_responsive_control( 'icon_size', [ 'label' => 'Méret', 'type' => \Elementor\Controls_Manager::SLIDER, 'default' => [ 'size' => 32, 'unit' => 'px' ], 'selectors' => [ '{{WRAPPER}} .msdl-fv-icon i' => 'font-size: {{SIZE}}{{UNIT}};', '{{WRAPPER}} .msdl-fv-icon svg' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};' ] ] );
-        $this->add_responsive_control( 'icon_padding', [ 'label' => 'Padding', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '0', 'right' => '0', 'bottom' => '0', 'left' => '0', 'unit' => 'px', 'isLinked' => true ], 'selectors' => [ '{{WRAPPER}} .msdl-fv-icon' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
-        $this->add_responsive_control( 'icon_border_radius', [ 'label' => 'Lekerekítés', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '0', 'right' => '0', 'bottom' => '0', 'left' => '0', 'unit' => 'px', 'isLinked' => true ], 'selectors' => [ '{{WRAPPER}} .msdl-fv-icon' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
-        
-        $this->add_control( 'title_color', [ 'label' => 'Cím Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#242943', 'separator' => 'before', 'selectors' => [ '{{WRAPPER}} .msdl-fv-title' => 'color: {{VALUE}};' ] ] );
+        $this->add_control( 'icon_color', [ 'label' => 'Ikon Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fv-item:not(.msdl-is-folder) .msdl-fv-icon i' => 'color: {{VALUE}};', '{{WRAPPER}} .msdl-fv-item:not(.msdl-is-folder) .msdl-fv-icon svg' => 'fill: {{VALUE}};' ] ] );
+        $this->add_control( 'title_color', [ 'label' => 'Cím Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'separator' => 'before', 'selectors' => [ '{{WRAPPER}} .msdl-fv-title' => 'color: {{VALUE}};' ] ] );
         $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'title_typo', 'selector' => '{{WRAPPER}} .msdl-fv-title' ] );
-        $this->add_control( 'meta_color', [ 'label' => 'Meta Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#787c82', 'selectors' => [ '{{WRAPPER}} .msdl-fv-meta' => 'color: {{VALUE}};' ] ] );
+        $this->add_control( 'meta_color', [ 'label' => 'Meta Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fv-meta' => 'color: {{VALUE}};' ] ] );
         $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'meta_typo', 'selector' => '{{WRAPPER}} .msdl-fv-meta' ] );
         $this->end_controls_section();
 
@@ -71,22 +95,16 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'btn_typo', 'selector' => '{{WRAPPER}} .msdl-fv-btn' ] );
         $this->start_controls_tabs( 'tabs_btn' );
         $this->start_controls_tab( 'tab_btn_normal', [ 'label' => 'Normál' ] );
-        $this->add_control( 'btn_text_color', [ 'label' => 'Szöveg', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#50ADC9', 'selectors' => [ '{{WRAPPER}} .msdl-fv-btn' => 'color: {{VALUE}};' ] ]);
-        $this->add_control( 'btn_bg_color', [ 'label' => 'Háttér', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => 'rgba(80,173,201,0.1)', 'selectors' => [ '{{WRAPPER}} .msdl-fv-btn' => 'background-color: {{VALUE}};' ] ]);
+        $this->add_control( 'btn_text_color', [ 'label' => 'Szöveg', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fv-btn' => 'color: {{VALUE}};' ] ]);
+        $this->add_control( 'btn_bg_color', [ 'label' => 'Háttér', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fv-btn' => 'background-color: {{VALUE}};' ] ]);
         $this->end_controls_tab();
         $this->start_controls_tab( 'tab_btn_hover', [ 'label' => 'Hover' ] );
-        $this->add_control( 'btn_hover_text_color', [ 'label' => 'Szöveg', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#ffffff', 'selectors' => [ '{{WRAPPER}} .msdl-fv-btn:hover' => 'color: {{VALUE}};' ] ]);
-        $this->add_control( 'btn_hover_bg_color', [ 'label' => 'Háttér', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#50ADC9', 'selectors' => [ '{{WRAPPER}} .msdl-fv-btn:hover' => 'background-color: {{VALUE}};' ] ]);
+        $this->add_control( 'btn_hover_text_color', [ 'label' => 'Szöveg', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fv-btn:hover' => 'color: {{VALUE}};' ] ]);
+        $this->add_control( 'btn_hover_bg_color', [ 'label' => 'Háttér', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fv-btn:hover' => 'background-color: {{VALUE}};' ] ]);
         $this->end_controls_tab();
         $this->end_controls_tabs();
         $this->add_group_control( \Elementor\Group_Control_Border::get_type(), [ 'name' => 'btn_border', 'selector' => '{{WRAPPER}} .msdl-fv-btn', 'separator' => 'before' ] );
-        $this->add_responsive_control( 'btn_border_radius', [ 'label' => 'Radius', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '6', 'right' => '6', 'bottom' => '6', 'left' => '6', 'unit' => 'px', 'isLinked' => true ], 'selectors' => [ '{{WRAPPER}} .msdl-fv-btn' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ]);
-        $this->add_responsive_control( 'btn_padding', [ 'label' => 'Padding', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '10', 'right' => '20', 'bottom' => '10', 'left' => '20', 'unit' => 'px', 'isLinked' => false ], 'selectors' => [ '{{WRAPPER}} .msdl-fv-btn' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ]);
-        $this->end_controls_section();
-
-        $this->start_controls_section( 'section_pagination_style', [ 'label' => 'Lapozó / Nyilak', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
-        $this->add_control( 'pag_color', [ 'label' => 'Szín', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#50ADC9', 'selectors' => [ '{{WRAPPER}} .msdl-pag-btn' => 'color: {{VALUE}}; border-color: {{VALUE}};', '{{WRAPPER}} .swiper-button-next, {{WRAPPER}} .swiper-button-prev' => 'color: {{VALUE}};' ] ] );
-        $this->add_control( 'pag_bg_color', [ 'label' => 'Aktív / Hover Háttér', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#50ADC9', 'selectors' => [ '{{WRAPPER}} .msdl-pag-btn.active, {{WRAPPER}} .msdl-pag-btn:hover' => 'background-color: {{VALUE}}; color: #fff;' ] ] );
+        $this->add_responsive_control( 'btn_border_radius', [ 'label' => 'Radius', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'selectors' => [ '{{WRAPPER}} .msdl-fv-btn' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ]);
         $this->end_controls_section();
     }
 
@@ -149,8 +167,24 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             for($i=1; $i<=6; $i++) $items[] = (object)[ 'id' => $i, 'type' => 'file', 'name' => 'Példa_Dokumentum_'.$i.'.pdf', 'size' => 1500000, 'last_modified' => date('Y-m-d H:i:s') ];
         }
 
-        $layout = $settings['layout_style'];
+        // JAVÍTÁS: A SABLON LOGIKA FELOSZTÁSA
+        $template = $settings['folder_template'];
         $cols = $settings['items_per_row'] ?? '3';
+        
+        if ( $template === 'tpl-list' ) {
+            $layout = 'list'; $card_style = 'card-list';
+        } elseif ( $template === 'tpl-grid' ) {
+            $layout = 'grid'; $card_style = 'card-app';
+        } elseif ( $template === 'tpl-carousel-light' ) {
+            $layout = 'carousel'; $card_style = 'card-app';
+        } elseif ( $template === 'tpl-carousel-dark' ) {
+            $layout = 'carousel'; $card_style = 'card-dark';
+        } else {
+            // Egyedi / Custom
+            $layout = $settings['layout_style'];
+            $card_style = $settings['custom_card_base'];
+        }
+
         $per_page = intval($settings['items_per_page']);
         if ($per_page < 1) $per_page = 12;
 
@@ -206,7 +240,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
 
         $grid_template = ($layout === 'grid') ? "grid-template-columns: repeat({$cols}, 1fr);" : "";
 
-        $render_card = function($item, $item_layout, $is_hidden) use ($settings, $param_name) {
+        $render_card = function($item, $item_layout, $is_hidden) use ($settings, $param_name, $card_style) {
             $is_folder = ($item->type === 'folder');
             $ext = pathinfo( $item->name, PATHINFO_EXTENSION );
             $ext = $ext ? strtolower($ext) : 'file';
@@ -252,7 +286,8 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             }
 
             $display_style = $is_hidden ? 'display:none;' : '';
-            $item_class = 'msdl-fv-item layout-' . esc_attr($item_layout) . ' msdl-page-item';
+            // JAVÍTÁS: Itt kapja meg a kártya a konkrét stílusosztályát!
+            $item_class = 'msdl-fv-item layout-' . esc_attr($item_layout) . ' style-' . esc_attr($card_style) . ' msdl-page-item';
             
             if ( $is_folder ) {
                 $item_class .= ' msdl-is-folder';
@@ -302,26 +337,66 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
 
         ?>
         <style>
-            #msdl-fv-<?php echo $uid; ?>-container { position: relative; width: 100%; min-height: 100px; }
+            #msdl-fv-<?php echo $uid; ?>-container { position: relative; width: 100%; min-height: 100px; font-family: inherit;}
             #msdl-fv-<?php echo $uid; ?> { display: <?php echo $layout === 'grid' ? 'grid' : 'flex'; ?>; flex-direction: column; gap: 20px; <?php echo $grid_template; ?> }
 
-            .msdl-fv-breadcrumbs { margin-bottom: 25px; font-size: 14px; font-weight: 500; display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
-            .msdl-fv-breadcrumbs a { color: #50ADC9; text-decoration: none; padding: 4px 8px; border-radius: 4px; background: rgba(80,173,201,0.05); transition: background 0.2s;}
+            .msdl-fv-breadcrumbs { margin-bottom: 25px; font-size: 15px; font-weight: 500; display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
+            .msdl-fv-breadcrumbs a { color: #50ADC9; text-decoration: none; padding: 6px 12px; border-radius: 6px; background: rgba(80,173,201,0.08); transition: background 0.2s;}
             .msdl-fv-breadcrumbs a:hover { background: rgba(80,173,201,0.15); }
-            .msdl-fv-breadcrumbs .msdl-bc-sep { color: #a0a6b5; }
-            .msdl-fv-breadcrumbs span.msdl-bc-current { color: #242943; font-weight: 700; padding: 4px 8px;}
+            .msdl-fv-breadcrumbs .msdl-bc-sep { color: #a0a6b5; font-size: 12px;}
+            .msdl-fv-breadcrumbs span.msdl-bc-current { color: #242943; font-weight: 700; padding: 6px 12px;}
 
             .swiper-wrapper { display: flex; align-items: stretch; box-sizing: content-box; }
-            .swiper-button-next, .swiper-button-prev { background: #fff; width: 44px; height: 44px; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+            .swiper-button-next, .swiper-button-prev { background: #fff; width: 44px; height: 44px; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.1); color: #242943; }
             .swiper-button-next:after, .swiper-button-prev:after { font-size: 16px !important; font-weight: bold; }
 
-            .msdl-fv-item { display: flex; gap: 15px; box-sizing: border-box; transition: all 0.3s ease; font-family: inherit; height: 100%; position: relative; overflow: hidden; }
-            .msdl-fv-item:hover { transform: translateY(-2px); }
+            .msdl-fv-item { display: flex; gap: 15px; box-sizing: border-box; transition: all 0.3s ease; position: relative; overflow: hidden; height: 100%;}
             
-            .msdl-is-folder { border: 2px dashed rgba(80, 173, 201, 0.5) !important; }
-            .msdl-is-folder .msdl-fv-icon i { color: #f5c342 !important; }
-            .msdl-is-folder .msdl-fv-icon svg { fill: #f5c342 !important; }
+            /* --- ÚJ: BEÉPÍTETT PRÉMIUM STÍLUSOK --- */
+            
+            /* 1. App Card (Modern dobozos) */
+            .msdl-fv-item.style-card-app {
+                background: #ffffff;
+                border: 1px solid #eaeaea;
+                border-radius: 12px;
+                padding: 24px;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+            }
+            .msdl-fv-item.style-card-app:hover {
+                box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+                transform: translateY(-3px);
+                border-color: #d0d0d0;
+            }
 
+            /* 2. Dark Card (Sötét, letisztult) */
+            .msdl-fv-item.style-card-dark {
+                background: #1d2327;
+                border: 1px solid #2c3338;
+                border-radius: 12px;
+                padding: 24px;
+                color: #f0f0f1;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            }
+            .msdl-fv-item.style-card-dark:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+                border-color: #4a545c;
+            }
+            .msdl-fv-item.style-card-dark .msdl-fv-title { color: #ffffff; }
+            .msdl-fv-item.style-card-dark .msdl-fv-title a { color: #ffffff; }
+            .msdl-fv-item.style-card-dark .msdl-fv-meta { color: #a7aaad; }
+            
+            /* 3. Letisztult Lista (Vízszintes) */
+            .msdl-fv-item.style-card-list {
+                background: transparent;
+                border-bottom: 1px solid #f0f2f5;
+                padding: 15px 10px;
+                border-radius: 0;
+            }
+            .msdl-fv-item.style-card-list:last-child { border-bottom: none; }
+            .msdl-fv-item.style-card-list:hover { background: #f8f9fa; transform: translateX(4px); }
+
+            /* --- ALAP LOGIKAI ELRENDEZÉSEK --- */
             .msdl-fv-item.layout-list { flex-direction: row; align-items: center; }
             .msdl-fv-item.layout-grid, .msdl-fv-item.layout-carousel { flex-direction: column; align-items: center; text-align: center; }
             
@@ -332,22 +407,35 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             .msdl-fv-item:not(.layout-list) .msdl-fv-action { width: 100%; margin-top: auto; padding-top: 15px; }
             .msdl-fv-item:not(.layout-list) .msdl-fv-btn { display: block; width: 100%; text-align: center; box-sizing: border-box; }
 
-            .msdl-fv-icon { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; line-height: 1; }
-            .msdl-fv-icon svg { fill: currentColor; }
+            /* Ikonok és Címek */
+            .msdl-is-folder .msdl-fv-icon i { color: #f5c342; }
+            .msdl-is-folder .msdl-fv-icon svg { fill: #f5c342; }
+            .msdl-fv-item:not(.msdl-is-folder) .msdl-fv-icon i { color: #50ADC9; }
+            .msdl-fv-item:not(.msdl-is-folder) .msdl-fv-icon svg { fill: #50ADC9; }
+
+            .msdl-fv-icon { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; line-height: 1; font-size: 32px;}
+            .msdl-fv-icon svg { width: 32px; height: 32px; fill: currentColor; }
             
             .msdl-fv-content { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-            .msdl-fv-title { font-size: 15px; font-weight: 700; margin: 0; word-wrap: break-word; line-height: 1.3; }
+            .msdl-fv-title { font-size: 16px; font-weight: 700; margin: 0; word-wrap: break-word; line-height: 1.3; }
+            .msdl-fv-title a { transition: color 0.2s; }
+            .msdl-fv-title a:hover { opacity: 0.8; }
             
-            .msdl-fv-meta { font-size: 12px; font-weight: 500; display: flex; flex-wrap: wrap; gap: 4px; }
+            .msdl-fv-meta { font-size: 13px; font-weight: 500; display: flex; flex-wrap: wrap; gap: 4px; color: #787c82;}
             .msdl-fv-item.layout-list .msdl-fv-meta { justify-content: flex-start; }
             .msdl-fv-item:not(.layout-list) .msdl-fv-meta { justify-content: center; }
             
             .msdl-fv-meta span { display: inline-flex; align-items: center; }
             .msdl-fv-meta span:not(:last-child)::after { content: '•'; margin-left: 6px; opacity: 0.5; }
-            .msdl-fv-btn { font-size: 13px; font-weight: 600; text-decoration: none !important; transition: all 0.3s ease; }
+            
+            /* Beépített letisztult gomb dizájn */
+            .msdl-fv-btn { font-size: 14px; font-weight: 600; text-decoration: none !important; transition: all 0.3s ease; padding: 10px 20px; border-radius: 8px; color: #50ADC9; background: rgba(80,173,201,0.1); border: 1px solid transparent;}
+            .msdl-fv-btn:hover { background: #50ADC9; color: #ffffff; }
 
-            .msdl-pagination { display: flex; justify-content: center; gap: 8px; margin-top: 30px; }
-            .msdl-pag-btn { padding: 6px 12px; border: 1px solid; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; background: transparent; }
+            .msdl-pagination { display: flex; justify-content: center; gap: 8px; margin-top: 40px; }
+            .msdl-pag-btn { padding: 8px 15px; border: 1px solid #dcdcde; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; background: #fff; color:#242943;}
+            .msdl-pag-btn:hover { background: #f6f7f7; }
+            .msdl-pag-btn.active { background: #50ADC9; color: #fff; border-color: #50ADC9;}
             .msdl-pag-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 
             @media (max-width: 767px) {
@@ -483,7 +571,6 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
 
             initMSDLFolderView();
 
-            // VÉGLEGES, BIZTONSÁGOS PJAX NAVIGÁCIÓ
             $('#msdl-fv-' + uid + '-container').on('click', '.msdl-ajax-link', function(e) {
                 var url = $(this).attr('href');
                 if (!url || url === '#') return;
@@ -495,14 +582,13 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
                     $('head').append('<style id="msdl-ajax-anim">@keyframes msdl-spin-loader { 100% { transform:rotate(360deg); } }</style>');
                 }
                 
-                $wrapper.append('<div class="msdl-ajax-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; z-index:10; border-radius:8px;"><div style="width:40px;height:40px;border:3px solid #ccc;border-top-color:#2271b1;border-radius:50%;animation:msdl-spin-loader 1s linear infinite;"></div></div>');
+                $wrapper.append('<div class="msdl-ajax-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; z-index:10; border-radius:12px; backdrop-filter:blur(2px);"><div style="width:40px;height:40px;border:3px solid #ccc;border-top-color:#2271b1;border-radius:50%;animation:msdl-spin-loader 1s linear infinite;"></div></div>');
                 
                 $.ajax({
                     url: url,
                     type: 'GET',
                     success: function(response) {
                         try {
-                            // DOMParser használata, hogy elkerüljük az Elementor oldalak JS feldolgozási hibáit
                             var doc = new DOMParser().parseFromString(response, 'text/html');
                             var newHtml = $(doc).find('#msdl-fv-' + uid + '-container').html();
                             
@@ -516,7 +602,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
                                     $('html, body').animate({ scrollTop: wrapperTop - 100 }, 300);
                                 }
                             } else {
-                                window.location.href = url; // Biztonsági visszalépés
+                                window.location.href = url;
                             }
                         } catch (err) {
                             window.location.href = url;
@@ -531,7 +617,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             window.addEventListener('popstate', function(e) {
                 if (e.state && e.state.type === 'msdl-folder-view') {
                     var $wrapper = $('#msdl-fv-' + uid + '-container');
-                    $wrapper.append('<div class="msdl-ajax-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; z-index:10; border-radius:8px;"><div style="width:40px;height:40px;border:3px solid #ccc;border-top-color:#2271b1;border-radius:50%;animation:msdl-spin-loader 1s linear infinite;"></div></div>');
+                    $wrapper.append('<div class="msdl-ajax-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; z-index:10; border-radius:12px; backdrop-filter:blur(2px);"><div style="width:40px;height:40px;border:3px solid #ccc;border-top-color:#2271b1;border-radius:50%;animation:msdl-spin-loader 1s linear infinite;"></div></div>');
                     $.get(e.state.path, function(html) {
                         try {
                             var doc = new DOMParser().parseFromString(html, 'text/html');
