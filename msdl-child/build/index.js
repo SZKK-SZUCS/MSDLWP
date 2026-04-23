@@ -146,7 +146,6 @@ const WpTinyMceEditor = ({
       window.wp.editor.initialize(id, {
         tinymce: {
           wpautop: true,
-          // JAVÍTÁS: A 'table' kikerült a pluginek és a toolbar listából
           plugins: "charmap hr lists paste textcolor wordpress wpdialogs wpeditimage wpemoji wpgallery wplink wpview",
           toolbar1: "formatselect bold italic bullist numlist blockquote alignleft aligncenter alignright link unlink wp_adv",
           toolbar2: "strikethrough hr forecolor pastetext removeformat charmap outdent indent undo redo",
@@ -230,6 +229,10 @@ const FileManagerApp = () => {
   const [customTitle, setCustomTitle] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [customDesc, setCustomDesc] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [isSaving, setIsSaving] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
+
+  // Verzió előzményekhez State
+  const [versions, setVersions] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
+  const [isLoadingVersions, setIsLoadingVersions] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [batchVisType, setBatchVisType] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("public");
   const [batchSelectedRoles, setBatchSelectedRoles] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
@@ -365,6 +368,21 @@ const FileManagerApp = () => {
       } catch (e) {
         setSelectedRoles([]);
       }
+    }
+
+    // Verziók lekérése
+    if (node.type === "file") {
+      setIsLoadingVersions(true);
+      setVersions([]);
+      _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
+        path: `/msdl-child/v1/get-file-versions?id=${node.id}`
+      }).then(res => {
+        setVersions(res);
+        setIsLoadingVersions(false);
+      }).catch(() => {
+        setVersions([]);
+        setIsLoadingVersions(false);
+      });
     }
     setIsVisModalOpen(true);
   };
@@ -855,7 +873,7 @@ const FileManagerApp = () => {
       title: `Beállítások: ${editingNode.name}`,
       onRequestClose: () => setIsVisModalOpen(false),
       style: {
-        width: "800px"
+        width: "850px"
       },
       children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
         style: {
@@ -922,6 +940,107 @@ const FileManagerApp = () => {
           checked: applyToChildren,
           onChange: setApplyToChildren
         })
+      }), editingNode.type === "file" && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
+        style: {
+          marginTop: "30px",
+          padding: "20px",
+          backgroundColor: "#f6f7f7",
+          border: "1px solid #ccd0d4",
+          borderRadius: "4px"
+        },
+        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("h3", {
+          style: {
+            margin: "0 0 5px 0",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px"
+          },
+          children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
+            icon: "backup",
+            style: {
+              color: "#2271b1"
+            }
+          }), " ", "SharePoint Verzi\xF3el\u0151zm\xE9nyek"]
+        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("p", {
+          style: {
+            fontSize: "12px",
+            color: "#666",
+            marginBottom: "15px"
+          },
+          children: ["A rendszer a Microsoft szerver\xE9r\u0151l k\xE9ri le az \xE9l\u0151 verzi\xF3kat.", " ", /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("strong", {
+            children: "A frontend oldalon mindig csak a leg\xFAjabb verzi\xF3 \xE9rhet\u0151 el!"
+          })]
+        }), isLoadingVersions ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Spinner, {}) : /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("table", {
+          className: "wp-list-table widefat fixed striped",
+          children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("thead", {
+            children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("tr", {
+              children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
+                style: {
+                  width: "85px"
+                },
+                children: "Verzi\xF3"
+              }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
+                children: "L\xE9trehozva"
+              }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
+                children: "Szerz\u0151"
+              }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
+                style: {
+                  width: "100px"
+                },
+                children: "M\xE9ret"
+              }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
+                style: {
+                  width: "100px",
+                  textAlign: "right"
+                },
+                children: "M\u0171velet"
+              })]
+            })
+          }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("tbody", {
+            children: versions.length === 0 ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("tr", {
+              children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
+                colSpan: "5",
+                children: "Nincsenek kor\xE1bbi verzi\xF3k."
+              })
+            }) : versions.map((v, i) => {
+              const isCurrent = i === 0;
+              return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("tr", {
+                style: {
+                  fontWeight: isCurrent ? "bold" : "normal",
+                  backgroundColor: isCurrent ? "#f0f6fc" : "transparent"
+                },
+                children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
+                  children: isCurrent ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
+                    style: {
+                      color: "#00a32a"
+                    },
+                    children: "Aktu\xE1lis"
+                  }) : `V${v.id}`
+                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
+                  children: new Date(v.lastModifiedDateTime).toLocaleString("hu-HU")
+                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
+                  children: v.lastModifiedBy?.user?.displayName || "-"
+                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
+                  children: formatSize(v.size)
+                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
+                  style: {
+                    textAlign: "right"
+                  },
+                  children: v["@microsoft.graph.downloadUrl"] && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("a", {
+                    href: v["@microsoft.graph.downloadUrl"],
+                    target: "_blank",
+                    className: "button button-small",
+                    style: {
+                      borderColor: isCurrent ? "#2271b1" : "#8c8f94",
+                      color: isCurrent ? "#2271b1" : "#8c8f94"
+                    },
+                    children: "Let\xF6lt\xE9s"
+                  })
+                })]
+              }, v.id);
+            })
+          })]
+        })]
       }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
         style: {
           display: "flex",

@@ -27,7 +27,6 @@ const WpTinyMceEditor = ({ value, onChange }) => {
       window.wp.editor.initialize(id, {
         tinymce: {
           wpautop: true,
-          // JAVÍTÁS: A 'table' kikerült a pluginek és a toolbar listából
           plugins:
             "charmap hr lists paste textcolor wordpress wpdialogs wpeditimage wpemoji wpgallery wplink wpview",
           toolbar1:
@@ -108,6 +107,10 @@ const FileManagerApp = () => {
   const [customDesc, setCustomDesc] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
+  // Verzió előzményekhez State
+  const [versions, setVersions] = useState([]);
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false);
+
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
   const [batchVisType, setBatchVisType] = useState("public");
   const [batchSelectedRoles, setBatchSelectedRoles] = useState([]);
@@ -127,7 +130,6 @@ const FileManagerApp = () => {
       if (nodeToOpen) {
         openVisibilityModal(nodeToOpen);
         setAutoOpenFileId(null);
-
         const newUrl = new URL(window.location);
         newUrl.searchParams.delete("folder");
         newUrl.searchParams.delete("open_file");
@@ -142,7 +144,6 @@ const FileManagerApp = () => {
       setWpRoles(roles);
     } catch (e) {}
   };
-
   const loadNodes = async (parentId) => {
     setIsLoading(true);
     setSelectedNodes([]);
@@ -217,7 +218,6 @@ const FileManagerApp = () => {
       { id: folder.graph_id, name: folder.custom_title || folder.name },
     ]);
   };
-
   const handleBreadcrumbClick = (e, index) => {
     e.preventDefault();
     setSearchQuery("");
@@ -226,12 +226,10 @@ const FileManagerApp = () => {
     setPathHistory(newPath);
     setCurrentFolderId(newPath[newPath.length - 1].id);
   };
-
   const handleSelectAll = (checked) => {
     if (checked) setSelectedNodes(filteredNodes.map((n) => n.id));
     else setSelectedNodes([]);
   };
-
   const handleSelectNode = (id, checked) => {
     if (checked) setSelectedNodes([...selectedNodes, id]);
     else setSelectedNodes(selectedNodes.filter((nId) => nId !== id));
@@ -250,7 +248,6 @@ const FileManagerApp = () => {
     setApplyToChildren(false);
     setCustomTitle(node.custom_title || "");
     setCustomDesc(node.custom_description || "");
-
     if (!node.visibility_roles) {
       setVisType("public");
       setSelectedRoles([]);
@@ -266,6 +263,22 @@ const FileManagerApp = () => {
         setSelectedRoles([]);
       }
     }
+
+    // Verziók lekérése
+    if (node.type === "file") {
+      setIsLoadingVersions(true);
+      setVersions([]);
+      apiFetch({ path: `/msdl-child/v1/get-file-versions?id=${node.id}` })
+        .then((res) => {
+          setVersions(res);
+          setIsLoadingVersions(false);
+        })
+        .catch(() => {
+          setVersions([]);
+          setIsLoadingVersions(false);
+        });
+    }
+
     setIsVisModalOpen(true);
   };
 
@@ -724,7 +737,7 @@ const FileManagerApp = () => {
         <Modal
           title={`Beállítások: ${editingNode.name}`}
           onRequestClose={() => setIsVisModalOpen(false)}
-          style={{ width: "800px" }}>
+          style={{ width: "850px" }}>
           <div
             style={{
               marginBottom: "20px",
@@ -796,6 +809,113 @@ const FileManagerApp = () => {
               />
             </div>
           )}
+
+          {editingNode.type === "file" && (
+            <div
+              style={{
+                marginTop: "30px",
+                padding: "20px",
+                backgroundColor: "#f6f7f7",
+                border: "1px solid #ccd0d4",
+                borderRadius: "4px",
+              }}>
+              <h3
+                style={{
+                  margin: "0 0 5px 0",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                }}>
+                <Dashicon icon="backup" style={{ color: "#2271b1" }} />{" "}
+                SharePoint Verzióelőzmények
+              </h3>
+              <p
+                style={{
+                  fontSize: "12px",
+                  color: "#666",
+                  marginBottom: "15px",
+                }}>
+                A rendszer a Microsoft szerveréről kéri le az élő verziókat.{" "}
+                <strong>
+                  A frontend oldalon mindig csak a legújabb verzió érhető el!
+                </strong>
+              </p>
+              {isLoadingVersions ? (
+                <Spinner />
+              ) : (
+                <table className="wp-list-table widefat fixed striped">
+                  <thead>
+                    <tr>
+                      <th style={{ width: "85px" }}>Verzió</th>
+                      <th>Létrehozva</th>
+                      <th>Szerző</th>
+                      <th style={{ width: "100px" }}>Méret</th>
+                      <th style={{ width: "100px", textAlign: "right" }}>
+                        Művelet
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {versions.length === 0 ? (
+                      <tr>
+                        <td colSpan="5">Nincsenek korábbi verziók.</td>
+                      </tr>
+                    ) : (
+                      versions.map((v, i) => {
+                        const isCurrent = i === 0;
+                        return (
+                          <tr
+                            key={v.id}
+                            style={{
+                              fontWeight: isCurrent ? "bold" : "normal",
+                              backgroundColor: isCurrent
+                                ? "#f0f6fc"
+                                : "transparent",
+                            }}>
+                            <td>
+                              {isCurrent ? (
+                                <span style={{ color: "#00a32a" }}>
+                                  Aktuális
+                                </span>
+                              ) : (
+                                `V${v.id}`
+                              )}
+                            </td>
+                            <td>
+                              {new Date(v.lastModifiedDateTime).toLocaleString(
+                                "hu-HU",
+                              )}
+                            </td>
+                            <td>
+                              {v.lastModifiedBy?.user?.displayName || "-"}
+                            </td>
+                            <td>{formatSize(v.size)}</td>
+                            <td style={{ textAlign: "right" }}>
+                              {v["@microsoft.graph.downloadUrl"] && (
+                                <a
+                                  href={v["@microsoft.graph.downloadUrl"]}
+                                  target="_blank"
+                                  className="button button-small"
+                                  style={{
+                                    borderColor: isCurrent
+                                      ? "#2271b1"
+                                      : "#8c8f94",
+                                    color: isCurrent ? "#2271b1" : "#8c8f94",
+                                  }}>
+                                  Letöltés
+                                </a>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+
           <div
             style={{
               display: "flex",
@@ -919,7 +1039,6 @@ const SyncApp = () => {
       setSyncInfo(sInfo);
     } catch (e) {}
   };
-
   useEffect(() => {
     fetchDashboardData();
   }, []);
@@ -984,7 +1103,6 @@ const SyncApp = () => {
   return (
     <div className="wrap">
       <h1>Szinkronizáció Állapota</h1>
-
       <div
         style={{
           display: "grid",
@@ -1020,7 +1138,6 @@ const SyncApp = () => {
             {syncInfo ? syncInfo.last_sync : <Spinner />}
           </div>
         </div>
-
         <div
           style={{
             background: "#fff",
@@ -1064,7 +1181,6 @@ const SyncApp = () => {
           )}
         </div>
       </div>
-
       <PanelBody title="Kézi Szinkronizáció és Gyorsítótár">
         <p style={{ marginBottom: "15px", color: "#666" }}>
           Itt indíthatod el manuálisan a Microsoft SharePoint mappa tartalmának
@@ -1238,7 +1354,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const filemanagerRoot = document.getElementById("msdl-admin-filemanager");
   const syncRoot = document.getElementById("msdl-admin-sync");
   const settingsRoot = document.getElementById("msdl-admin-settings");
-
   if (filemanagerRoot) render(<FileManagerApp />, filemanagerRoot);
   else if (syncRoot) render(<SyncApp />, syncRoot);
   else if (settingsRoot) render(<SettingsApp />, settingsRoot);
