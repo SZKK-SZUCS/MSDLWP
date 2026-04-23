@@ -77,9 +77,43 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         $this->end_controls_section();
 
         $this->start_controls_section( 'style_buttons', [ 'label' => 'Gombok', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
-        $this->add_control( 'btn_bg', [ 'label' => 'Fő (Letöltés) Gomb Háttere', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn' => 'background-color: {{VALUE}} !important; border-color: {{VALUE}} !important;' ] ] );
-        $this->add_control( 'btn_color', [ 'label' => 'Fő (Letöltés) Szövege/Ikonja', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn' => 'color: {{VALUE}} !important;' ] ] );
-        $this->add_control( 'outline_color', [ 'label' => 'Másodlagos (Részletek/Mappa) Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'separator' => 'before', 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn-outline' => 'color: {{VALUE}}; border-color: {{VALUE}};' ] ] );
+        
+        // --- FŐ GOMB (Letöltés / Gyors Letöltés) ---
+        $this->add_control( 'heading_primary_btn', [ 'label' => 'Fő CTA (Letöltés)', 'type' => \Elementor\Controls_Manager::HEADING, 'separator' => 'before' ] );
+        $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'btn_typo', 'selector' => '{{WRAPPER}} .msdl-fm-btn' ] );
+        $this->start_controls_tabs( 'tabs_btn' );
+        $this->start_controls_tab( 'tab_btn_normal', [ 'label' => 'Normál' ] );
+        $this->add_control( 'btn_bg', [ 'label' => 'Háttér', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#2271b1', 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn' => 'background-color: {{VALUE}};' ] ] );
+        $this->add_control( 'btn_color', [ 'label' => 'Szöveg/Ikon', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#ffffff', 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn' => 'color: {{VALUE}}; fill: {{VALUE}};' ] ] );
+        $this->end_controls_tab();
+        $this->start_controls_tab( 'tab_btn_hover', [ 'label' => 'Hover' ] );
+        $this->add_control( 'btn_hover_bg', [ 'label' => 'Háttér', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#135e96', 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn:hover' => 'background-color: {{VALUE}};' ] ] );
+        $this->add_control( 'btn_hover_color', [ 'label' => 'Szöveg/Ikon', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#ffffff', 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn:hover' => 'color: {{VALUE}}; fill: {{VALUE}};' ] ] );
+        $this->add_control( 'btn_hover_border_color', [ 'label' => 'Keret', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn:hover' => 'border-color: {{VALUE}};' ] ] );
+        $this->end_controls_tab();
+        $this->end_controls_tabs();
+        $this->add_group_control( \Elementor\Group_Control_Border::get_type(), [ 'name' => 'btn_border', 'selector' => '{{WRAPPER}} .msdl-fm-btn', 'separator' => 'before' ] );
+        $this->add_responsive_control( 'btn_radius', [ 'label' => 'Lekerekítés', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '6', 'right' => '6', 'bottom' => '6', 'left' => '6', 'unit' => 'px', 'isLinked' => true ], 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
+        $this->add_responsive_control( 'btn_padding', [ 'label' => 'Belső Margó (Adatlap)', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '8', 'right' => '16', 'bottom' => '8', 'left' => '16', 'unit' => 'px', 'isLinked' => false ], 'selectors' => [ '{{WRAPPER}} .msdl-fm-fv-actions .msdl-fm-btn' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
+
+        // --- MÁSODLAGOS GOMB (Részletek / Mappa / Másolás) ---
+        $this->add_control( 'heading_secondary_btn', [ 'label' => 'Másodlagos (Részletek)', 'type' => \Elementor\Controls_Manager::HEADING, 'separator' => 'before' ] );
+        $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'btn_outline_typo', 'selector' => '{{WRAPPER}} .msdl-fm-btn-outline' ] );
+        $this->start_controls_tabs( 'tabs_btn_outline' );
+        $this->start_controls_tab( 'tab_btn_outline_normal', [ 'label' => 'Normál' ] );
+        $this->add_control( 'outline_bg', [ 'label' => 'Háttér', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => 'transparent', 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn-outline' => 'background-color: {{VALUE}};' ] ] );
+        $this->add_control( 'outline_color', [ 'label' => 'Szöveg/Ikon', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#2271b1', 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn-outline' => 'color: {{VALUE}};' ] ] );
+        $this->end_controls_tab();
+        $this->start_controls_tab( 'tab_btn_outline_hover', [ 'label' => 'Hover' ] );
+        $this->add_control( 'outline_hover_bg', [ 'label' => 'Háttér', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => 'rgba(34, 113, 177, 0.05)', 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn-outline:hover' => 'background-color: {{VALUE}};' ] ] );
+        $this->add_control( 'outline_hover_color', [ 'label' => 'Szöveg/Ikon', 'type' => \Elementor\Controls_Manager::COLOR, 'default' => '#135e96', 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn-outline:hover' => 'color: {{VALUE}};' ] ] );
+        $this->add_control( 'outline_hover_border_color', [ 'label' => 'Keret', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn-outline:hover' => 'border-color: {{VALUE}};' ] ] );
+        $this->end_controls_tab();
+        $this->end_controls_tabs();
+        $this->add_group_control( \Elementor\Group_Control_Border::get_type(), [ 'name' => 'outline_border', 'selector' => '{{WRAPPER}} .msdl-fm-btn-outline', 'separator' => 'before', 'fields_options' => [ 'border' => [ 'default' => 'solid' ], 'width' => [ 'default' => [ 'top' => '1', 'right' => '1', 'bottom' => '1', 'left' => '1', 'isLinked' => true ] ], 'color' => [ 'default' => '#2271b1' ] ] ] );
+        $this->add_responsive_control( 'outline_radius', [ 'label' => 'Lekerekítés', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '6', 'right' => '6', 'bottom' => '6', 'left' => '6', 'unit' => 'px', 'isLinked' => true ], 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn-outline' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
+        $this->add_responsive_control( 'outline_padding', [ 'label' => 'Belső Margó', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '8', 'right' => '14', 'bottom' => '8', 'left' => '14', 'unit' => 'px', 'isLinked' => false ], 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn-outline' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
+
         $this->end_controls_section();
     }
 
@@ -111,72 +145,70 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
 
         ?>
         <style>
-            /* JAVÍTÁS: Nincs fix szélesség. Teljesen reszponzív lett! */
-            .msdl-fm-wrapper { font-family: inherit; border: 1px solid #eaeaea; border-radius: 12px; overflow: hidden; box-shadow: 0 5px 30px rgba(0,0,0,0.05); background: #fff; color: #242943; width: 100%; box-sizing: border-box;}
-            .msdl-fm-header { padding: 20px; border-bottom: 1px solid #eaeaea; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; background: #fcfcfc; }
-            .msdl-fm-breadcrumbs { font-size: 15px; font-weight: 600; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-            .msdl-fm-breadcrumbs a { text-decoration: none; cursor: pointer; transition: all 0.2s; padding: 6px 12px; border-radius: 6px; background: rgba(0,0,0,0.04); color: #2271b1;}
+            .msdl-fm-wrapper { font-family: inherit; border: 1px solid #eaeaea; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.04); background: #fff; color: #242943; width: 100%; box-sizing: border-box;}
+            .msdl-fm-header { padding: 15px 20px; border-bottom: 1px solid #eaeaea; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; background: #fcfcfc; }
+            .msdl-fm-breadcrumbs { font-size: 14px; font-weight: 600; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+            .msdl-fm-breadcrumbs a { text-decoration: none; cursor: pointer; transition: all 0.2s; padding: 4px 8px; border-radius: 4px; background: rgba(0,0,0,0.04); color: #2271b1;}
             .msdl-fm-breadcrumbs a:hover { background: rgba(0,0,0,0.08); color: #135e96; }
-            .msdl-fm-breadcrumbs span.msdl-fm-sep { color: #a0a6b5; margin: 0 4px; font-size: 13px;}
-            .msdl-fm-breadcrumbs span.msdl-fm-current { font-weight: 700; padding: 6px 12px; }
-            .msdl-fm-search { position: relative; width: 300px; max-width: 100%; margin-left: auto; flex-grow: 1; }
-            .msdl-fm-search input { width: 100%; padding: 12px 15px 12px 40px; border: 1px solid #dcdcde; border-radius: 8px; font-size: 14px; box-sizing: border-box; transition: all 0.2s; background: #fff; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);}
+            .msdl-fm-breadcrumbs span.msdl-fm-sep { color: #a0a6b5; margin: 0 2px; font-size: 12px;}
+            .msdl-fm-breadcrumbs span.msdl-fm-current { font-weight: 700; padding: 4px 8px; }
+            .msdl-fm-search { position: relative; width: 280px; max-width: 100%; margin-left: auto; flex-grow: 1; }
+            .msdl-fm-search input { width: 100%; padding: 10px 15px 10px 35px; border: 1px solid #dcdcde; border-radius: 6px; font-size: 13px; box-sizing: border-box; transition: all 0.2s; background: #fff; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);}
             .msdl-fm-search input:focus { outline: none; border-color: #2271b1; box-shadow: 0 0 0 1px #2271b1; }
-            .msdl-fm-search i { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #a0a6b5; font-size: 14px; }
+            .msdl-fm-search i { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #a0a6b5; font-size: 13px; }
             
-            .msdl-fm-body { position: relative; width: 100%; overflow-x: hidden; min-height: 250px; padding: 10px;}
-            .msdl-fm-loader { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.85); display: flex; flex-direction: column; gap: 15px; align-items: center; justify-content: center; font-weight: 600; font-size: 15px; z-index: 10; display: none; backdrop-filter: blur(2px); border-radius: 0 0 12px 12px;}
-            .msdl-fm-spinner { border: 3px solid rgba(0,0,0,0.1); width: 40px; height: 40px; border-radius: 50%; border-left-color: #2271b1; animation: msdl-spin 0.8s linear infinite; }
+            .msdl-fm-body { position: relative; width: 100%; overflow-x: auto; min-height: 200px; padding: 0;}
+            .msdl-fm-loader { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(255,255,255,0.85); display: flex; flex-direction: column; gap: 10px; align-items: center; justify-content: center; font-weight: 600; font-size: 14px; z-index: 10; display: none; backdrop-filter: blur(2px); border-radius: 0 0 8px 8px;}
+            .msdl-fm-spinner { border: 3px solid rgba(0,0,0,0.1); width: 30px; height: 30px; border-radius: 50%; border-left-color: #2271b1; animation: msdl-spin 0.8s linear infinite; }
             @keyframes msdl-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
             
-            /* JAVÍTÁS: Eltávolítva a min-width: 600px! */
-            .msdl-fm-table { width: 100%; border-collapse: separate; border-spacing: 0; text-align: left; font-size: 14px; margin: 0; padding: 0; table-layout: auto;}
+            /* TÁBLÁZAT RESZPZONZÍV MEGOLDÁS */
+            .msdl-fm-view-table { width: 100%; overflow-x: auto; }
+            .msdl-fm-table { width: 100%; border-collapse: collapse; border-spacing: 0; text-align: left; margin: 0; padding: 0; table-layout: auto;}
             <?php if ( $settings['show_table_header'] !== 'yes' ) : ?>.msdl-fm-table thead { display: none; }<?php endif; ?>
-            .msdl-fm-table th { padding: 15px; border-bottom: 1px solid #eaeaea; color: #787c82; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; white-space: nowrap; }
-            .msdl-fm-table td { padding: 15px; vertical-align: middle; border-bottom: 1px solid #f6f7f7; transition: background 0.2s;}
+            .msdl-fm-table th { padding: 12px 15px; border-bottom: 1px solid #eaeaea; color: #787c82; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px; white-space: nowrap; }
+            .msdl-fm-table td { padding: 12px 15px; vertical-align: middle; border-bottom: 1px solid #f6f7f7; transition: background 0.2s; font-size: 13px;}
             .msdl-fm-table tr:last-child td { border-bottom: none; }
             .msdl-fm-table tr:hover td { background: #f8f9fa; }
-            .msdl-fm-table tr:hover td:first-child { border-top-left-radius: 8px; border-bottom-left-radius: 8px; }
-            .msdl-fm-table tr:hover td:last-child { border-top-right-radius: 8px; border-bottom-right-radius: 8px; }
             
-            /* JAVÍTÁS: Flexibilis oszlopok */
             .msdl-col-name { width: auto; word-break: break-word; white-space: normal; }
             .msdl-col-meta { white-space: nowrap; width: auto; }
             .msdl-col-action { white-space: normal; width: auto; text-align: right; }
             
-            .msdl-action-buttons { display: flex; justify-content: flex-end; gap: 8px; align-items: center; flex-wrap: wrap; }
-            .msdl-fm-item-name { display: flex; align-items: center; gap: 12px; font-weight: 600; cursor: pointer; text-decoration: none !important; transition: all 0.2s; line-height: 1.4; color: #242943; word-break: break-word; white-space: normal;}
-            .msdl-fm-icon { display: inline-flex; align-items: center; justify-content: center; width: 28px; flex-shrink: 0; }
-            .msdl-fm-icon svg { width: 24px; height: 24px; }
-            .msdl-fm-icon i { font-size: 24px; }
+            .msdl-action-buttons { display: flex; justify-content: flex-end; gap: 6px; align-items: center; flex-wrap: wrap; }
+            .msdl-fm-item-name { display: flex; align-items: center; gap: 10px; font-weight: 600; cursor: pointer; text-decoration: none !important; transition: all 0.2s; line-height: 1.4; color: #242943; word-break: break-word; white-space: normal;}
+            .msdl-fm-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; flex-shrink: 0; }
+            .msdl-fm-icon svg { width: 20px; height: 20px; }
+            .msdl-fm-icon i { font-size: 20px; }
             
-            .msdl-fm-btn { padding: 8px 14px; border-radius: 6px; text-decoration: none !important; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; border: 1px solid transparent; cursor: pointer; font-weight: 600; font-size: 13px; color: #fff !important; background-color: #2271b1 !important;}
+            /* GOMB ALAPOK (Az Elementor vezérlők ezeket fogják felülírni) */
+            .msdl-fm-btn { text-decoration: none !important; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; cursor: pointer; white-space: nowrap; font-weight: 600; font-size: 13px; background-color: #2271b1; color: #ffffff; border: 1px solid transparent; border-radius: 6px; }
             .msdl-fm-btn:hover { opacity: 0.9; transform: translateY(-1px); }
             
-            .msdl-fm-btn-outline { padding: 8px 14px; background: transparent; border-radius: 6px; border: 1px solid #2271b1; color: #2271b1; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; font-family: inherit; font-weight: 600; font-size: 13px; text-decoration: none !important;}
-            .msdl-fm-btn-outline:hover { background: rgba(34, 113, 177, 0.05); }
+            .msdl-fm-btn-outline { background-color: transparent; border: 1px solid #2271b1; color: #2271b1; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; font-weight: 600; font-size: 13px; text-decoration: none !important; border-radius: 6px;}
+            .msdl-fm-btn-outline:hover { background-color: rgba(34, 113, 177, 0.05); transform: translateY(-1px); }
             
-            .msdl-fm-file-view { display: none; padding: 30px; text-align: center; animation: msdl-fade-in 0.3s ease; }
+            .msdl-fm-file-view { display: none; padding: 25px; text-align: center; animation: msdl-fade-in 0.3s ease; }
             @keyframes msdl-fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
             .msdl-fm-fv-header { text-align: left; margin-bottom: 20px; display:flex; flex-wrap:wrap; gap:10px;}
-            .msdl-fm-back-btn { background: none; border: none; font-size: 15px; font-weight: 700; color: #787c82; cursor: pointer; transition: color 0.2s; padding: 0; display: flex; align-items: center; gap: 8px; }
+            .msdl-fm-back-btn { background: none; border: none; font-size: 14px; font-weight: 700; color: #787c82; cursor: pointer; transition: color 0.2s; padding: 0; display: flex; align-items: center; gap: 6px; }
             .msdl-fm-back-btn:hover { color: #242943; }
-            .msdl-fm-fv-card { max-width: 100%; margin: 0 auto; padding: 30px; background: #fff; border: 1px solid #f0f2f5; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.05); }
-            .msdl-fm-fv-icon { width: 70px; height: 70px; border-radius: 50%; background: #2271b1; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: 0 5px 15px rgba(34, 113, 177, 0.2);}
-            .msdl-fm-fv-icon svg { width: 35px; height: 35px; fill: #fff; }
-            .msdl-fm-fv-icon i { font-size: 32px; color: #fff; }
-            .msdl-fm-fv-title { font-size: 22px; font-weight: 700; margin: 0 0 15px 0; word-wrap: break-word; line-height: 1.3; color: #242943;}
-            .msdl-fm-fv-desc { font-size: 14px; line-height: 1.6; margin-bottom: 25px; padding: 15px; background: rgba(0,0,0,0.02); border-radius: 8px; border-left: 3px solid #dcdcde; text-align: left; color: #50575e; word-wrap: break-word;}
+            .msdl-fm-fv-card { max-width: 100%; margin: 0 auto; padding: 30px; background: #fff; border: 1px solid #f0f2f5; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); }
+            .msdl-fm-fv-icon { width: 60px; height: 60px; border-radius: 50%; background: #2271b1; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(34, 113, 177, 0.2);}
+            .msdl-fm-fv-icon svg { width: 30px; height: 30px; fill: #fff; }
+            .msdl-fm-fv-icon i { font-size: 28px; color: #fff; }
+            .msdl-fm-fv-title { font-size: 20px; font-weight: 700; margin: 0 0 12px 0; word-wrap: break-word; line-height: 1.3; color: #242943;}
+            .msdl-fm-fv-desc { font-size: 13px; line-height: 1.6; margin-bottom: 20px; padding: 12px; background: rgba(0,0,0,0.02); border-radius: 6px; border-left: 3px solid #dcdcde; text-align: left; color: #50575e; word-wrap: break-word;}
             
-            .msdl-fm-fv-meta { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-bottom: 30px; font-size: 13px; color: #787c82; font-weight: 600; align-items: center;}
+            .msdl-fm-fv-meta { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-bottom: 25px; font-size: 12px; color: #787c82; font-weight: 600; align-items: center;}
             .msdl-fm-fv-meta span { display: inline-flex; align-items: center; }
             
-            .msdl-version-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; background: rgba(34,113,177,0.08); color: #2271b1; cursor: help; transition: all 0.2s; font-weight: 600; font-size: 12px;}
+            .msdl-version-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; background: rgba(34,113,177,0.08); color: #2271b1; cursor: help; transition: all 0.2s; margin-right: 6px; font-weight: 600; font-size: 11px;}
             .msdl-version-badge i { color: inherit; }
             .msdl-version-badge:hover { background: rgba(34,113,177,0.15); }
             
             .msdl-fm-fv-actions { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 10px; }
-            .msdl-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px); background: #242943; color: #fff; padding: 10px 20px; border-radius: 50px; font-size: 13px; font-weight: 600; opacity: 0; pointer-events: none; transition: all 0.3s ease; z-index: 9999; box-shadow: 0 5px 15px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 8px; }
+            .msdl-toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px); background: #242943; color: #fff; padding: 8px 16px; border-radius: 50px; font-size: 12px; font-weight: 600; opacity: 0; pointer-events: none; transition: all 0.3s ease; z-index: 9999; box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 6px; }
             .msdl-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
             @media (max-width: 768px) {
@@ -190,7 +222,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         </style>
 
         <div class="msdl-toast" id="msdl-toast-<?php echo $uid; ?>">
-            <svg style="width:14px;height:14px;fill:#4caf50;" viewBox="0 0 512 512"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"/></svg> 
+            <svg style="width:12px;height:12px;fill:#4caf50;" viewBox="0 0 512 512"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"/></svg> 
             Link másolva!
         </div>
 
@@ -207,7 +239,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
             <div class="msdl-fm-body">
                 <div class="msdl-fm-loader"><div class="msdl-fm-spinner"></div><span class="msdl-loader-text">Lekérés folyamatban...</span></div>
                 
-                <div class="msdl-fm-view-table" style="overflow-x:auto;">
+                <div class="msdl-fm-view-table">
                     <table class="msdl-fm-table">
                         <thead><tr><th class="msdl-col-name">Név</th><?php if ( $settings['show_size'] === 'yes' ) echo '<th class="msdl-col-meta">Méret</th>'; ?><?php if ( $settings['show_date'] === 'yes' ) echo '<th class="msdl-col-meta">Módosítva</th>'; ?><th class="msdl-col-action">Művelet</th></tr></thead>
                         <tbody></tbody>
@@ -216,7 +248,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
 
                 <div class="msdl-fm-file-view">
                     <div class="msdl-fm-fv-header">
-                        <button class="msdl-fm-back-btn" data-folder="root"><svg style="width:14px;height:14px;fill:currentColor;" viewBox="0 0 448 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg> Vissza a mappába</button>
+                        <button class="msdl-fm-back-btn" data-folder="root"><svg style="width:12px;height:12px;fill:currentColor;" viewBox="0 0 448 512"><path d="M9.4 233.4c-12.5 12.5-12.5 32.8 0 45.3l160 160c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L109.2 288 416 288c17.7 0 32-14.3 32-32s-14.3-32-32-32l-306.7 0L214.6 118.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0l-160 160z"/></svg> Vissza a mappába</button>
                     </div>
                     <div class="msdl-fm-fv-card">
                         <div class="msdl-fm-fv-icon"></div><h3 class="msdl-fm-fv-title"></h3><div class="msdl-fm-fv-desc"></div><div class="msdl-fm-fv-meta"></div><div class="msdl-fm-fv-actions"></div>
@@ -308,7 +340,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
 
                         if (itemsToRender.length === 0) {
                             var colSpan = 1; if(showSize) colSpan++; if(showDate) colSpan++;
-                            $tbody.append('<tr><td colspan="'+(colSpan+1)+'" style="text-align:center; padding:60px 20px; color:#a0a6b5; font-size:15px;"><i class="fas fa-folder-open" style="font-size:40px; display:block; margin-bottom:15px; opacity:0.3;"></i> A mappa üres, vagy nincs találat.</td></tr>');
+                            $tbody.append('<tr><td colspan="'+(colSpan+1)+'" style="text-align:center; padding:40px 20px; color:#a0a6b5; font-size:14px;"><i class="fas fa-folder-open" style="font-size:30px; display:block; margin-bottom:10px; opacity:0.3;"></i> A mappa üres, vagy nincs találat.</td></tr>');
                             return;
                         }
 
@@ -316,13 +348,14 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
                             var rowClass = item.type === 'folder' ? 'msdl-fm-item-folder' : 'msdl-fm-item-file';
                             var actionHtml = ''; var nameHtml = ''; var iconHtml = showTableIcon ? '<span class="msdl-fm-icon">'+item.icon_html+'</span> ' : '';
 
+                            // TÁBLÁZAT gombok renderelése
                             if (item.type === 'folder') {
                                 nameHtml = '<a class="msdl-fm-item-name msdl-fm-dir-link '+rowClass+'" data-id="'+item.id+'">' + iconHtml + '<span>'+item.name+'</span></a>';
                                 actionHtml = '<div class="msdl-action-buttons"><a class="msdl-fm-btn-outline msdl-fm-dir-link" data-id="'+item.id+'">Megnyitás</a></div>';
                             } else {
                                 nameHtml = '<a class="msdl-fm-item-name msdl-fm-file-link '+rowClass+'" data-id="'+item.id+'">' + iconHtml + '<span>'+item.name+'</span></a>';
                                 var dUrl = siteUrl + item.id;
-                                actionHtml = '<div class="msdl-action-buttons"><a class="msdl-fm-btn-outline msdl-fm-file-link" data-id="'+item.id+'" title="Részletek">Részletek</a><a href="'+dUrl+'" target="_blank" class="msdl-fm-btn" title="Gyors letöltés"><i class="fas fa-download"></i></a></div>';
+                                actionHtml = '<div class="msdl-action-buttons"><a class="msdl-fm-btn-outline msdl-fm-file-link" data-id="'+item.id+'" title="Részletek">Részletek</a><a href="'+dUrl+'" target="_blank" class="msdl-fm-btn" title="Gyors letöltés" style="padding: 6px 10px;"><svg style="width:14px;height:14px;fill:currentColor;" viewBox="0 0 512 512"><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V274.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V416c0-35.3-28.7-64-64-64H346.5l-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352H64zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z"/></svg></a></div>';
                             }
 
                             var trHtml = '<tr><td class="msdl-col-name">' + nameHtml + '</td>';
@@ -356,13 +389,15 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
                         }
                         if (fvShowExt) metaHtml += '<span>' + data.ext + '</span>';
                         if (fvShowSize) metaHtml += '<span>' + data.size + '</span>';
-                        if (fvShowDate) metaHtml += '<span><i class="far fa-calendar-alt"></i> ' + data.date + '</span>';
+                        if (fvShowDate) metaHtml += '<span><i class="far fa-calendar-alt" style="margin-right:4px; opacity:0.7;"></i> ' + data.date + '</span>';
                         $fv.find('.msdl-fm-fv-meta').html(metaHtml);
 
                         var absUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?msdl_file=" + data.id;
                         var actionsHtml = '';
-                        if (fvShowDownload) actionsHtml += '<a href="'+data.download_url+'" target="_blank" class="msdl-fm-btn"><svg style="width:14px;height:14px;fill:currentColor;" viewBox="0 0 512 512"><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V274.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V416c0-35.3-28.7-64-64-64H346.5l-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352H64zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z"/></svg> Letöltés</a>';
-                        if (fvShowCopy) actionsHtml += '<button class="msdl-fm-btn-outline msdl-copy-link" data-url="'+absUrl+'" title="Link másolása"><svg style="width:14px;height:14px;fill:currentColor;" viewBox="0 0 640 512"><path d="M579.8 267.7c56.5-56.5 56.5-148 0-204.5c-50-50-128.8-56.5-186.3-15.4l-1.6 1.1c-14.4 10.3-17.7 30.3-7.4 44.6s30.3 17.7 44.6 7.4l1.6-1.1c32.1-22.9 76-19.3 103.8 8.6c31.5 31.5 31.5 82.5 0 114L422.3 334.8c-31.5 31.5-82.5 31.5-114 0c-27.9-27.9-31.5-71.8-8.6-103.8l1.1-1.6c10.3-14.4 6.9-34.4-7.4-44.6s-34.4-6.9-44.6 7.4l-1.1 1.6C206.5 251.2 213 330 263 380c56.5 56.5 148 56.5 204.5 0L579.8 267.7zM60.2 244.3c-56.5 56.5-56.5 148 0 204.5c50 50 128.8 56.5 186.3 15.4l1.6-1.1c14.4-10.3 17.7-30.3 7.4-44.6s-30.3-17.7-44.6-7.4l-1.6 1.1c-32.1 22.9-76 19.3-103.8-8.6C74 372 74 321 105.5 289.5L217.7 177.2c31.5-31.5 82.5-31.5 114 0c27.9 27.9 31.5 71.8 8.6 103.9l-1.1 1.6c-10.3 14.4-6.9 34.4 7.4 44.6s34.4 6.9 44.6-7.4l1.1-1.6C433.5 260.8 427 182 377 132c-56.5-56.5-148-56.5-204.5 0L60.2 244.3z"/></svg> Link másolása</button>';
+                        
+                        // FÁJL ADATLAP gombok renderelése
+                        if (fvShowDownload) actionsHtml += '<a href="'+data.download_url+'" target="_blank" class="msdl-fm-btn"><svg style="width:14px;height:14px;fill:currentColor;margin-right:6px;" viewBox="0 0 512 512"><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V274.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V416c0-35.3-28.7-64-64-64H346.5l-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352H64zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z"/></svg> Letöltés</a>';
+                        if (fvShowCopy) actionsHtml += '<button class="msdl-fm-btn-outline msdl-copy-link" data-url="'+absUrl+'" title="Link másolása"><svg style="width:14px;height:14px;fill:currentColor;margin-right:6px;" viewBox="0 0 640 512"><path d="M579.8 267.7c56.5-56.5 56.5-148 0-204.5c-50-50-128.8-56.5-186.3-15.4l-1.6 1.1c-14.4 10.3-17.7 30.3-7.4 44.6s30.3 17.7 44.6 7.4l1.6-1.1c32.1-22.9 76-19.3 103.8 8.6c31.5 31.5 31.5 82.5 0 114L422.3 334.8c-31.5 31.5-82.5 31.5-114 0c-27.9-27.9-31.5-71.8-8.6-103.8l1.1-1.6c10.3-14.4 6.9-34.4-7.4-44.6s-34.4-6.9-44.6 7.4l-1.1 1.6C206.5 251.2 213 330 263 380c56.5 56.5 148 56.5 204.5 0L579.8 267.7zM60.2 244.3c-56.5 56.5-56.5 148 0 204.5c50 50 128.8 56.5 186.3 15.4l1.6-1.1c14.4-10.3 17.7-30.3 7.4-44.6s-30.3-17.7-44.6-7.4l-1.6 1.1c-32.1 22.9-76 19.3-103.8-8.6C74 372 74 321 105.5 289.5L217.7 177.2c31.5-31.5 82.5-31.5 114 0c27.9 27.9 31.5 71.8 8.6 103.9l-1.1 1.6c-10.3 14.4-6.9 34.4 7.4 44.6s34.4 6.9 44.6-7.4l1.1-1.6C433.5 260.8 427 182 377 132c-56.5-56.5-148-56.5-204.5 0L60.2 244.3z"/></svg> Link másolása</button>';
                         $fv.find('.msdl-fm-fv-actions').html(actionsHtml);
 
                         $fv.fadeIn(300);

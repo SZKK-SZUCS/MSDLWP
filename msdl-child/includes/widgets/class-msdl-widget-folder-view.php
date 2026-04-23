@@ -34,9 +34,10 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         $this->end_controls_section();
 
         $this->start_controls_section( 'section_template', [ 'label' => 'Dizájn Sablon', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
-        $this->add_control( 'folder_template', [ 'label' => 'Sablon Választó', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'tpl-list' => 'Vízszintes Lista', 'tpl-grid' => 'Kompakt Rács (Grid)', 'tpl-carousel-light' => 'Carousel (Világos Kártyák)', 'tpl-carousel-dark' => 'Carousel (Sötét Kártyák)', 'custom' => 'Egyéni Haladó (Custom)' ], 'default' => 'tpl-grid' ]);
-        $this->add_control( 'custom_card_base', [ 'label' => 'Kártya Stílus Alap', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'card-list' => 'Letisztult Lista (Vízszintes)', 'card-app'  => 'Modern App Kártya (Dobozos)', 'card-dark' => 'Kiemelt Sötét Kártya' ], 'default' => 'card-app', 'condition' => [ 'folder_template' => 'custom' ] ]);
-        $this->add_control( 'layout_style', [ 'label' => 'Elrendezés Bázis', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'list' => 'Lista (Egymás alatt)', 'grid' => 'Rács (Oszlopos)', 'carousel' => 'Carousel' ], 'default' => 'grid', 'condition' => [ 'folder_template' => 'custom' ], 'separator' => 'before' ]);
+        // JAVÍTÁS: Alapértelmezett beállítás a 'tpl-list' (Vízszintes Lista)
+        $this->add_control( 'folder_template', [ 'label' => 'Sablon Választó', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'tpl-list' => 'Vízszintes Lista', 'tpl-grid' => 'Kompakt Rács (Grid)', 'tpl-carousel-light' => 'Carousel (Világos Kártyák)', 'tpl-carousel-dark' => 'Carousel (Sötét Kártyák)', 'custom' => 'Egyéni Haladó (Custom)' ], 'default' => 'tpl-list' ]);
+        $this->add_control( 'custom_card_base', [ 'label' => 'Kártya Stílus Alap', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'card-list' => 'Letisztult Lista (Vízszintes)', 'card-app'  => 'Modern App Kártya (Dobozos)', 'card-dark' => 'Kiemelt Sötét Kártya' ], 'default' => 'card-list', 'condition' => [ 'folder_template' => 'custom' ] ]);
+        $this->add_control( 'layout_style', [ 'label' => 'Elrendezés Bázis', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'list' => 'Lista (Egymás alatt)', 'grid' => 'Rács (Oszlopos)', 'carousel' => 'Carousel' ], 'default' => 'list', 'condition' => [ 'folder_template' => 'custom' ], 'separator' => 'before' ]);
         $this->add_responsive_control( 'items_per_row', [ 'label' => 'Oszlopok Száma', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ '1' => '1', '2' => '2', '3' => '3', '4' => '4' ], 'default' => '3', 'conditions' => [ 'relation' => 'or', 'terms' => [ [ 'name' => 'folder_template', 'operator' => 'in', 'value' => ['tpl-grid', 'tpl-carousel-light', 'tpl-carousel-dark'] ], [ 'name' => 'layout_style', 'operator' => 'in', 'value' => ['grid', 'carousel'] ] ] ] ]);
         $this->end_controls_section();
 
@@ -54,7 +55,6 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'meta_typo', 'selector' => '{{WRAPPER}} .msdl-fv-meta' ] );
         $this->end_controls_section();
 
-        // ÚJ: VERZIÓ JELZÉS STÍLUS
         $this->start_controls_section( 'section_version_style', [ 'label' => 'Verzió Jelzés', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
         $this->add_control( 'version_bg_color', [ 'label' => 'Háttér', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-version-badge' => 'background-color: {{VALUE}};' ] ] );
         $this->add_control( 'version_text_color', [ 'label' => 'Szöveg Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-version-badge' => 'color: {{VALUE}};' ] ] );
@@ -273,8 +273,6 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
                 $btn_text = $settings['btn_text'];
             }
 
-            $show_version = ($settings['show_meta_version'] === 'yes');
-
             ?>
             <div class="<?php echo esc_attr($item_class); ?>" style="<?php echo $display_style; ?>">
                 <?php if ( $settings['show_icon'] === 'yes' ) : ?>
@@ -299,7 +297,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
                     <?php endif; ?>
                     
                     <div class="msdl-fv-meta">
-                        <?php if ( $show_version && !$is_folder ) : ?>
+                        <?php if ( $settings['show_meta_version'] === 'yes' && !$is_folder ) : ?>
                             <span class="msdl-version-badge" data-file-id="<?php echo esc_attr($item->id); ?>" title="Verzió betöltése...">
                                 <i class="fas fa-info-circle"></i> <span class="v-text">Verzió infó...</span>
                             </span>
@@ -320,31 +318,32 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         ?>
         <style>
             #msdl-fv-<?php echo $uid; ?>-container { position: relative; width: 100%; min-height: 100px; font-family: inherit;}
-            #msdl-fv-<?php echo $uid; ?> { display: <?php echo $layout === 'grid' ? 'grid' : 'flex'; ?>; flex-direction: column; gap: 20px; <?php echo $grid_template; ?> }
+            #msdl-fv-<?php echo $uid; ?> { display: <?php echo $layout === 'grid' ? 'grid' : 'flex'; ?>; flex-direction: column; gap: 15px; <?php echo $grid_template; ?> }
 
-            .msdl-fv-breadcrumbs { margin-bottom: 25px; font-size: 15px; font-weight: 500; display:flex; flex-wrap:wrap; align-items:center; gap:8px;}
-            .msdl-fv-breadcrumbs a { color: #50ADC9; text-decoration: none; padding: 6px 12px; border-radius: 6px; background: rgba(80,173,201,0.08); transition: background 0.2s;}
+            .msdl-fv-breadcrumbs { margin-bottom: 20px; font-size: 14px; font-weight: 500; display:flex; flex-wrap:wrap; align-items:center; gap:6px;}
+            .msdl-fv-breadcrumbs a { color: #50ADC9; text-decoration: none; padding: 4px 10px; border-radius: 4px; background: rgba(80,173,201,0.08); transition: background 0.2s;}
             .msdl-fv-breadcrumbs a:hover { background: rgba(80,173,201,0.15); }
             .msdl-fv-breadcrumbs .msdl-bc-sep { color: #a0a6b5; font-size: 12px;}
-            .msdl-fv-breadcrumbs span.msdl-bc-current { color: #242943; font-weight: 700; padding: 6px 12px;}
+            .msdl-fv-breadcrumbs span.msdl-bc-current { color: #242943; font-weight: 700; padding: 4px 10px;}
 
             .swiper-wrapper { display: flex; align-items: stretch; box-sizing: content-box; }
-            .swiper-button-next, .swiper-button-prev { background: #fff; width: 44px; height: 44px; border-radius: 50%; box-shadow: 0 4px 15px rgba(0,0,0,0.1); color: #242943; }
-            .swiper-button-next:after, .swiper-button-prev:after { font-size: 16px !important; font-weight: bold; }
+            .swiper-button-next, .swiper-button-prev { background: #fff; width: 36px; height: 36px; border-radius: 50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); color: #242943; }
+            .swiper-button-next:after, .swiper-button-prev:after { font-size: 14px !important; font-weight: bold; }
 
-            .msdl-fv-item { display: flex; gap: 15px; box-sizing: border-box; transition: all 0.3s ease; position: relative; overflow: hidden; height: 100%;}
+            .msdl-fv-item { display: flex; gap: 12px; box-sizing: border-box; transition: all 0.3s ease; position: relative; overflow: hidden; height: 100%;}
             
-            .msdl-fv-item.style-card-app { background: #ffffff; border: 1px solid #eaeaea; border-radius: 12px; padding: 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.04); }
-            .msdl-fv-item.style-card-app:hover { box-shadow: 0 8px 30px rgba(0,0,0,0.08); transform: translateY(-3px); border-color: #d0d0d0; }
+            /* KOMPAKTEBB PADDINGEK */
+            .msdl-fv-item.style-card-app { background: #ffffff; border: 1px solid #eaeaea; border-radius: 8px; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.04); }
+            .msdl-fv-item.style-card-app:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.08); transform: translateY(-2px); border-color: #d0d0d0; }
 
-            .msdl-fv-item.style-card-dark { background: #1d2327; border: 1px solid #2c3338; border-radius: 12px; padding: 24px; color: #f0f0f1; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
-            .msdl-fv-item.style-card-dark:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(0,0,0,0.2); border-color: #4a545c; }
+            .msdl-fv-item.style-card-dark { background: #1d2327; border: 1px solid #2c3338; border-radius: 8px; padding: 15px; color: #f0f0f1; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+            .msdl-fv-item.style-card-dark:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.2); border-color: #4a545c; }
             .msdl-fv-item.style-card-dark .msdl-fv-title, .msdl-fv-item.style-card-dark .msdl-fv-title a { color: #ffffff; }
             .msdl-fv-item.style-card-dark .msdl-fv-meta { color: #a7aaad; }
             
-            .msdl-fv-item.style-card-list { background: transparent; border-bottom: 1px solid #f0f2f5; padding: 15px 10px; border-radius: 0; }
+            .msdl-fv-item.style-card-list { background: transparent; border-bottom: 1px solid #f0f2f5; padding: 10px 5px; border-radius: 0; }
             .msdl-fv-item.style-card-list:last-child { border-bottom: none; }
-            .msdl-fv-item.style-card-list:hover { background: #f8f9fa; transform: translateX(4px); }
+            .msdl-fv-item.style-card-list:hover { background: #f8f9fa; transform: translateX(2px); }
 
             .msdl-fv-item.layout-list { flex-direction: row; align-items: center; }
             .msdl-fv-item.layout-grid, .msdl-fv-item.layout-carousel { flex-direction: column; align-items: center; text-align: center; }
@@ -353,7 +352,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             .msdl-fv-item:not(.layout-list) .msdl-fv-content { flex-grow: 1; display: flex; flex-direction: column; width: 100%; }
             
             .msdl-fv-item.layout-list .msdl-fv-action { flex-shrink: 0; margin-left: auto; }
-            .msdl-fv-item:not(.layout-list) .msdl-fv-action { width: 100%; margin-top: auto; padding-top: 15px; }
+            .msdl-fv-item:not(.layout-list) .msdl-fv-action { width: 100%; margin-top: auto; padding-top: 10px; }
             .msdl-fv-item:not(.layout-list) .msdl-fv-btn { display: block; width: 100%; text-align: center; box-sizing: border-box; }
 
             .msdl-is-folder .msdl-fv-icon i { color: #f5c342; }
@@ -361,30 +360,30 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             .msdl-fv-item:not(.msdl-is-folder) .msdl-fv-icon i { color: #50ADC9; }
             .msdl-fv-item:not(.msdl-is-folder) .msdl-fv-icon svg { fill: #50ADC9; }
 
-            .msdl-fv-icon { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; line-height: 1; font-size: 32px;}
-            .msdl-fv-icon svg { width: 32px; height: 32px; fill: currentColor; }
+            .msdl-fv-icon { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; line-height: 1; font-size: 24px;}
+            .msdl-fv-icon svg { width: 24px; height: 24px; fill: currentColor; }
             
-            .msdl-fv-content { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-            .msdl-fv-title { font-size: 16px; font-weight: 700; margin: 0; word-wrap: break-word; line-height: 1.3; }
+            .msdl-fv-content { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+            .msdl-fv-title { font-size: 15px; font-weight: 600; margin: 0; word-wrap: break-word; line-height: 1.3; }
             .msdl-fv-title a { transition: color 0.2s; }
             .msdl-fv-title a:hover { opacity: 0.8; }
             
-            .msdl-fv-meta { font-size: 13px; font-weight: 500; display: flex; flex-wrap: wrap; gap: 4px; color: #787c82;}
+            .msdl-fv-meta { font-size: 12px; font-weight: 500; display: flex; flex-wrap: wrap; gap: 4px; color: #787c82;}
             .msdl-fv-item.layout-list .msdl-fv-meta { justify-content: flex-start; }
             .msdl-fv-item:not(.layout-list) .msdl-fv-meta { justify-content: center; }
+            
             .msdl-fv-meta span { display: inline-flex; align-items: center; }
             .msdl-fv-meta span:not(.msdl-version-badge):not(:last-child)::after { content: '•'; margin-left: 6px; opacity: 0.5; }
             
-            /* --- ÚJ: ALAPÉRTELMEZETT VERZIÓ STÍLUS (FELÜLÍRHATÓ) --- */
-            .msdl-version-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; background: rgba(34,113,177,0.08); color: #2271b1; cursor: help; transition: all 0.2s; margin-right: 6px; font-weight: 600; font-size: 12px; }
-            .msdl-version-badge i { color: #2271b1; }
+            .msdl-version-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; background: rgba(34,113,177,0.08); color: #2271b1; cursor: help; transition: all 0.2s; margin-right: 4px; font-weight: 600; font-size: 11px;}
+            .msdl-version-badge i { color: inherit; }
             .msdl-version-badge:hover { background: rgba(34,113,177,0.15); }
             
-            .msdl-fv-btn { font-size: 14px; font-weight: 600; text-decoration: none !important; transition: all 0.3s ease; padding: 10px 20px; border-radius: 8px; color: #50ADC9; background: rgba(80,173,201,0.1); border: 1px solid transparent;}
+            .msdl-fv-btn { font-size: 13px; font-weight: 600; text-decoration: none !important; transition: all 0.3s ease; padding: 6px 14px; border-radius: 6px; color: #50ADC9; background: rgba(80,173,201,0.1); border: 1px solid transparent;}
             .msdl-fv-btn:hover { background: #50ADC9; color: #ffffff; }
 
-            .msdl-pagination { display: flex; justify-content: center; gap: 8px; margin-top: 40px; }
-            .msdl-pag-btn { padding: 8px 15px; border: 1px solid #dcdcde; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; transition: all 0.2s; background: #fff; color:#242943;}
+            .msdl-pagination { display: flex; justify-content: center; gap: 6px; margin-top: 30px; }
+            .msdl-pag-btn { padding: 6px 12px; border: 1px solid #dcdcde; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; background: #fff; color:#242943;}
             .msdl-pag-btn:hover { background: #f6f7f7; }
             .msdl-pag-btn.active { background: #50ADC9; color: #fff; border-color: #50ADC9;}
             .msdl-pag-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
@@ -415,18 +414,18 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             }
 
             if ( empty($items) ) {
-                echo '<div style="padding:30px; text-align:center; color:#787c82; border:2px dashed #dcdcde; border-radius:8px; font-weight:500;">Ebben a mappában nincsenek a számodra elérhető fájlok.</div>';
+                echo '<div style="padding:20px; text-align:center; color:#787c82; border:2px dashed #dcdcde; border-radius:6px; font-size:14px;">Ebben a mappában nincsenek a számodra elérhető fájlok.</div>';
             }
 
             if ( $layout === 'carousel' ) {
                 if ( !empty($folders_array) ) {
-                    echo '<div class="msdl-fv-carousel-folders" style="display:flex; flex-direction:column; gap:15px; margin-bottom:25px;">';
+                    echo '<div class="msdl-fv-carousel-folders" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;">';
                     foreach ($folders_array as $folder) $render_card($folder, 'list', false);
                     echo '</div>';
                 }
 
                 if ( !empty($files_array) ) {
-                    echo '<div class="swiper swiper-container" id="swiper-'.$uid.'" style="padding: 15px 5px 40px 5px; overflow: hidden;"><div class="swiper-wrapper">';
+                    echo '<div class="swiper swiper-container" id="swiper-'.$uid.'" style="padding: 10px 5px 30px 5px; overflow: hidden;"><div class="swiper-wrapper">';
                     foreach ($files_array as $file) {
                         echo '<div class="swiper-slide" style="height:auto;">';
                         $render_card($file, 'grid', false);
@@ -451,7 +450,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             <?php if ( $layout !== 'carousel' && count($files_array) > $per_page ) : ?>
                 <div class="msdl-pagination" id="pag-<?php echo $uid; ?>">
                     <button class="msdl-pag-btn msdl-pag-prev" disabled>&laquo; Előző</button>
-                    <div class="msdl-pag-numbers" style="display:flex; gap:5px;"></div>
+                    <div class="msdl-pag-numbers" style="display:flex; gap:4px;"></div>
                     <button class="msdl-pag-btn msdl-pag-next">Következő &raquo;</button>
                 </div>
             <?php endif; ?>
@@ -545,7 +544,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
                 
                 if (!$('style#msdl-ajax-anim').length) $('head').append('<style id="msdl-ajax-anim">@keyframes msdl-spin-loader { 100% { transform:rotate(360deg); } }</style>');
                 
-                $wrapper.append('<div class="msdl-ajax-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; z-index:10; border-radius:12px; backdrop-filter:blur(2px);"><div style="width:40px;height:40px;border:3px solid #ccc;border-top-color:#2271b1;border-radius:50%;animation:msdl-spin-loader 1s linear infinite;"></div></div>');
+                $wrapper.append('<div class="msdl-ajax-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; z-index:10; border-radius:8px; backdrop-filter:blur(2px);"><div style="width:30px;height:30px;border:3px solid #ccc;border-top-color:#2271b1;border-radius:50%;animation:msdl-spin-loader 1s linear infinite;"></div></div>');
                 
                 $.ajax({
                     url: url,
@@ -562,7 +561,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
                                 
                                 var wrapperTop = $wrapper.offset().top;
                                 if ($(window).scrollTop() > wrapperTop) {
-                                    $('html, body').animate({ scrollTop: wrapperTop - 100 }, 300);
+                                    $('html, body').animate({ scrollTop: wrapperTop - 80 }, 300);
                                 }
                             } else {
                                 window.location.href = url;
@@ -580,7 +579,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             window.addEventListener('popstate', function(e) {
                 if (e.state && e.state.type === 'msdl-folder-view') {
                     var $wrapper = $('#msdl-fv-' + uid + '-container');
-                    $wrapper.append('<div class="msdl-ajax-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; z-index:10; border-radius:12px; backdrop-filter:blur(2px);"><div style="width:40px;height:40px;border:3px solid #ccc;border-top-color:#2271b1;border-radius:50%;animation:msdl-spin-loader 1s linear infinite;"></div></div>');
+                    $wrapper.append('<div class="msdl-ajax-overlay" style="position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.7); display:flex; align-items:center; justify-content:center; z-index:10; border-radius:8px; backdrop-filter:blur(2px);"><div style="width:30px;height:30px;border:3px solid #ccc;border-top-color:#2271b1;border-radius:50%;animation:msdl-spin-loader 1s linear infinite;"></div></div>');
                     $.get(e.state.path, function(html) {
                         try {
                             var doc = new DOMParser().parseFromString(html, 'text/html');
