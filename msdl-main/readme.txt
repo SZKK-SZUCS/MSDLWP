@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.0.0
+Stable tag: 1.1.0
 Requires PHP: 7.4
 License: Proprietary
 
@@ -25,8 +25,11 @@ Nem tartalmaz frontend megjelenítőket; kizárólag a hálózatbiztonságra, az
 
 == Changelog ==
 
-= 1.0.0 =
-* Néhány hiba javítása.
+= 1.1.0 =
+* Új funkciók
+* Autoamta hozzáférés öröklődés
+* Grafikai javítások
+* UX javítások
 
 = 1.0.0 =
 * Kezdeti stabil kiadás.

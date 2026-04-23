@@ -157,12 +157,13 @@ const App = () => {
   const [selectedSites, setSelectedSites] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
   const [bulkAction, setBulkAction] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [isBulkProcessing, setIsBulkProcessing] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
+
+  // ÚJ: Élő kapcsolat állapot (Ping/Sync visszajelzéshez)
+  const [connectionStatuses, setConnectionStatuses] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)({});
   const [isModalOpen, setIsModalOpen] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [editingSite, setEditingSite] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
   const [showAdvanced, setShowAdvanced] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [isFolderBrowserActive, setIsFolderBrowserActive] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
-
-  // ÚJ: Állapotjelző, hogy a kereső ablak a "Központi" (main) vagy az "Egyedi" (site) azonosítókat frissítse-e
   const [finderTarget, setFinderTarget] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("main");
   const [isFinderOpen, setIsFinderOpen] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [searchQuery, setSearchQuery] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
@@ -345,6 +346,12 @@ const App = () => {
   const handleRemoteCommand = async (site, command) => {
     const actionName = command === "ping" ? "Pingelés" : "Szinkronizáció";
     setStatusText(`${site.domain}: ${actionName} folyamatban...`);
+
+    // Státusz frissítése töltésre
+    setConnectionStatuses(prev => ({
+      ...prev,
+      [site.id]: "loading"
+    }));
     try {
       const response = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
         path: "/msdl-main/v1/remote-command",
@@ -356,12 +363,24 @@ const App = () => {
       });
       if (response && response.success) {
         setStatusText(`${site.domain}: Sikeres! ${response.message || ""}`);
+        setConnectionStatuses(prev => ({
+          ...prev,
+          [site.id]: "success"
+        }));
         if (command === "sync") loadSites();
       } else {
         setStatusText(`${site.domain}: Hiba! ${response?.message || "Nem érkezett válasz."}`);
+        setConnectionStatuses(prev => ({
+          ...prev,
+          [site.id]: "error"
+        }));
       }
     } catch (e) {
       setStatusText(`${site.domain}: Kapcsolódási hiba!`);
+      setConnectionStatuses(prev => ({
+        ...prev,
+        [site.id]: "error"
+      }));
     }
   };
   const handleOpenSharePoint = async (type, siteId = null) => {
@@ -453,7 +472,6 @@ const App = () => {
     setSelectedFoundSite(null);
     setFoundDrives([]);
     try {
-      // Itt már a teljes URL átmegy a backendnek szétbontás nélkül
       const results = await _wordpress_api_fetch__WEBPACK_IMPORTED_MODULE_2___default()({
         path: `/msdl-main/v1/search-sites?q=${encodeURIComponent(searchQuery)}`
       });
@@ -853,6 +871,7 @@ const App = () => {
                   const isPending = !site.folder_path;
                   const isSuspended = site.is_active == 0;
                   const siteUrl = site.domain.startsWith("http") ? site.domain : `https://${site.domain}`;
+                  const connStatus = connectionStatuses[site.id];
                   let syncModeIcon = "clock";
                   let syncModeColor = "#2271b1";
                   let syncModeText = "Központi ütemezés követése";
@@ -897,12 +916,18 @@ const App = () => {
                           color: "#d63638"
                         },
                         title: "F\xFCgg\u0151ben"
+                      }) : connStatus === "loading" ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Spinner, {}) : connStatus === "error" ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
+                        icon: "no-alt",
+                        style: {
+                          color: "#d63638"
+                        },
+                        title: "Kapcsolati Hiba!"
                       }) : /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
                         icon: "yes-alt",
                         style: {
                           color: "#00a32a"
                         },
-                        title: "Akt\xEDv"
+                        title: "Akt\xEDv \xE9s El\xE9rhet\u0151"
                       })
                     }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
                       style: {

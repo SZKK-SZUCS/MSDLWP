@@ -1,141 +1,154 @@
 <?php
 class MSDL_Child_Sync {
-    private $graph_api;
+    private $api;
 
     public function __construct() {
-        $this->graph_api = new MSDL_Child_Graph_API();
+        $this->api = new MSDL_Child_Graph_API();
     }
 
     public function run_manual_sync() {
-        @set_time_limit( 300 );
-        $token_data = $this->graph_api->fetch_token_from_main();
-        if ( is_wp_error( $token_data ) ) return $token_data;
+        set_time_limit( 300 );
+        $token = $this->api->fetch_token_from_main();
+        if ( is_wp_error( $token ) ) return $token;
 
-        $drive_id = $this->graph_api->drive_id;
-        $folder_path = trim( $this->graph_api->root_folder_id, '/' );
+        $folder_id = $this->api->root_folder_id;
+        $drive_id = $this->api->drive_id;
+        
+        $delta_link_key = 'msdl_delta_link_' . md5( $drive_id . '_' . $folder_id );
+        $delta_link = get_option( $delta_link_key );
 
-        if ( empty( $drive_id ) ) {
-            return new WP_Error( 'missing_drive', 'Nincs Drive ID beállítva a központban ehhez a webhelyhez.' );
+        if ( empty( $delta_link ) ) {
+            $endpoint = empty( $folder_id ) ? "/drives/{$drive_id}/root/delta" : "/drives/{$drive_id}/root:/{$folder_id}:/delta";
+        } else {
+            $endpoint = $delta_link;
         }
 
-        $folder_item_id = $this->get_item_id_by_path( $drive_id, $folder_path );
-        if ( is_wp_error( $folder_item_id ) ) return $folder_item_id;
-
-        delete_option( 'msdl_delta_link_' . $folder_item_id );
-
-        $processed_count = 0;
-        $endpoint = "/drives/{$drive_id}/items/{$folder_item_id}/delta";
+        $all_items = [];
         $has_more = true;
         
-        $fetched_graph_ids = [];
-        
         while ( $has_more ) {
-            $response = $this->graph_api->make_request( $endpoint );
+            $response = $this->api->make_request( $endpoint );
             if ( is_wp_error( $response ) ) {
-                return new WP_Error( 'sync_error', 'A szinkronizáció megszakadt az API válasz miatt.' );
+                if ( $response->get_error_code() === 'delta_expired' || $response->get_error_code() === 'resyncRequired' ) {
+                    delete_option( $delta_link_key );
+                    return $this->run_manual_sync();
+                }
+                return $response;
             }
 
-            $items = isset( $response['value'] ) ? $response['value'] : [];
-            $processed_count += $this->process_delta_items( $items, $folder_item_id, $fetched_graph_ids );
+            if ( isset( $response['value'] ) ) {
+                $all_items = array_merge( $all_items, $response['value'] );
+            }
 
             if ( isset( $response['@odata.nextLink'] ) ) {
-                $endpoint = str_replace( 'https://graph.microsoft.com/v1.0', '', $response['@odata.nextLink'] );
+                $endpoint = $response['@odata.nextLink'];
+            } elseif ( isset( $response['@odata.deltaLink'] ) ) {
+                update_option( $delta_link_key, $response['@odata.deltaLink'] );
+                $has_more = false;
             } else {
                 $has_more = false;
             }
         }
 
-        $this->cleanup_deleted_nodes( $fetched_graph_ids );
-
-        update_option( 'msdl_last_sync_timestamp', time() );
-
-        return [ 'success' => true, 'processed' => $processed_count ];
+        $processed = $this->process_items( $all_items );
+        update_option( 'msdl_last_sync_timestamp', current_time( 'timestamp' ) );
+        
+        return [ 'success' => true, 'processed' => $processed ];
     }
 
-    private function get_item_id_by_path( $drive_id, $path ) {
-        if ( empty( $path ) ) return 'root'; 
-        $endpoint = "/drives/{$drive_id}/root:/" . rawurlencode( $path ) . "?\$select=id";
-        $response = $this->graph_api->make_request( $endpoint );
-        if ( is_wp_error( $response ) ) return new WP_Error( 'path_not_found', 'A megadott gyökérmappa nem található a SharePointban.' );
-        return $response['id'];
-    }
-
-    private function process_delta_items( $items, $root_folder_id, &$fetched_graph_ids ) {
+    private function process_items( $items ) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'msdl_nodes';
-        $count = 0;
+        $processed_count = 0;
+
+        
+        $parent_cache = [];
 
         foreach ( $items as $item ) {
-            if ( $item['id'] === $root_folder_id ) continue;
-
+            if ( ! isset( $item['id'] ) || ! isset( $item['name'] ) ) continue;
+            
+            $graph_id = sanitize_text_field( $item['id'] );
+            
             if ( isset( $item['deleted'] ) ) {
-                $this->delete_node_and_descendants( $item['id'], $table_name );
-                $count++;
+                $wpdb->delete( $table_name, [ 'graph_id' => $graph_id ] );
+                $processed_count++;
                 continue;
             }
 
-            $fetched_graph_ids[] = $item['id'];
+            $name = sanitize_text_field( $item['name'] );
+            $type = isset( $item['folder'] ) ? 'folder' : 'file';
+            $size = isset( $item['size'] ) ? intval( $item['size'] ) : 0;
+            $parent_graph_id = isset( $item['parentReference']['id'] ) ? sanitize_text_field( $item['parentReference']['id'] ) : null;
+            $last_modified = isset( $item['lastModifiedDateTime'] ) ? gmdate( 'Y-m-d H:i:s', strtotime( $item['lastModifiedDateTime'] ) ) : current_time( 'mysql' );
+            $download_url = isset( $item['@microsoft.graph.downloadUrl'] ) ? esc_url_raw( $item['@microsoft.graph.downloadUrl'] ) : '';
+            $web_url = isset( $item['webUrl'] ) ? esc_url_raw( $item['webUrl'] ) : '';
 
-            $is_folder = isset( $item['folder'] );
-            $type = $is_folder ? 'folder' : 'file';
-            $mime_type = $is_folder ? null : ( $item['file']['mimeType'] ?? '' );
-            
-            $parent_graph_id = isset($item['parentReference']) ? $item['parentReference']['id'] : null;
-            if ( $parent_graph_id === $root_folder_id ) {
-                $parent_graph_id = null;
-            }
-
-            $existing = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM $table_name WHERE graph_id = %s", $item['id'] ) );
-
-            $data = [
-                'graph_id'           => $item['id'],
-                'parent_graph_id'    => $parent_graph_id,
-                'type'               => $type,
-                'name'               => sanitize_text_field( $item['name'] ),
-                'mime_type'          => sanitize_text_field( $mime_type ),
-                'size'               => intval( $item['size'] ?? 0 ),
-                'last_modified'      => wp_date( 'Y-m-d H:i:s', strtotime( $item['lastModifiedDateTime'] ) ),
-            ];
+            $existing = $wpdb->get_row( $wpdb->prepare( "SELECT id, visibility_roles, custom_title, custom_description FROM $table_name WHERE graph_id = %s", $graph_id ) );
 
             if ( $existing ) {
-                $wpdb->update( $table_name, $data, [ 'id' => $existing->id ] );
+                $wpdb->update( 
+                    $table_name, 
+                    [
+                        'name' => $name,
+                        'size' => $size,
+                        'parent_graph_id' => $parent_graph_id,
+                        'last_modified' => $last_modified,
+                        'download_url' => $download_url,
+                        'web_url' => $web_url
+                    ], 
+                    [ 'id' => $existing->id ] 
+                );
             } else {
-                $data['custom_title'] = '';
-                $data['custom_description'] = '';
-                $data['visibility_roles'] = ''; 
-                $wpdb->insert( $table_name, $data );
-            }
-            $count++;
-        }
-        return $count;
-    }
+                
+                $auto_role = '';
+                
+                if ( !empty($parent_graph_id) ) {
+                    
+                    if ( !isset($parent_cache[$parent_graph_id]) ) {
+                        $parent_node = $wpdb->get_row( $wpdb->prepare( "SELECT visibility_roles, auto_inherit FROM $table_name WHERE graph_id = %s", $parent_graph_id ) );
+                        if ( $parent_node ) {
+                            $parent_cache[$parent_graph_id] = [
+                                'inherit' => (int)$parent_node->auto_inherit === 1,
+                                'role' => $parent_node->visibility_roles
+                            ];
+                        } else {
+                            $parent_cache[$parent_graph_id] = ['inherit' => false, 'role' => ''];
+                        }
+                    }
+                    
+                    
+                    if ( $parent_cache[$parent_graph_id]['inherit'] ) {
+                        $auto_role = $parent_cache[$parent_graph_id]['role'];
+                    }
+                } else {
+                    
+                    $root_inherit = get_option('msdl_root_auto_inherit', '0');
+                    if ( $root_inherit === '1' ) {
+                        $auto_role = get_option('msdl_root_visibility', 'public');
+                    }
+                }
 
-    private function cleanup_deleted_nodes( $fetched_graph_ids ) {
-        global $wpdb;
-        $table_name = $wpdb->prefix . 'msdl_nodes';
-        
-        $existing_nodes = $wpdb->get_results( "SELECT graph_id FROM $table_name", ARRAY_A );
-        if ( empty($existing_nodes) ) return;
-        
-        $existing_ids = array_column( $existing_nodes, 'graph_id' );
-        
-        $to_delete = array_diff( $existing_ids, $fetched_graph_ids );
-        
-        foreach( $to_delete as $graph_id ) {
-            $this->delete_node_and_descendants( $graph_id, $table_name );
-        }
-    }
-
-    private function delete_node_and_descendants( $graph_id, $table_name ) {
-        global $wpdb;
-        $children = $wpdb->get_results( $wpdb->prepare( "SELECT graph_id, type FROM $table_name WHERE parent_graph_id = %s", $graph_id ) );
-        $wpdb->delete( $table_name, [ 'graph_id' => $graph_id ] );
-        foreach ( $children as $child ) {
-            if ( $child->type === 'folder' ) {
-                $this->delete_node_and_descendants( $child->graph_id, $table_name );
-            } else {
-                $wpdb->delete( $table_name, [ 'graph_id' => $child->graph_id ] );
+                $wpdb->insert( 
+                    $table_name, 
+                    [
+                        'graph_id' => $graph_id,
+                        'parent_graph_id' => $parent_graph_id,
+                        'name' => $name,
+                        'type' => $type,
+                        'size' => $size,
+                        'visibility_roles' => $auto_role,
+                        'last_modified' => $last_modified,
+                        'download_url' => $download_url,
+                        'web_url' => $web_url,
+                        'custom_title' => '',
+                        'custom_description' => '',
+                        'auto_inherit' => 0
+                    ] 
+                );
             }
+            $processed_count++;
         }
+
+        return $processed_count;
     }
 }

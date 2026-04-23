@@ -220,17 +220,17 @@ const FileManagerApp = () => {
   const [isRootModalOpen, setIsRootModalOpen] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [rootVisType, setRootVisType] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("public");
   const [rootSelectedRoles, setRootSelectedRoles] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
+  const [rootAutoInherit, setRootAutoInherit] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false); // ÚJ GYÖKÉR OPCIÓ
   const [isRootSaving, setIsRootSaving] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [isVisModalOpen, setIsVisModalOpen] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [editingNode, setEditingNode] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
   const [visType, setVisType] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("public");
   const [selectedRoles, setSelectedRoles] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
   const [applyToChildren, setApplyToChildren] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
+  const [autoInherit, setAutoInherit] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false); // ÚJ MAPPA OPCIÓ
   const [customTitle, setCustomTitle] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [customDesc, setCustomDesc] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [isSaving, setIsSaving] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
-
-  // Verzió előzményekhez State
   const [versions, setVersions] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
   const [isLoadingVersions, setIsLoadingVersions] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
@@ -281,6 +281,8 @@ const FileManagerApp = () => {
         path: "/wp/v2/settings"
       });
       const rootVis = settings.msdl_root_visibility || "public";
+      const rAuto = settings.msdl_root_auto_inherit === "1";
+      setRootAutoInherit(rAuto);
       if (["public", "loggedin", "hidden"].includes(rootVis)) {
         setRootVisType(rootVis);
         setRootSelectedRoles([]);
@@ -303,7 +305,8 @@ const FileManagerApp = () => {
         path: "/wp/v2/settings",
         method: "POST",
         data: {
-          msdl_root_visibility: finalRolesString
+          msdl_root_visibility: finalRolesString,
+          msdl_root_auto_inherit: rootAutoInherit ? "1" : "0"
         }
       });
       setIsRootModalOpen(false);
@@ -356,6 +359,7 @@ const FileManagerApp = () => {
     setApplyToChildren(false);
     setCustomTitle(node.custom_title || "");
     setCustomDesc(node.custom_description || "");
+    setAutoInherit(node.auto_inherit == 1);
     if (!node.visibility_roles) {
       setVisType("public");
       setSelectedRoles([]);
@@ -369,8 +373,6 @@ const FileManagerApp = () => {
         setSelectedRoles([]);
       }
     }
-
-    // Verziók lekérése
     if (node.type === "file") {
       setIsLoadingVersions(true);
       setVersions([]);
@@ -398,7 +400,8 @@ const FileManagerApp = () => {
           roles: finalRolesString,
           apply_to_children: applyToChildren,
           custom_title: customTitle,
-          custom_description: customDesc
+          custom_description: customDesc,
+          auto_inherit: autoInherit
         }
       });
       setIsVisModalOpen(false);
@@ -849,6 +852,21 @@ const FileManagerApp = () => {
             if (val) setRootSelectedRoles([...rootSelectedRoles, key]);else setRootSelectedRoles(rootSelectedRoles.filter(r => r !== key));
           }
         }, key))
+      }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("div", {
+        style: {
+          marginTop: "20px",
+          padding: "15px",
+          backgroundColor: "#f0f6fc",
+          borderLeft: "4px solid #72aee6"
+        },
+        children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.CheckboxControl, {
+          label: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("strong", {
+            children: "Automata \xF6r\xF6kl\u0151d\xE9s bekapcsol\xE1sa"
+          }),
+          help: "Ha bekapcsolod, a szinkroniz\xE1ci\xF3 sor\xE1n bet\xF6lt\xF6tt teljesen \xDAJ f\xE1jlok \xE9s mapp\xE1k a Gy\xF6k\xE9rben automatikusan megkapj\xE1k a fenti jogosults\xE1got, \xE9s nem lesznek 'Kezeletlenek'.",
+          checked: rootAutoInherit,
+          onChange: setRootAutoInherit
+        })
       }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
         style: {
           display: "flex",
@@ -928,18 +946,41 @@ const FileManagerApp = () => {
             if (val) setSelectedRoles([...selectedRoles, key]);else setSelectedRoles(selectedRoles.filter(r => r !== key));
           }
         }, key))]
-      }), editingNode.type === "folder" && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("div", {
+      }), editingNode.type === "folder" && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
         style: {
           marginTop: "20px",
-          padding: "15px",
-          backgroundColor: "#f0f6fc",
-          borderLeft: "4px solid #72aee6"
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px"
         },
-        children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.CheckboxControl, {
-          label: "\xD6r\xF6kl\u0151d\xE9s k\xE9nyszer\xEDt\xE9se: Alkalmaz\xE1s minden almapp\xE1ra \xE9s f\xE1jlra ebben a mapp\xE1ban.",
-          checked: applyToChildren,
-          onChange: setApplyToChildren
-        })
+        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("div", {
+          style: {
+            padding: "15px",
+            backgroundColor: "#f0f6fc",
+            borderLeft: "4px solid #72aee6"
+          },
+          children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.CheckboxControl, {
+            label: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("strong", {
+              children: "\xD6r\xF6kl\u0151d\xE9s k\xE9nyszer\xEDt\xE9se: Alkalmaz\xE1s azonnal minden MEGL\xC9V\u0150 almapp\xE1ra \xE9s f\xE1jlra."
+            }),
+            checked: applyToChildren,
+            onChange: setApplyToChildren
+          })
+        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("div", {
+          style: {
+            padding: "15px",
+            backgroundColor: "#e2ffe8",
+            borderLeft: "4px solid #00a32a"
+          },
+          children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.CheckboxControl, {
+            label: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("strong", {
+              children: "J\xF6v\u0151beni automatikus \xF6r\xF6kl\u0151d\xE9s (Szinkroniz\xE1ci\xF3n\xE1l)"
+            }),
+            help: "Ha bekapcsolod, az ezut\xE1n a mapp\xE1ba felt\xF6lt\xF6tt teljesen \xDAJ f\xE1jlok automatikusan megkapj\xE1k a fenti jogosults\xE1got.",
+            checked: autoInherit,
+            onChange: setAutoInherit
+          })
+        })]
       }), editingNode.type === "file" && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
         style: {
           marginTop: "30px",

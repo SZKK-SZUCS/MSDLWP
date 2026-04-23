@@ -96,6 +96,7 @@ const FileManagerApp = () => {
   const [isRootModalOpen, setIsRootModalOpen] = useState(false);
   const [rootVisType, setRootVisType] = useState("public");
   const [rootSelectedRoles, setRootSelectedRoles] = useState([]);
+  const [rootAutoInherit, setRootAutoInherit] = useState(false); // ÚJ GYÖKÉR OPCIÓ
   const [isRootSaving, setIsRootSaving] = useState(false);
 
   const [isVisModalOpen, setIsVisModalOpen] = useState(false);
@@ -103,11 +104,11 @@ const FileManagerApp = () => {
   const [visType, setVisType] = useState("public");
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [applyToChildren, setApplyToChildren] = useState(false);
+  const [autoInherit, setAutoInherit] = useState(false); // ÚJ MAPPA OPCIÓ
   const [customTitle, setCustomTitle] = useState("");
   const [customDesc, setCustomDesc] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Verzió előzményekhez State
   const [versions, setVersions] = useState([]);
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
 
@@ -161,6 +162,9 @@ const FileManagerApp = () => {
     try {
       const settings = await apiFetch({ path: "/wp/v2/settings" });
       const rootVis = settings.msdl_root_visibility || "public";
+      const rAuto = settings.msdl_root_auto_inherit === "1";
+      setRootAutoInherit(rAuto);
+
       if (["public", "loggedin", "hidden"].includes(rootVis)) {
         setRootVisType(rootVis);
         setRootSelectedRoles([]);
@@ -184,7 +188,10 @@ const FileManagerApp = () => {
       await apiFetch({
         path: "/wp/v2/settings",
         method: "POST",
-        data: { msdl_root_visibility: finalRolesString },
+        data: {
+          msdl_root_visibility: finalRolesString,
+          msdl_root_auto_inherit: rootAutoInherit ? "1" : "0",
+        },
       });
       setIsRootModalOpen(false);
     } catch (e) {
@@ -248,6 +255,8 @@ const FileManagerApp = () => {
     setApplyToChildren(false);
     setCustomTitle(node.custom_title || "");
     setCustomDesc(node.custom_description || "");
+    setAutoInherit(node.auto_inherit == 1);
+
     if (!node.visibility_roles) {
       setVisType("public");
       setSelectedRoles([]);
@@ -264,7 +273,6 @@ const FileManagerApp = () => {
       }
     }
 
-    // Verziók lekérése
     if (node.type === "file") {
       setIsLoadingVersions(true);
       setVersions([]);
@@ -296,6 +304,7 @@ const FileManagerApp = () => {
           apply_to_children: applyToChildren,
           custom_title: customTitle,
           custom_description: customDesc,
+          auto_inherit: autoInherit,
         },
       });
       setIsVisModalOpen(false);
@@ -711,6 +720,22 @@ const FileManagerApp = () => {
               ))}
             </div>
           )}
+
+          <div
+            style={{
+              marginTop: "20px",
+              padding: "15px",
+              backgroundColor: "#f0f6fc",
+              borderLeft: "4px solid #72aee6",
+            }}>
+            <CheckboxControl
+              label={<strong>Automata öröklődés bekapcsolása</strong>}
+              help="Ha bekapcsolod, a szinkronizáció során betöltött teljesen ÚJ fájlok és mappák a Gyökérben automatikusan megkapják a fenti jogosultságot, és nem lesznek 'Kezeletlenek'."
+              checked={rootAutoInherit}
+              onChange={setRootAutoInherit}
+            />
+          </div>
+
           <div
             style={{
               display: "flex",
@@ -794,19 +819,49 @@ const FileManagerApp = () => {
               ))}
             </div>
           )}
+
           {editingNode.type === "folder" && (
             <div
               style={{
                 marginTop: "20px",
-                padding: "15px",
-                backgroundColor: "#f0f6fc",
-                borderLeft: "4px solid #72aee6",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
               }}>
-              <CheckboxControl
-                label="Öröklődés kényszerítése: Alkalmazás minden almappára és fájlra ebben a mappában."
-                checked={applyToChildren}
-                onChange={setApplyToChildren}
-              />
+              <div
+                style={{
+                  padding: "15px",
+                  backgroundColor: "#f0f6fc",
+                  borderLeft: "4px solid #72aee6",
+                }}>
+                <CheckboxControl
+                  label={
+                    <strong>
+                      Öröklődés kényszerítése: Alkalmazás azonnal minden MEGLÉVŐ
+                      almappára és fájlra.
+                    </strong>
+                  }
+                  checked={applyToChildren}
+                  onChange={setApplyToChildren}
+                />
+              </div>
+              <div
+                style={{
+                  padding: "15px",
+                  backgroundColor: "#e2ffe8",
+                  borderLeft: "4px solid #00a32a",
+                }}>
+                <CheckboxControl
+                  label={
+                    <strong>
+                      Jövőbeni automatikus öröklődés (Szinkronizációnál)
+                    </strong>
+                  }
+                  help="Ha bekapcsolod, az ezután a mappába feltöltött teljesen ÚJ fájlok automatikusan megkapják a fenti jogosultságot."
+                  checked={autoInherit}
+                  onChange={setAutoInherit}
+                />
+              </div>
             </div>
           )}
 

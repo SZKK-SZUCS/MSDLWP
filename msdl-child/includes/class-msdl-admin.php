@@ -156,7 +156,8 @@ class MSDL_Child_Admin {
     }
 
     public function register_rest_endpoints() {
-        $settings = [ 'msdl_main_server_url', 'msdl_internal_api_key', 'msdl_sync_mode', 'msdl_local_sync_interval', 'msdl_root_visibility' ];
+        // JAVÍTÁS: regisztráljuk a root opciókat is
+        $settings = [ 'msdl_main_server_url', 'msdl_internal_api_key', 'msdl_sync_mode', 'msdl_local_sync_interval', 'msdl_root_visibility', 'msdl_root_auto_inherit' ];
         foreach ( $settings as $setting ) register_setting( 'msdl_options', $setting, [ 'type' => 'string', 'show_in_rest' => true, 'default' => '' ] );
 
         register_rest_route( 'msdl-child/v1', '/test-connection', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'test_connection' ], 'permission_callback' => [ $this, 'check_api_or_admin_auth' ] ]);
@@ -169,14 +170,12 @@ class MSDL_Child_Admin {
         register_rest_route( 'msdl-child/v1', '/reset-sync', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'reset_sync' ], 'permission_callback' => [ $this, 'check_api_or_admin_auth' ] ]);
         register_rest_route( 'msdl-child/v1', '/sync-status', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_sync_status' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
         
-        // Végpont az Adminnak
         register_rest_route( 'msdl-child/v1', '/get-file-versions', [ 
             'methods' => WP_REST_Server::READABLE, 
             'callback' => [ $this, 'get_file_versions' ], 
             'permission_callback' => function() { return current_user_can( 'manage_options' ); } 
         ]);
         
-        // ÚJ: Nyilvános (de biztonságos) végpont a Frontend Widgeteknek
         register_rest_route( 'msdl-child/v1', '/public-file-versions', [ 
             'methods' => WP_REST_Server::READABLE, 
             'callback' => [ $this, 'get_public_file_versions' ], 
@@ -194,7 +193,6 @@ class MSDL_Child_Admin {
         
         if ( !$node ) return new WP_Error( 'not_found', 'Fájl nem található az adatbázisban.', ['status'=>404] );
 
-        // Biztonsági ellenőrzés a frontenden is!
         if ( class_exists('MSDL_Child_Elementor') && ! MSDL_Child_Elementor::check_item_access( $node->visibility_roles ) ) {
             return new WP_Error( 'forbidden', 'Nincs jogosultságod ehhez a fájlhoz.', ['status' => 403] );
         }
@@ -321,6 +319,7 @@ class MSDL_Child_Admin {
         $table_name = $wpdb->prefix . 'msdl_nodes';
         $parent_id = sanitize_text_field( $request->get_param( 'parent_id' ) );
         
+        // JAVÍTÁS: Lekérjük az auto_inherit oszlopot is
         $query = empty( $parent_id ) 
             ? "SELECT * FROM $table_name WHERE parent_graph_id IS NULL OR parent_graph_id = '' ORDER BY type DESC, name ASC" 
             : $wpdb->prepare( "SELECT * FROM $table_name WHERE parent_graph_id = %s ORDER BY type DESC, name ASC", $parent_id );
@@ -364,12 +363,21 @@ class MSDL_Child_Admin {
         $node_id = intval( $params['id'] );
         $roles = sanitize_text_field( $params['roles'] );
         $apply_to_children = isset( $params['apply_to_children'] ) ? rest_sanitize_boolean( $params['apply_to_children'] ) : false;
+        
+        // ÚJ ADAT: auto_inherit
+        $auto_inherit = isset( $params['auto_inherit'] ) ? (rest_sanitize_boolean( $params['auto_inherit'] ) ? 1 : 0) : 0;
+        
         $custom_title = isset($params['custom_title']) ? sanitize_text_field($params['custom_title']) : '';
         $custom_description = isset($params['custom_description']) ? wp_kses_post($params['custom_description']) : '';
 
         $wpdb->update( 
             $table_name, 
-            [ 'visibility_roles' => $roles, 'custom_title' => $custom_title, 'custom_description' => $custom_description ], 
+            [ 
+                'visibility_roles' => $roles, 
+                'custom_title' => $custom_title, 
+                'custom_description' => $custom_description,
+                'auto_inherit' => $auto_inherit
+            ], 
             [ 'id' => $node_id ] 
         );
 

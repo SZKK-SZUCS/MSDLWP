@@ -43,12 +43,14 @@ const App = () => {
   const [bulkAction, setBulkAction] = useState("");
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
 
+  // ÚJ: Élő kapcsolat állapot (Ping/Sync visszajelzéshez)
+  const [connectionStatuses, setConnectionStatuses] = useState({});
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingSite, setEditingSite] = useState(null);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isFolderBrowserActive, setIsFolderBrowserActive] = useState(false);
 
-  // ÚJ: Állapotjelző, hogy a kereső ablak a "Központi" (main) vagy az "Egyedi" (site) azonosítókat frissítse-e
   const [finderTarget, setFinderTarget] = useState("main");
 
   const [isFinderOpen, setIsFinderOpen] = useState(false);
@@ -249,6 +251,10 @@ const App = () => {
   const handleRemoteCommand = async (site, command) => {
     const actionName = command === "ping" ? "Pingelés" : "Szinkronizáció";
     setStatusText(`${site.domain}: ${actionName} folyamatban...`);
+
+    // Státusz frissítése töltésre
+    setConnectionStatuses((prev) => ({ ...prev, [site.id]: "loading" }));
+
     try {
       const response = await apiFetch({
         path: "/msdl-main/v1/remote-command",
@@ -257,6 +263,7 @@ const App = () => {
       });
       if (response && response.success) {
         setStatusText(`${site.domain}: Sikeres! ${response.message || ""}`);
+        setConnectionStatuses((prev) => ({ ...prev, [site.id]: "success" }));
         if (command === "sync") loadSites();
       } else {
         setStatusText(
@@ -264,9 +271,11 @@ const App = () => {
             response?.message || "Nem érkezett válasz."
           }`,
         );
+        setConnectionStatuses((prev) => ({ ...prev, [site.id]: "error" }));
       }
     } catch (e) {
       setStatusText(`${site.domain}: Kapcsolódási hiba!`);
+      setConnectionStatuses((prev) => ({ ...prev, [site.id]: "error" }));
     }
   };
 
@@ -364,7 +373,6 @@ const App = () => {
     setSelectedFoundSite(null);
     setFoundDrives([]);
     try {
-      // Itt már a teljes URL átmegy a backendnek szétbontás nélkül
       const results = await apiFetch({
         path: `/msdl-main/v1/search-sites?q=${encodeURIComponent(searchQuery)}`,
       });
@@ -726,6 +734,8 @@ const App = () => {
                           ? site.domain
                           : `https://${site.domain}`;
 
+                        const connStatus = connectionStatuses[site.id];
+
                         let syncModeIcon = "clock";
                         let syncModeColor = "#2271b1";
                         let syncModeText = "Központi ütemezés követése";
@@ -779,11 +789,19 @@ const App = () => {
                                   style={{ color: "#d63638" }}
                                   title="Függőben"
                                 />
+                              ) : connStatus === "loading" ? (
+                                <Spinner />
+                              ) : connStatus === "error" ? (
+                                <Dashicon
+                                  icon="no-alt"
+                                  style={{ color: "#d63638" }}
+                                  title="Kapcsolati Hiba!"
+                                />
                               ) : (
                                 <Dashicon
                                   icon="yes-alt"
                                   style={{ color: "#00a32a" }}
-                                  title="Aktív"
+                                  title="Aktív és Elérhető"
                                 />
                               )}
                             </td>
