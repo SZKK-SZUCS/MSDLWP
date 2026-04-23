@@ -11,14 +11,36 @@ class MSDL_Child_Sync {
         $token = $this->api->fetch_token_from_main();
         if ( is_wp_error( $token ) ) return $token;
 
-        $folder_id = $this->api->root_folder_id;
+        $folder_path = isset($this->api->root_folder_id) ? trim( $this->api->root_folder_id, '/' ) : '';
         $drive_id = $this->api->drive_id;
         
+        $folder_id = 'root';
+
+        // JAVÍTÁS: Mappa útvonal helyett ID alapú Delta lekérés, mert a Microsoft Graph API
+        // a "root:/{path}:/delta" végpontokon gyakran token hibákat dob (400 Bad Request).
+        if ( !empty($folder_path) && $folder_path !== 'root' ) {
+            $encoded_path = implode('/', array_map('rawurlencode', explode('/', $folder_path)));
+            
+            // Először megszerezzük a mappa pontos ID-ját
+            $info_endpoint = "/drives/{$drive_id}/root:/{$encoded_path}";
+            $info_response = $this->api->make_request( $info_endpoint );
+            
+            if ( is_wp_error( $info_response ) ) {
+                return new WP_Error('graph_api_error', 'Nem található a megadott mappa a SharePoint-ban. Részletek: ' . $info_response->get_error_message());
+            }
+            if ( !isset($info_response['id']) ) {
+                return new WP_Error('graph_api_error', 'Hiba: Nem található a megadott mappa azonosítója a SharePoint-ban.');
+            }
+            
+            $folder_id = $info_response['id'];
+        }
+
+        // Most már az azonosító (ID) alapján generáljuk a gyorsítótár kulcsot
         $delta_link_key = 'msdl_delta_link_' . md5( $drive_id . '_' . $folder_id );
         $delta_link = get_option( $delta_link_key );
 
         if ( empty( $delta_link ) ) {
-            $endpoint = empty( $folder_id ) ? "/drives/{$drive_id}/root/delta" : "/drives/{$drive_id}/root:/{$folder_id}:/delta";
+            $endpoint = "/drives/{$drive_id}/items/{$folder_id}/delta";
         } else {
             $endpoint = $delta_link;
         }
@@ -28,12 +50,17 @@ class MSDL_Child_Sync {
         
         while ( $has_more ) {
             $response = $this->api->make_request( $endpoint );
+            
             if ( is_wp_error( $response ) ) {
-                if ( $response->get_error_code() === 'delta_expired' || $response->get_error_code() === 'resyncRequired' ) {
+                $err_msg = $response->get_error_message();
+                
+                // JAVÍTÁS: Ha a Microsoft elavult token miatt dob hibát, azonnal töröljük, és értesítjük a felhasználót!
+                if ( !empty($delta_link) ) {
                     delete_option( $delta_link_key );
-                    return $this->run_manual_sync();
+                    return new WP_Error('graph_api_error', 'Elavult vagy sérült Microsoft Delta token. A rendszer letisztította a gyorsítótárat! Kérlek, kattints ÚJRA a szinkronizáció gombra a teljes frissítéshez!');
                 }
-                return $response;
+
+                return new WP_Error('graph_api_error', $err_msg . ' (Kért URL: ' . $endpoint . ')');
             }
 
             if ( isset( $response['value'] ) ) {
@@ -122,7 +149,6 @@ class MSDL_Child_Sync {
                     }
                 }
 
-                // Automatikusan levágja a kiterjesztést az új fájlok címénél
                 $auto_title = ($type === 'file') ? pathinfo($name, PATHINFO_FILENAME) : $name;
 
                 $wpdb->insert( 
