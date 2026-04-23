@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.2.1
+Stable tag: 1.2.2
 Requires PHP: 7.4
 License: Proprietary
 
@@ -24,6 +24,9 @@ Nem tartalmaz frontend megjelenítőket; kizárólag a hálózatbiztonságra, az
 * **Dinamikus Útválasztás:** Automatikusan lekérdezi és biztosítja a helyes SharePoint URL-eket és struktúrákat az újonnan csatlakozó weboldalak számára.
 
 == Changelog ==
+
+= 1.2.2 =
+* Sync bug amikor túl sok a fájl fixálva
 
 = 1.2.1 =
 * Sync bug

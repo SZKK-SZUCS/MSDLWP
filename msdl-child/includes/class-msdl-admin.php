@@ -4,15 +4,19 @@ class MSDL_Child_Admin {
         add_action('admin_init', [$this, 'check_db_schema']);
     }
 
-    // JAVÍTÁS: Automatikus adatbázis ellenőrzés (hogy a mentés ne haljon el)
+
     public function check_db_schema() {
         global $wpdb;
         $table_name = $wpdb->prefix . 'msdl_nodes';
         if($wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name) {
             $cols = $wpdb->get_results("SHOW COLUMNS FROM $table_name");
             $col_names = array_map(function($c){return $c->Field;}, $cols);
+            
+            // Ha bármelyik oszlop hiányzik a régi telepítés miatt, azonnal pótoljuk!
             if(!in_array('auto_inherit', $col_names)) $wpdb->query("ALTER TABLE $table_name ADD auto_inherit TINYINT(1) DEFAULT 0");
             if(!in_array('version_rules', $col_names)) $wpdb->query("ALTER TABLE $table_name ADD version_rules TEXT");
+            if(!in_array('download_url', $col_names)) $wpdb->query("ALTER TABLE $table_name ADD download_url TEXT");
+            if(!in_array('web_url', $col_names)) $wpdb->query("ALTER TABLE $table_name ADD web_url TEXT");
         }
     }
 
