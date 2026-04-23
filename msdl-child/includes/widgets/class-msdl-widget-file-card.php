@@ -179,16 +179,14 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
                 $ext = pathinfo( $file->name, PATHINFO_EXTENSION );
                 if ( $ext ) $file_ext = strtolower( $ext );
 
-                $file_name = $file->name;
                 if ( !empty($file->custom_title) ) {
                     $file_name = $file->custom_title;
-                    if ( $file_ext !== 'file' && !preg_match('/\.'.$file_ext.'$/i', $file_name) ) {
-                        $file_name .= '.' . $file_ext;
-                    }
+                } else {
+                    $file_name = pathinfo($file->name, PATHINFO_FILENAME);
                 }
 
                 $file_desc = !empty($file->custom_description) ? wp_kses_post( $file->custom_description ) : '';
-                $download_url = site_url( '/?msdl_download=' . $file_id );
+                $download_url = rest_url( 'msdl-child/v1/download-file?id=' . $file_id );
                 
                 if ( isset( $file->size ) ) {
                     $bytes = intval($file->size);

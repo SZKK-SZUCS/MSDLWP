@@ -61,7 +61,6 @@ class MSDL_Child_Sync {
         $table_name = $wpdb->prefix . 'msdl_nodes';
         $processed_count = 0;
 
-        
         $parent_cache = [];
 
         foreach ( $items as $item ) {
@@ -83,7 +82,7 @@ class MSDL_Child_Sync {
             $download_url = isset( $item['@microsoft.graph.downloadUrl'] ) ? esc_url_raw( $item['@microsoft.graph.downloadUrl'] ) : '';
             $web_url = isset( $item['webUrl'] ) ? esc_url_raw( $item['webUrl'] ) : '';
 
-            $existing = $wpdb->get_row( $wpdb->prepare( "SELECT id, visibility_roles, custom_title, custom_description FROM $table_name WHERE graph_id = %s", $graph_id ) );
+            $existing = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM $table_name WHERE graph_id = %s", $graph_id ) );
 
             if ( $existing ) {
                 $wpdb->update( 
@@ -99,11 +98,9 @@ class MSDL_Child_Sync {
                     [ 'id' => $existing->id ] 
                 );
             } else {
-                
                 $auto_role = '';
                 
                 if ( !empty($parent_graph_id) ) {
-                    
                     if ( !isset($parent_cache[$parent_graph_id]) ) {
                         $parent_node = $wpdb->get_row( $wpdb->prepare( "SELECT visibility_roles, auto_inherit FROM $table_name WHERE graph_id = %s", $parent_graph_id ) );
                         if ( $parent_node ) {
@@ -115,18 +112,18 @@ class MSDL_Child_Sync {
                             $parent_cache[$parent_graph_id] = ['inherit' => false, 'role' => ''];
                         }
                     }
-                    
-                    
                     if ( $parent_cache[$parent_graph_id]['inherit'] ) {
                         $auto_role = $parent_cache[$parent_graph_id]['role'];
                     }
                 } else {
-                    
                     $root_inherit = get_option('msdl_root_auto_inherit', '0');
                     if ( $root_inherit === '1' ) {
                         $auto_role = get_option('msdl_root_visibility', 'public');
                     }
                 }
+
+                // Automatikusan levágja a kiterjesztést az új fájlok címénél
+                $auto_title = ($type === 'file') ? pathinfo($name, PATHINFO_FILENAME) : $name;
 
                 $wpdb->insert( 
                     $table_name, 
@@ -140,7 +137,7 @@ class MSDL_Child_Sync {
                         'last_modified' => $last_modified,
                         'download_url' => $download_url,
                         'web_url' => $web_url,
-                        'custom_title' => '',
+                        'custom_title' => $auto_title,
                         'custom_description' => '',
                         'auto_inherit' => 0
                     ] 

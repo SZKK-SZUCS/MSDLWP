@@ -1,5 +1,21 @@
 <?php
 class MSDL_Child_Admin {
+    public function __construct() {
+        add_action('admin_init', [$this, 'check_db_schema']);
+    }
+
+    // JAVÍTÁS: Automatikus adatbázis ellenőrzés (hogy a mentés ne haljon el)
+    public function check_db_schema() {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'msdl_nodes';
+        if($wpdb->get_var("SHOW TABLES LIKE '$table_name'") === $table_name) {
+            $cols = $wpdb->get_results("SHOW COLUMNS FROM $table_name");
+            $col_names = array_map(function($c){return $c->Field;}, $cols);
+            if(!in_array('auto_inherit', $col_names)) $wpdb->query("ALTER TABLE $table_name ADD auto_inherit TINYINT(1) DEFAULT 0");
+            if(!in_array('version_rules', $col_names)) $wpdb->query("ALTER TABLE $table_name ADD version_rules TEXT");
+        }
+    }
+
     public function init() {
         add_action( 'admin_menu', [ $this, 'add_admin_menu' ] );
         add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_scripts' ] );
@@ -45,66 +61,39 @@ class MSDL_Child_Admin {
             @keyframes msdl-rotation { from { transform: rotate(0deg); } to { transform: rotate(359deg); } }
         </style>';
 
-        echo '<div class="msdl-dash-wrapper">';
-        echo '<div class="msdl-dash-card">';
+        echo '<div class="msdl-dash-wrapper"><div class="msdl-dash-card">';
         echo '<div class="msdl-dash-stat info"><h4 title="A rendszerben lévő összes fájl">Összes Fájl</h4><div class="num" style="color:#2271b1;">' . $total_files . '</div></div>';
-
-        if ( $unhandled_count > 0 ) {
-            echo '<div class="msdl-dash-stat alert"><h4 title="Azonnali intézkedést igénylő fájlok">Kezeletlen</h4><div class="num" style="color:#d63638;">' . $unhandled_count . '</div></div>';
-        } else {
-            echo '<div class="msdl-dash-stat ok"><h4>Státusz</h4><div class="num" style="color:#00a32a; font-size:20px; margin-top:8px;">Minden OK</div></div>';
-        }
+        if ( $unhandled_count > 0 ) echo '<div class="msdl-dash-stat alert"><h4 title="Azonnali intézkedést igénylő fájlok">Kezeletlen</h4><div class="num" style="color:#d63638;">' . $unhandled_count . '</div></div>';
+        else echo '<div class="msdl-dash-stat ok"><h4>Státusz</h4><div class="num" style="color:#00a32a; font-size:20px; margin-top:8px;">Minden OK</div></div>';
         echo '</div>';
 
         if ( $unhandled_count > 0 ) {
-            echo '<p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: #1d2327;">Azonnali teendők (Legújabb fájlok):</p>';
-            echo '<ul class="msdl-unhandled-list">';
+            echo '<p style="margin: 0 0 8px 0; font-size: 13px; font-weight: 600; color: #1d2327;">Azonnali teendők (Legújabb fájlok):</p><ul class="msdl-unhandled-list">';
             foreach( $latest_unhandled as $file ) {
                 $folder_param = !empty($file->parent_graph_id) ? '&folder=' . urlencode($file->parent_graph_id) : '';
                 $deep_link = admin_url('admin.php?page=msdl-child' . $folder_param . '&open_file=' . $file->id);
-                echo '<li>';
-                echo '<span class="file-name" title="' . esc_attr($file->name) . '"><span class="dashicons dashicons-media-document" style="color:#82878c; font-size:16px; width:16px; height:16px;"></span> ' . esc_html(mb_strimwidth($file->name, 0, 35, '...')) . '</span>';
-                echo '<a href="' . esc_url($deep_link) . '" class="button button-small" style="flex-shrink: 0;">Megnyitás</a>';
-                echo '</li>';
+                echo '<li><span class="file-name" title="' . esc_attr($file->name) . '"><span class="dashicons dashicons-media-document" style="color:#82878c; font-size:16px; width:16px; height:16px;"></span> ' . esc_html(mb_strimwidth($file->name, 0, 35, '...')) . '</span><a href="' . esc_url($deep_link) . '" class="button button-small" style="flex-shrink: 0;">Megnyitás</a></li>';
             }
-            if ( $unhandled_count > 5 ) {
-                echo '<li style="background: #f6f7f7;"><span style="color:#666; font-size:12px;">És további ' . ($unhandled_count - 5) . ' fájl...</span> <a href="' . $filemanager_url . '" style="text-decoration:none; font-weight:600;">Összes megtekintése &rarr;</a></li>';
-            }
+            if ( $unhandled_count > 5 ) echo '<li style="background: #f6f7f7;"><span style="color:#666; font-size:12px;">És további ' . ($unhandled_count - 5) . ' fájl...</span> <a href="' . $filemanager_url . '" style="text-decoration:none; font-weight:600;">Összes megtekintése &rarr;</a></li>';
             echo '</ul>';
         }
 
-        echo '<div class="msdl-dash-footer">';
-        echo '<div style="font-size: 12px; color: #50575e;">Utolsó frissítés:<br><strong style="color:#1d2327;">' . $last_sync . '</strong></div>';
-        echo '<button type="button" id="msdl-quick-sync-btn" class="button button-secondary"><span class="dashicons dashicons-update" style="margin-top:3px;"></span> Szinkronizálás</button>';
-        echo '</div>';
-        echo '<div id="msdl-quick-sync-msg" style="margin-top: 8px; font-weight: 600; font-size: 12px; text-align: right; display:none;"></div>';
-        echo '</div>';
+        echo '<div class="msdl-dash-footer"><div style="font-size: 12px; color: #50575e;">Utolsó frissítés:<br><strong style="color:#1d2327;">' . $last_sync . '</strong></div><button type="button" id="msdl-quick-sync-btn" class="button button-secondary"><span class="dashicons dashicons-update" style="margin-top:3px;"></span> Szinkronizálás</button></div>';
+        echo '<div id="msdl-quick-sync-msg" style="margin-top: 8px; font-weight: 600; font-size: 12px; text-align: right; display:none;"></div></div>';
         ?>
         <script>
         document.addEventListener('DOMContentLoaded', function() {
-            var btn = document.getElementById('msdl-quick-sync-btn');
-            var msg = document.getElementById('msdl-quick-sync-msg');
+            var btn = document.getElementById('msdl-quick-sync-btn'), msg = document.getElementById('msdl-quick-sync-msg');
             if (btn) {
                 btn.addEventListener('click', function() {
-                    btn.disabled = true;
-                    btn.innerHTML = '<span class="dashicons dashicons-update-alt msdl-spin" style="margin-top:3px;"></span> Folyamatban...';
-                    msg.style.display = 'none';
-
+                    btn.disabled = true; btn.innerHTML = '<span class="dashicons dashicons-update-alt msdl-spin" style="margin-top:3px;"></span> Folyamatban...'; msg.style.display = 'none';
                     fetch('<?php echo esc_url( rest_url('msdl-child/v1/sync-now') ); ?>', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': '<?php echo wp_create_nonce('wp_rest'); ?>' } })
-                    .then(response => response.json())
-                    .then(data => {
+                    .then(r => r.json()).then(data => {
                         msg.style.display = 'block';
-                        if (data.success) {
-                            msg.style.color = '#00a32a'; msg.innerText = 'Sikeres szinkronizáció! Oldal frissítése...';
-                            setTimeout(() => location.reload(), 1500);
-                        } else {
-                            msg.style.color = '#d63638'; msg.innerText = 'Hiba: ' + (data.message || 'Ismeretlen hiba');
-                            btn.disabled = false; btn.innerHTML = '<span class="dashicons dashicons-update" style="margin-top:3px;"></span> Újrapróbálás';
-                        }
-                    })
-                    .catch(error => {
-                        msg.style.display = 'block'; msg.style.color = '#d63638'; msg.innerText = 'Hálózati hiba történt a szinkronizáció során.';
-                        btn.disabled = false; btn.innerHTML = '<span class="dashicons dashicons-update" style="margin-top:3px;"></span> Újrapróbálás';
+                        if (data.success) { msg.style.color = '#00a32a'; msg.innerText = 'Sikeres szinkronizáció! Oldal frissítése...'; setTimeout(() => location.reload(), 1500); } 
+                        else { msg.style.color = '#d63638'; msg.innerText = 'Hiba: ' + (data.message || 'Ismeretlen hiba'); btn.disabled = false; btn.innerHTML = '<span class="dashicons dashicons-update" style="margin-top:3px;"></span> Újrapróbálás'; }
+                    }).catch(error => {
+                        msg.style.display = 'block'; msg.style.color = '#d63638'; msg.innerText = 'Hálózati hiba történt a szinkronizáció során.'; btn.disabled = false; btn.innerHTML = '<span class="dashicons dashicons-update" style="margin-top:3px;"></span> Újrapróbálás';
                     });
                 });
             }
@@ -114,10 +103,7 @@ class MSDL_Child_Admin {
     }
 
     public function add_cron_schedules( $schedules ) {
-        $schedules['msdl_5min'] = [ 'interval' => 300, 'display' => '5 percenként' ];
-        $schedules['msdl_15min'] = [ 'interval' => 900, 'display' => '15 percenként' ];
-        $schedules['msdl_30min'] = [ 'interval' => 1800, 'display' => '30 percenként' ];
-        $schedules['msdl_thricedaily'] = [ 'interval' => 28800, 'display' => 'Naponta háromszor (8, 12, 16)' ];
+        $schedules['msdl_5min'] = [ 'interval' => 300, 'display' => '5 percenként' ]; $schedules['msdl_15min'] = [ 'interval' => 900, 'display' => '15 percenként' ]; $schedules['msdl_30min'] = [ 'interval' => 1800, 'display' => '30 percenként' ]; $schedules['msdl_thricedaily'] = [ 'interval' => 28800, 'display' => 'Naponta háromszor (8, 12, 16)' ];
         return $schedules;
     }
 
@@ -126,18 +112,12 @@ class MSDL_Child_Admin {
     public function add_admin_menu() {
         global $wpdb;
         $unhandled = $wpdb->get_var( "SELECT COUNT(id) FROM {$wpdb->prefix}msdl_nodes WHERE type='file' AND (visibility_roles = '' OR visibility_roles IS NULL)" );
-        
         $menu_title = 'Dokumentumtár';
         if ( $unhandled > 0 ) $menu_title .= ' <span class="update-plugins count-' . $unhandled . '"><span class="plugin-count">' . $unhandled . '</span></span>';
-
         add_menu_page( 'Dokumentumtár', $menu_title, 'manage_options', 'msdl-child', [ $this, 'display_filemanager_page' ], 'dashicons-media-document', 25 );
         add_submenu_page( 'msdl-child', 'Fájlkezelő', 'Fájlkezelő', 'manage_options', 'msdl-child', [ $this, 'display_filemanager_page' ] );
         add_submenu_page( 'msdl-child', 'Szinkronizáció', 'Szinkronizáció', 'manage_options', 'msdl-sync', [ $this, 'display_sync_page' ] );
-
-        $current_user = wp_get_current_user();
-        if ( in_array( 'administrator', (array) $current_user->roles ) ) {
-            add_submenu_page( 'msdl-child', 'Beállítások', 'Beállítások', 'manage_options', 'msdl-settings', [ $this, 'display_settings_page' ] );
-        }
+        if ( in_array( 'administrator', (array) wp_get_current_user()->roles ) ) add_submenu_page( 'msdl-child', 'Beállítások', 'Beállítások', 'manage_options', 'msdl-settings', [ $this, 'display_settings_page' ] );
     }
 
     public function display_filemanager_page() { echo '<div id="msdl-admin-filemanager"></div>'; }
@@ -156,7 +136,6 @@ class MSDL_Child_Admin {
     }
 
     public function register_rest_endpoints() {
-        // JAVÍTÁS: regisztráljuk a root opciókat is
         $settings = [ 'msdl_main_server_url', 'msdl_internal_api_key', 'msdl_sync_mode', 'msdl_local_sync_interval', 'msdl_root_visibility', 'msdl_root_auto_inherit' ];
         foreach ( $settings as $setting ) register_setting( 'msdl_options', $setting, [ 'type' => 'string', 'show_in_rest' => true, 'default' => '' ] );
 
@@ -170,17 +149,75 @@ class MSDL_Child_Admin {
         register_rest_route( 'msdl-child/v1', '/reset-sync', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'reset_sync' ], 'permission_callback' => [ $this, 'check_api_or_admin_auth' ] ]);
         register_rest_route( 'msdl-child/v1', '/sync-status', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_sync_status' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
         
-        register_rest_route( 'msdl-child/v1', '/get-file-versions', [ 
-            'methods' => WP_REST_Server::READABLE, 
-            'callback' => [ $this, 'get_file_versions' ], 
-            'permission_callback' => function() { return current_user_can( 'manage_options' ); } 
-        ]);
+        register_rest_route( 'msdl-child/v1', '/get-file-versions', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_file_versions' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/public-file-versions', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_public_file_versions' ], 'permission_callback' => '__return_true' ]);
         
-        register_rest_route( 'msdl-child/v1', '/public-file-versions', [ 
-            'methods' => WP_REST_Server::READABLE, 
-            'callback' => [ $this, 'get_public_file_versions' ], 
-            'permission_callback' => '__return_true' 
+        // ÚJ: A dinamikus letöltő végpont
+        register_rest_route( 'msdl-child/v1', '/download-file', [
+            'methods' => WP_REST_Server::READABLE,
+            'callback' => [ $this, 'handle_file_download' ],
+            'permission_callback' => '__return_true'
         ]);
+    }
+
+    private function calculate_active_version($rules) {
+        if ( !$rules || !is_array($rules) ) return null;
+        $active = isset($rules['active_version']) ? $rules['active_version'] : null;
+        $now = current_time('timestamp');
+
+        if ( isset($rules['schedules']) && is_array($rules['schedules']) ) {
+            $valid_schedules = [];
+            foreach ( $rules['schedules'] as $vid => $time ) {
+                if (empty($time)) continue;
+                $ts = strtotime($time);
+                if ( $ts && $ts <= $now ) $valid_schedules[$ts] = $vid;
+            }
+            if ( !empty($valid_schedules) ) {
+                ksort($valid_schedules);
+                $active = end($valid_schedules);
+            }
+        }
+        return $active;
+    }
+
+    public function handle_file_download( WP_REST_Request $request ) {
+        $node_id = intval( $request->get_param( 'id' ) );
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'msdl_nodes';
+        $node = $wpdb->get_row( $wpdb->prepare("SELECT graph_id, visibility_roles, download_url, version_rules FROM $table_name WHERE id = %d AND type = 'file'", $node_id) );
+        
+        if ( !$node ) wp_die('Fájl nem található a rendszerben.');
+        if ( class_exists('MSDL_Child_Elementor') && !MSDL_Child_Elementor::check_item_access($node->visibility_roles) ) wp_die('Nincs jogosultságod a fájl megtekintéséhez.');
+
+        $rules = json_decode($node->version_rules, true);
+        $active_vid = $this->calculate_active_version($rules);
+
+        if ( !$active_vid ) {
+            wp_redirect( $node->download_url );
+            exit;
+        }
+
+        $api = new MSDL_Child_Graph_API();
+        $token = $api->fetch_token_from_main();
+        if ( is_wp_error( $token ) ) wp_die('Hiba a központi hitelesítés során.');
+
+        // JAVÍTÁS: Mivel a Microsoft API egyedi lekérésnél elrejtheti a linket,
+        // lekérjük a verziók listáját (ahol garantáltan szerepel), és abból olvassuk ki!
+        $endpoint = "/drives/{$api->drive_id}/items/{$node->graph_id}/versions";
+        $response = $api->make_request( $endpoint );
+        
+        if ( !is_wp_error($response) && isset($response['value']) && is_array($response['value']) ) {
+            foreach ( $response['value'] as $v ) {
+                if ( (string)$v['id'] === (string)$active_vid && !empty($v['@microsoft.graph.downloadUrl']) ) {
+                    wp_redirect( $v['@microsoft.graph.downloadUrl'] );
+                    exit;
+                }
+            }
+        }
+        
+        // Biztonsági tartalék, ha a verzió lekérés nem sikerül (pl. törölték a verziót a szerveren)
+        wp_redirect( $node->download_url );
+        exit;
     }
 
     public function get_public_file_versions( WP_REST_Request $request ) {
@@ -189,13 +226,10 @@ class MSDL_Child_Admin {
 
         global $wpdb;
         $table_name = $wpdb->prefix . 'msdl_nodes';
-        $node = $wpdb->get_row( $wpdb->prepare( "SELECT graph_id, visibility_roles FROM $table_name WHERE id = %d AND type = 'file'", $node_id ) );
+        $node = $wpdb->get_row( $wpdb->prepare( "SELECT graph_id, visibility_roles, version_rules FROM $table_name WHERE id = %d AND type = 'file'", $node_id ) );
         
         if ( !$node ) return new WP_Error( 'not_found', 'Fájl nem található az adatbázisban.', ['status'=>404] );
-
-        if ( class_exists('MSDL_Child_Elementor') && ! MSDL_Child_Elementor::check_item_access( $node->visibility_roles ) ) {
-            return new WP_Error( 'forbidden', 'Nincs jogosultságod ehhez a fájlhoz.', ['status' => 403] );
-        }
+        if ( class_exists('MSDL_Child_Elementor') && ! MSDL_Child_Elementor::check_item_access( $node->visibility_roles ) ) return new WP_Error( 'forbidden', 'Nincs jogosultságod ehhez a fájlhoz.', ['status' => 403] );
 
         $api = new MSDL_Child_Graph_API();
         $token = $api->fetch_token_from_main();
@@ -203,16 +237,23 @@ class MSDL_Child_Admin {
 
         $endpoint = "/drives/{$api->drive_id}/items/{$node->graph_id}/versions";
         $response = $api->make_request( $endpoint );
-        
         if ( is_wp_error( $response ) ) return $response;
         
         $versions = isset($response['value']) ? $response['value'] : [];
-        $total = count($versions);
+        if (empty($versions)) return rest_ensure_response(['total' => 1, 'previous' => 0, 'last_modified' => '-']);
         
+        $rules = json_decode($node->version_rules, true);
+        $active_vid = $this->calculate_active_version($rules);
+
+        $active_version = current($versions); // Default latest
+        if ( $active_vid ) {
+            foreach($versions as $v) { if ($v['id'] === $active_vid) { $active_version = $v; break; } }
+        }
+
         return rest_ensure_response([
-            'total' => $total,
-            'previous' => $total > 1 ? $total - 1 : 0,
-            'last_modified' => $total > 0 ? date('Y.m.d. H:i', strtotime($versions[0]['lastModifiedDateTime'])) : '-'
+            'total' => $active_version['id'] ?? count($versions),
+            'previous' => count($versions) > 1 ? count($versions) - 1 : 0,
+            'last_modified' => isset($active_version['lastModifiedDateTime']) ? date('Y.m.d. H:i', strtotime($active_version['lastModifiedDateTime'])) : '-'
         ]);
     }
 
@@ -221,7 +262,6 @@ class MSDL_Child_Admin {
         global $wpdb;
         $table_name = $wpdb->prefix . 'msdl_nodes';
         $node = $wpdb->get_row( $wpdb->prepare( "SELECT graph_id FROM $table_name WHERE id = %d AND type = 'file'", $node_id ) );
-        
         if ( !$node ) return new WP_Error( 'not_found', 'Fájl nem található az adatbázisban.' );
 
         $api = new MSDL_Child_Graph_API();
@@ -230,7 +270,6 @@ class MSDL_Child_Admin {
 
         $endpoint = "/drives/{$api->drive_id}/items/{$node->graph_id}/versions";
         $response = $api->make_request( $endpoint );
-        
         if ( is_wp_error( $response ) ) return $response;
         return rest_ensure_response( isset($response['value']) ? $response['value'] : [] );
     }
@@ -264,7 +303,6 @@ class MSDL_Child_Admin {
                     $body = json_decode( wp_remote_retrieve_body( $response ), true );
                     if ( isset( $body['next_sync'] ) && $body['next_sync'] > 0 ) $next_sync = wp_date( 'Y.m.d. H:i:s', $body['next_sync'] ) . ' (Becsült)';
                     else $next_sync = 'Jelenleg nincs ütemezve';
-                    
                     if ( isset( $body['interval'] ) ) {
                         $main_interval = $body['interval'];
                         $interval_display = isset($intervals[$main_interval]) ? $intervals[$main_interval] : $main_interval;
@@ -286,8 +324,7 @@ class MSDL_Child_Admin {
         $mode = get_option( 'msdl_sync_mode', 'central' );
         $local_interval = get_option( 'msdl_local_sync_interval', 'hourly' );
         wp_clear_scheduled_hook( 'msdl_scheduled_sync' );
-
-        if ( $mode === 'central' || $mode === 'disabled' ) return rest_ensure_response( ['success' => true, 'message' => 'Helyi időzítő kikapcsolva, a rendszer a központi parancsra vár.'] );
+        if ( $mode === 'central' || $mode === 'disabled' ) return rest_ensure_response( ['success' => true, 'message' => 'Helyi időzítő kikapcsolva.'] );
         wp_schedule_event( time(), $local_interval, 'msdl_scheduled_sync' );
         return rest_ensure_response( ['success' => true, 'message' => "Helyi felülbírálás aktív: {$local_interval}"] );
     }
@@ -319,7 +356,6 @@ class MSDL_Child_Admin {
         $table_name = $wpdb->prefix . 'msdl_nodes';
         $parent_id = sanitize_text_field( $request->get_param( 'parent_id' ) );
         
-        // JAVÍTÁS: Lekérjük az auto_inherit oszlopot is
         $query = empty( $parent_id ) 
             ? "SELECT * FROM $table_name WHERE parent_graph_id IS NULL OR parent_graph_id = '' ORDER BY type DESC, name ASC" 
             : $wpdb->prepare( "SELECT * FROM $table_name WHERE parent_graph_id = %s ORDER BY type DESC, name ASC", $parent_id );
@@ -363,23 +399,22 @@ class MSDL_Child_Admin {
         $node_id = intval( $params['id'] );
         $roles = sanitize_text_field( $params['roles'] );
         $apply_to_children = isset( $params['apply_to_children'] ) ? rest_sanitize_boolean( $params['apply_to_children'] ) : false;
-        
-        // ÚJ ADAT: auto_inherit
         $auto_inherit = isset( $params['auto_inherit'] ) ? (rest_sanitize_boolean( $params['auto_inherit'] ) ? 1 : 0) : 0;
-        
         $custom_title = isset($params['custom_title']) ? sanitize_text_field($params['custom_title']) : '';
         $custom_description = isset($params['custom_description']) ? wp_kses_post($params['custom_description']) : '';
+        $version_rules = isset($params['version_rules']) ? wp_json_encode($params['version_rules']) : null;
 
-        $wpdb->update( 
-            $table_name, 
-            [ 
-                'visibility_roles' => $roles, 
-                'custom_title' => $custom_title, 
-                'custom_description' => $custom_description,
-                'auto_inherit' => $auto_inherit
-            ], 
-            [ 'id' => $node_id ] 
-        );
+        $update_data = [ 
+            'visibility_roles' => $roles, 
+            'custom_title' => $custom_title, 
+            'custom_description' => $custom_description,
+            'auto_inherit' => $auto_inherit
+        ];
+        if ( $version_rules !== null ) {
+            $update_data['version_rules'] = $version_rules;
+        }
+
+        $wpdb->update( $table_name, $update_data, [ 'id' => $node_id ] );
 
         if ( $apply_to_children ) {
             $node = $wpdb->get_row( $wpdb->prepare( "SELECT graph_id FROM $table_name WHERE id = %d", $node_id ) );

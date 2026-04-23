@@ -78,7 +78,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
 
         $this->start_controls_section( 'style_buttons', [ 'label' => 'Gombok', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
         
-        // --- FŐ GOMB (Letöltés / Gyors Letöltés) ---
+        // --- FŐ GOMB ---
         $this->add_control( 'heading_primary_btn', [ 'label' => 'Fő CTA (Letöltés)', 'type' => \Elementor\Controls_Manager::HEADING, 'separator' => 'before' ] );
         $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'btn_typo', 'selector' => '{{WRAPPER}} .msdl-fm-btn' ] );
         $this->start_controls_tabs( 'tabs_btn' );
@@ -96,7 +96,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         $this->add_responsive_control( 'btn_radius', [ 'label' => 'Lekerekítés', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '6', 'right' => '6', 'bottom' => '6', 'left' => '6', 'unit' => 'px', 'isLinked' => true ], 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
         $this->add_responsive_control( 'btn_padding', [ 'label' => 'Belső Margó (Adatlap)', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '8', 'right' => '16', 'bottom' => '8', 'left' => '16', 'unit' => 'px', 'isLinked' => false ], 'selectors' => [ '{{WRAPPER}} .msdl-fm-fv-actions .msdl-fm-btn' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
 
-        // --- MÁSODLAGOS GOMB (Részletek / Mappa / Másolás) ---
+        // --- MÁSODLAGOS GOMB ---
         $this->add_control( 'heading_secondary_btn', [ 'label' => 'Másodlagos (Részletek)', 'type' => \Elementor\Controls_Manager::HEADING, 'separator' => 'before' ] );
         $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'btn_outline_typo', 'selector' => '{{WRAPPER}} .msdl-fm-btn-outline' ] );
         $this->start_controls_tabs( 'tabs_btn_outline' );
@@ -162,7 +162,6 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
             .msdl-fm-spinner { border: 3px solid rgba(0,0,0,0.1); width: 30px; height: 30px; border-radius: 50%; border-left-color: #2271b1; animation: msdl-spin 0.8s linear infinite; }
             @keyframes msdl-spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
             
-            /* TÁBLÁZAT RESZPZONZÍV MEGOLDÁS */
             .msdl-fm-view-table { width: 100%; overflow-x: auto; }
             .msdl-fm-table { width: 100%; border-collapse: collapse; border-spacing: 0; text-align: left; margin: 0; padding: 0; table-layout: auto;}
             <?php if ( $settings['show_table_header'] !== 'yes' ) : ?>.msdl-fm-table thead { display: none; }<?php endif; ?>
@@ -181,12 +180,11 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
             .msdl-fm-icon svg { width: 20px; height: 20px; }
             .msdl-fm-icon i { font-size: 20px; }
             
-            /* GOMB ALAPOK (Az Elementor vezérlők ezeket fogják felülírni) */
-            .msdl-fm-btn { text-decoration: none !important; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; cursor: pointer; white-space: nowrap; font-weight: 600; font-size: 13px; background-color: #2271b1; color: #ffffff; border: 1px solid transparent; border-radius: 6px; }
+            .msdl-fm-btn { text-decoration: none !important; display: inline-flex; align-items: center; justify-content: center; transition: all 0.2s; cursor: pointer; white-space: nowrap; font-weight: 600; font-size: 13px; border: 1px solid transparent; }
             .msdl-fm-btn:hover { opacity: 0.9; transform: translateY(-1px); }
             
-            .msdl-fm-btn-outline { background-color: transparent; border: 1px solid #2271b1; color: #2271b1; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; font-weight: 600; font-size: 13px; text-decoration: none !important; border-radius: 6px;}
-            .msdl-fm-btn-outline:hover { background-color: rgba(34, 113, 177, 0.05); transform: translateY(-1px); }
+            .msdl-fm-btn-outline { cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; font-family: inherit; font-weight: 600; font-size: 13px; text-decoration: none !important; border-radius: 6px; padding: 6px 12px;}
+            .msdl-fm-btn-outline:hover { transform: translateY(-1px); }
             
             .msdl-fm-file-view { display: none; padding: 25px; text-align: center; animation: msdl-fade-in 0.3s ease; }
             @keyframes msdl-fade-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -239,7 +237,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
             <div class="msdl-fm-body">
                 <div class="msdl-fm-loader"><div class="msdl-fm-spinner"></div><span class="msdl-loader-text">Lekérés folyamatban...</span></div>
                 
-                <div class="msdl-fm-view-table">
+                <div class="msdl-fm-view-table" style="overflow-x:auto;">
                     <table class="msdl-fm-table">
                         <thead><tr><th class="msdl-col-name">Név</th><?php if ( $settings['show_size'] === 'yes' ) echo '<th class="msdl-col-meta">Méret</th>'; ?><?php if ( $settings['show_date'] === 'yes' ) echo '<th class="msdl-col-meta">Módosítva</th>'; ?><th class="msdl-col-action">Művelet</th></tr></thead>
                         <tbody></tbody>
@@ -268,7 +266,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
             
             var showVersion = <?php echo $show_version ? 'true' : 'false'; ?>;
             
-            var siteUrl = "<?php echo site_url('/?msdl_download='); ?>"; var isEditor = <?php echo \Elementor\Plugin::$instance->editor->is_edit_mode() ? 'true' : 'false'; ?>;
+            var siteUrl = "<?php echo esc_url(rest_url('msdl-child/v1/download-file?id=')); ?>"; var isEditor = <?php echo \Elementor\Plugin::$instance->editor->is_edit_mode() ? 'true' : 'false'; ?>;
             var urlParams = new URLSearchParams(window.location.search);
             var currentFolder = urlParams.get('msdl_folder') || baseFolder; var currentSearch = urlParams.get('msdl_search') || ''; var currentFile = urlParams.get('msdl_file') || '';
 
@@ -348,12 +346,13 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
                             var rowClass = item.type === 'folder' ? 'msdl-fm-item-folder' : 'msdl-fm-item-file';
                             var actionHtml = ''; var nameHtml = ''; var iconHtml = showTableIcon ? '<span class="msdl-fm-icon">'+item.icon_html+'</span> ' : '';
 
-                            // TÁBLÁZAT gombok renderelése
+                            var displayName = item.custom_title ? item.custom_title : (item.type === 'file' ? (item.name.substring(0, item.name.lastIndexOf('.')) || item.name) : item.name);
+
                             if (item.type === 'folder') {
-                                nameHtml = '<a class="msdl-fm-item-name msdl-fm-dir-link '+rowClass+'" data-id="'+item.id+'">' + iconHtml + '<span>'+item.name+'</span></a>';
+                                nameHtml = '<a class="msdl-fm-item-name msdl-fm-dir-link '+rowClass+'" data-id="'+item.id+'">' + iconHtml + '<span>'+displayName+'</span></a>';
                                 actionHtml = '<div class="msdl-action-buttons"><a class="msdl-fm-btn-outline msdl-fm-dir-link" data-id="'+item.id+'">Megnyitás</a></div>';
                             } else {
-                                nameHtml = '<a class="msdl-fm-item-name msdl-fm-file-link '+rowClass+'" data-id="'+item.id+'">' + iconHtml + '<span>'+item.name+'</span></a>';
+                                nameHtml = '<a class="msdl-fm-item-name msdl-fm-file-link '+rowClass+'" data-id="'+item.id+'">' + iconHtml + '<span>'+displayName+'</span></a>';
                                 var dUrl = siteUrl + item.id;
                                 actionHtml = '<div class="msdl-action-buttons"><a class="msdl-fm-btn-outline msdl-fm-file-link" data-id="'+item.id+'" title="Részletek">Részletek</a><a href="'+dUrl+'" target="_blank" class="msdl-fm-btn" title="Gyors letöltés" style="padding: 6px 10px;"><svg style="width:14px;height:14px;fill:currentColor;" viewBox="0 0 512 512"><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V274.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V416c0-35.3-28.7-64-64-64H346.5l-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352H64zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z"/></svg></a></div>';
                             }
@@ -380,7 +379,10 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
                         var data = response.data; var $fv = $wrapper.find('.msdl-fm-file-view');
                         $fv.find('.msdl-fm-back-btn').attr('data-folder', data.parent_id);
                         if (fvShowIcon) $fv.find('.msdl-fm-fv-icon').html(data.icon_html).show(); else $fv.find('.msdl-fm-fv-icon').hide();
-                        if (fvShowTitle) $fv.find('.msdl-fm-fv-title').text(data.name).show(); else $fv.find('.msdl-fm-fv-title').hide();
+                        
+                        var displayTitle = data.custom_title ? data.custom_title : (data.name.substring(0, data.name.lastIndexOf('.')) || data.name);
+                        if (fvShowTitle) $fv.find('.msdl-fm-fv-title').text(displayTitle).show(); else $fv.find('.msdl-fm-fv-title').hide();
+                        
                         if (fvShowDesc && data.description && data.description.trim() !== '') $fv.find('.msdl-fm-fv-desc').html(data.description).show(); else $fv.find('.msdl-fm-fv-desc').hide();
                         
                         var metaHtml = '';
@@ -395,7 +397,6 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
                         var absUrl = window.location.protocol + "//" + window.location.host + window.location.pathname + "?msdl_file=" + data.id;
                         var actionsHtml = '';
                         
-                        // FÁJL ADATLAP gombok renderelése
                         if (fvShowDownload) actionsHtml += '<a href="'+data.download_url+'" target="_blank" class="msdl-fm-btn"><svg style="width:14px;height:14px;fill:currentColor;margin-right:6px;" viewBox="0 0 512 512"><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V274.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V416c0-35.3-28.7-64-64-64H346.5l-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352H64zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z"/></svg> Letöltés</a>';
                         if (fvShowCopy) actionsHtml += '<button class="msdl-fm-btn-outline msdl-copy-link" data-url="'+absUrl+'" title="Link másolása"><svg style="width:14px;height:14px;fill:currentColor;margin-right:6px;" viewBox="0 0 640 512"><path d="M579.8 267.7c56.5-56.5 56.5-148 0-204.5c-50-50-128.8-56.5-186.3-15.4l-1.6 1.1c-14.4 10.3-17.7 30.3-7.4 44.6s30.3 17.7 44.6 7.4l1.6-1.1c32.1-22.9 76-19.3 103.8 8.6c31.5 31.5 31.5 82.5 0 114L422.3 334.8c-31.5 31.5-82.5 31.5-114 0c-27.9-27.9-31.5-71.8-8.6-103.8l1.1-1.6c10.3-14.4 6.9-34.4-7.4-44.6s-34.4-6.9-44.6 7.4l-1.1 1.6C206.5 251.2 213 330 263 380c56.5 56.5 148 56.5 204.5 0L579.8 267.7zM60.2 244.3c-56.5 56.5-56.5 148 0 204.5c50 50 128.8 56.5 186.3 15.4l1.6-1.1c14.4-10.3 17.7-30.3 7.4-44.6s-30.3-17.7-44.6-7.4l-1.6 1.1c-32.1 22.9-76 19.3-103.8-8.6C74 372 74 321 105.5 289.5L217.7 177.2c31.5-31.5 82.5-31.5 114 0c27.9 27.9 31.5 71.8 8.6 103.9l-1.1 1.6c-10.3 14.4-6.9 34.4 7.4 44.6s34.4 6.9 44.6-7.4l1.1-1.6C433.5 260.8 427 182 377 132c-56.5-56.5-148-56.5-204.5 0L60.2 244.3z"/></svg> Link másolása</button>';
                         $fv.find('.msdl-fm-fv-actions').html(actionsHtml);

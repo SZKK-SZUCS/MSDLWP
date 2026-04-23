@@ -150,7 +150,7 @@ const WpTinyMceEditor = ({
           toolbar1: "formatselect bold italic bullist numlist blockquote alignleft aligncenter alignright link unlink wp_adv",
           toolbar2: "strikethrough hr forecolor pastetext removeformat charmap outdent indent undo redo",
           setup: function (editor) {
-            editor.on("change keyup", function () {
+            editor.on("change keyup ExecCommand NodeChange", function () {
               onChange(editor.getContent());
             });
           }
@@ -220,18 +220,22 @@ const FileManagerApp = () => {
   const [isRootModalOpen, setIsRootModalOpen] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [rootVisType, setRootVisType] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("public");
   const [rootSelectedRoles, setRootSelectedRoles] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
-  const [rootAutoInherit, setRootAutoInherit] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false); // ÚJ GYÖKÉR OPCIÓ
+  const [rootAutoInherit, setRootAutoInherit] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [isRootSaving, setIsRootSaving] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [isVisModalOpen, setIsVisModalOpen] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [editingNode, setEditingNode] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(null);
   const [visType, setVisType] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("public");
   const [selectedRoles, setSelectedRoles] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
   const [applyToChildren, setApplyToChildren] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
-  const [autoInherit, setAutoInherit] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false); // ÚJ MAPPA OPCIÓ
+  const [autoInherit, setAutoInherit] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [customTitle, setCustomTitle] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [customDesc, setCustomDesc] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("");
   const [isSaving, setIsSaving] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [versions, setVersions] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)([]);
+  const [versionRules, setVersionRules] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)({
+    active_version: null,
+    schedules: {}
+  });
   const [isLoadingVersions, setIsLoadingVersions] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [isBatchModalOpen, setIsBatchModalOpen] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)(false);
   const [batchVisType, setBatchVisType] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)("public");
@@ -360,6 +364,17 @@ const FileManagerApp = () => {
     setCustomTitle(node.custom_title || "");
     setCustomDesc(node.custom_description || "");
     setAutoInherit(node.auto_inherit == 1);
+    try {
+      setVersionRules(node.version_rules ? JSON.parse(node.version_rules) : {
+        active_version: null,
+        schedules: {}
+      });
+    } catch (e) {
+      setVersionRules({
+        active_version: null,
+        schedules: {}
+      });
+    }
     if (!node.visibility_roles) {
       setVisType("public");
       setSelectedRoles([]);
@@ -401,7 +416,8 @@ const FileManagerApp = () => {
           apply_to_children: applyToChildren,
           custom_title: customTitle,
           custom_description: customDesc,
-          auto_inherit: autoInherit
+          auto_inherit: autoInherit,
+          version_rules: versionRules
         }
       });
       setIsVisModalOpen(false);
@@ -432,6 +448,74 @@ const FileManagerApp = () => {
     }
     setIsBatchSaving(false);
   };
+  const handleActivateVersion = vid => {
+    setVersionRules({
+      ...versionRules,
+      active_version: vid
+    });
+  };
+  const handleScheduleVersion = (vid, dateString) => {
+    setVersionRules({
+      ...versionRules,
+      schedules: {
+        ...versionRules.schedules,
+        [vid]: dateString
+      }
+    });
+  };
+  const clearVersionRules = () => {
+    setVersionRules({
+      active_version: null,
+      schedules: {}
+    });
+  };
+
+  // ÚJ: Kiszámolja a jelenleg publikált verzió szövegét a listához
+  const getPublishedVersionText = node => {
+    if (node.type === "folder") return "-";
+    try {
+      const rules = node.version_rules ? JSON.parse(node.version_rules) : {};
+      const now = new Date().getTime();
+      let activeVid = rules.active_version;
+      let bestTime = 0;
+      if (rules.schedules) {
+        Object.entries(rules.schedules).forEach(([vid, timeStr]) => {
+          if (!timeStr) return;
+          const t = new Date(timeStr).getTime();
+          if (t <= now && t > bestTime) {
+            bestTime = t;
+            activeVid = vid;
+          }
+        });
+      }
+      if (!activeVid) return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
+        style: {
+          color: "#8c8f94"
+        },
+        children: "Legfrissebb"
+      });
+      return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("span", {
+        style: {
+          fontWeight: "bold",
+          color: "#2271b1"
+        },
+        children: ["V", activeVid]
+      });
+    } catch (e) {
+      return "Hiba";
+    }
+  };
+  const now = new Date().getTime();
+  let currentActiveVid = versionRules.active_version;
+  let bestTime = 0;
+  Object.entries(versionRules.schedules || {}).forEach(([vid, timeStr]) => {
+    if (!timeStr) return;
+    const t = new Date(timeStr).getTime();
+    if (t <= now && t > bestTime) {
+      bestTime = t;
+      currentActiveVid = vid;
+    }
+  });
   const hasFolderSelected = selectedNodes.some(id => nodes.find(n => n.id === id)?.type === "folder");
   const getVisibilityBadge = roleString => {
     if (!roleString) return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
@@ -636,10 +720,9 @@ const FileManagerApp = () => {
             children: "N\xE9v / C\xEDm"
           }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
             style: {
-              width: "80px",
-              textAlign: "center"
+              width: "100px"
             },
-            children: "Le\xEDr\xE1s"
+            children: "Publik\xE1lva"
           }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
             style: {
               width: "150px"
@@ -756,7 +839,7 @@ const FileManagerApp = () => {
                   color: isHidden ? "#777" : "#1d2327",
                   fontSize: "14px"
                 },
-                children: node.custom_title || node.name
+                children: node.custom_title || node.name.substring(0, node.name.lastIndexOf(".")) || node.name
               }), node.custom_title && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
                 style: {
                   fontSize: "12px",
@@ -767,24 +850,9 @@ const FileManagerApp = () => {
               })]
             }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
               style: {
-                textAlign: "center",
                 verticalAlign: "middle"
               },
-              children: node.custom_description && node.custom_description.trim() !== "" ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
-                title: "Van le\xEDr\xE1sa",
-                style: {
-                  color: "#00a32a"
-                },
-                children: /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
-                  icon: "yes"
-                })
-              }) : /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
-                title: "Nincs le\xEDr\xE1s",
-                style: {
-                  color: "#ccd0d4"
-                },
-                children: "-"
-              })
+              children: getPublishedVersionText(node)
             }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
               style: {
                 verticalAlign: "middle"
@@ -891,7 +959,7 @@ const FileManagerApp = () => {
       title: `Beállítások: ${editingNode.name}`,
       onRequestClose: () => setIsVisModalOpen(false),
       style: {
-        width: "850px"
+        width: "900px"
       },
       children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
         style: {
@@ -900,12 +968,12 @@ const FileManagerApp = () => {
           borderBottom: "1px solid #eee"
         },
         children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.TextControl, {
-          label: "Egyedi C\xEDm (Megjelen\xEDtett N\xE9v)",
+          label: "Egyedi C\xEDm (Kiterjeszt\xE9s n\xE9lk\xFCl!)",
           value: customTitle,
-          onChange: setCustomTitle
+          onChange: val => setCustomTitle(val)
         }), editingNode.type !== "folder" && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(WpTinyMceEditor, {
           value: customDesc,
-          onChange: setCustomDesc
+          onChange: val => setCustomDesc(val)
         })]
       }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.RadioControl, {
         label: "L\xE1that\xF3s\xE1g (Jogosults\xE1g)",
@@ -989,28 +1057,41 @@ const FileManagerApp = () => {
           border: "1px solid #ccd0d4",
           borderRadius: "4px"
         },
-        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("h3", {
+        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
           style: {
-            margin: "0 0 5px 0",
             display: "flex",
+            justifyContent: "space-between",
             alignItems: "center",
-            gap: "8px"
-          },
-          children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
-            icon: "backup",
-            style: {
-              color: "#2271b1"
-            }
-          }), " ", "SharePoint Verzi\xF3el\u0151zm\xE9nyek"]
-        }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("p", {
-          style: {
-            fontSize: "12px",
-            color: "#666",
             marginBottom: "15px"
           },
-          children: ["A rendszer a Microsoft szerver\xE9r\u0151l k\xE9ri le az \xE9l\u0151 verzi\xF3kat.", " ", /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("strong", {
-            children: "A frontend oldalon mindig csak a leg\xFAjabb verzi\xF3 \xE9rhet\u0151 el!"
-          })]
+          children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
+            children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("h3", {
+              style: {
+                margin: "0 0 5px 0",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px"
+              },
+              children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Dashicon, {
+                icon: "backup",
+                style: {
+                  color: "#2271b1"
+                }
+              }), " ", "SharePoint Verzi\xF3el\u0151zm\xE9nyek"]
+            }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("p", {
+              style: {
+                fontSize: "12px",
+                color: "#666",
+                margin: 0
+              },
+              children: "Be\xE1ll\xEDthatod, hogy melyik verzi\xF3 legyen el\xE9rhet\u0151 a weboldalon."
+            })]
+          }), Object.keys(versionRules.schedules || {}).length > 0 || versionRules.active_version ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+            isSmall: true,
+            isDestructive: true,
+            onClick: clearVersionRules,
+            children: "Vissza\xE1ll\xEDt\xE1s (Mindig a leg\xFAjabb)"
+          }) : null]
         }), isLoadingVersions ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Spinner, {}) : /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("table", {
           className: "wp-list-table widefat fixed striped",
           children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("thead", {
@@ -1021,17 +1102,23 @@ const FileManagerApp = () => {
                 },
                 children: "Verzi\xF3"
               }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
+                style: {
+                  width: "130px"
+                },
                 children: "L\xE9trehozva"
               }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
-                children: "Szerz\u0151"
+                style: {
+                  width: "170px"
+                },
+                children: "Id\u0151z\xEDt\xE9s (\xC9les\xEDt\xE9s)"
               }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
                 style: {
-                  width: "100px"
+                  width: "80px"
                 },
                 children: "M\xE9ret"
               }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("th", {
                 style: {
-                  width: "100px",
+                  width: "140px",
                   textAlign: "right"
                 },
                 children: "M\u0171velet"
@@ -1043,43 +1130,81 @@ const FileManagerApp = () => {
                 colSpan: "5",
                 children: "Nincsenek kor\xE1bbi verzi\xF3k."
               })
-            }) : versions.map((v, i) => {
-              const isCurrent = i === 0;
-              return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("tr", {
-                style: {
-                  fontWeight: isCurrent ? "bold" : "normal",
-                  backgroundColor: isCurrent ? "#f0f6fc" : "transparent"
-                },
-                children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
-                  children: isCurrent ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
-                    style: {
-                      color: "#00a32a"
-                    },
-                    children: "Aktu\xE1lis"
-                  }) : `V${v.id}`
-                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
-                  children: new Date(v.lastModifiedDateTime).toLocaleString("hu-HU")
-                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
-                  children: v.lastModifiedBy?.user?.displayName || "-"
-                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
-                  children: formatSize(v.size)
-                }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
+            }) : (() => {
+              const activeIndex = versions.findIndex(v => currentActiveVid ? v.id === currentActiveVid : false);
+              const resolvedActiveIndex = activeIndex !== -1 ? activeIndex : 0;
+              return versions.map((v, i) => {
+                const isLatest = i === 0;
+                const isActive = currentActiveVid ? v.id === currentActiveVid : isLatest;
+                const scheduleDate = versionRules?.schedules?.[v.id] || "";
+                const showScheduleInput = i < resolvedActiveIndex;
+                return /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("tr", {
                   style: {
-                    textAlign: "right"
+                    fontWeight: isActive ? "bold" : "normal",
+                    backgroundColor: isActive ? "#e2ffe8" : "transparent"
                   },
-                  children: v["@microsoft.graph.downloadUrl"] && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("a", {
-                    href: v["@microsoft.graph.downloadUrl"],
-                    target: "_blank",
-                    className: "button button-small",
+                  children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
+                    children: isActive ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("span", {
+                      style: {
+                        color: "#00a32a"
+                      },
+                      children: ["Akt\xEDv (V", v.id, ")"]
+                    }) : `V${v.id}`
+                  }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
+                    children: new Date(v.lastModifiedDateTime).toLocaleString("hu-HU", {
+                      year: "numeric",
+                      month: "2-digit",
+                      day: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit"
+                    })
+                  }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
+                    children: showScheduleInput ? /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("input", {
+                      type: "datetime-local",
+                      value: scheduleDate,
+                      onChange: e => handleScheduleVersion(v.id, e.target.value),
+                      style: {
+                        fontSize: "12px",
+                        padding: "2px 4px",
+                        width: "100%",
+                        fontWeight: "normal"
+                      }
+                    }) : /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("span", {
+                      style: {
+                        color: "#8c8f94",
+                        fontSize: "12px"
+                      },
+                      children: "-"
+                    })
+                  }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("td", {
+                    children: formatSize(v.size)
+                  }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("td", {
                     style: {
-                      borderColor: isCurrent ? "#2271b1" : "#8c8f94",
-                      color: isCurrent ? "#2271b1" : "#8c8f94"
+                      textAlign: "right"
                     },
-                    children: "Let\xF6lt\xE9s"
-                  })
-                })]
-              }, v.id);
-            })
+                    children: [!isActive && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.Button, {
+                      isSmall: true,
+                      isSecondary: true,
+                      onClick: () => handleActivateVersion(v.id),
+                      style: {
+                        marginRight: "5px"
+                      },
+                      title: "Azonnali \xE9les\xEDt\xE9s",
+                      children: "Aktiv\xE1l\xE1s"
+                    }), v["@microsoft.graph.downloadUrl"] && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("a", {
+                      href: v["@microsoft.graph.downloadUrl"],
+                      target: "_blank",
+                      className: "button button-small",
+                      style: {
+                        borderColor: isActive ? "#00a32a" : "#8c8f94",
+                        color: isActive ? "#00a32a" : "#8c8f94"
+                      },
+                      children: "Let\xF6lt\xE9s"
+                    })]
+                  })]
+                }, v.id);
+              });
+            })()
           })]
         })]
       }), /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
@@ -1131,7 +1256,7 @@ const FileManagerApp = () => {
           value: "hidden"
         }],
         onChange: value => setBatchVisType(value)
-      }), batchVisType === "roles" && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsxs)("div", {
+      }), batchVisType === "roles" && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("div", {
         style: {
           marginTop: "15px",
           padding: "15px",
@@ -1140,19 +1265,13 @@ const FileManagerApp = () => {
           maxHeight: "200px",
           overflowY: "auto"
         },
-        children: [/*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("p", {
-          style: {
-            margin: "0 0 10px 0",
-            fontWeight: "bold"
-          },
-          children: "V\xE1lassz szerepk\xF6r\xF6ket:"
-        }), Object.entries(wpRoles).map(([key, name]) => /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.CheckboxControl, {
+        children: Object.entries(wpRoles).map(([key, name]) => /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)(_wordpress_components__WEBPACK_IMPORTED_MODULE_1__.CheckboxControl, {
           label: name,
           checked: batchSelectedRoles.includes(key),
           onChange: val => {
             if (val) setBatchSelectedRoles([...batchSelectedRoles, key]);else setBatchSelectedRoles(batchSelectedRoles.filter(r => r !== key));
           }
-        }, key))]
+        }, key))
       }), hasFolderSelected && /*#__PURE__*/(0,react_jsx_runtime__WEBPACK_IMPORTED_MODULE_3__.jsx)("div", {
         style: {
           marginTop: "20px",

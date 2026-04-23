@@ -34,7 +34,7 @@ const WpTinyMceEditor = ({ value, onChange }) => {
           toolbar2:
             "strikethrough hr forecolor pastetext removeformat charmap outdent indent undo redo",
           setup: function (editor) {
-            editor.on("change keyup", function () {
+            editor.on("change keyup ExecCommand NodeChange", function () {
               onChange(editor.getContent());
             });
           },
@@ -96,7 +96,7 @@ const FileManagerApp = () => {
   const [isRootModalOpen, setIsRootModalOpen] = useState(false);
   const [rootVisType, setRootVisType] = useState("public");
   const [rootSelectedRoles, setRootSelectedRoles] = useState([]);
-  const [rootAutoInherit, setRootAutoInherit] = useState(false); // ÚJ GYÖKÉR OPCIÓ
+  const [rootAutoInherit, setRootAutoInherit] = useState(false);
   const [isRootSaving, setIsRootSaving] = useState(false);
 
   const [isVisModalOpen, setIsVisModalOpen] = useState(false);
@@ -104,12 +104,16 @@ const FileManagerApp = () => {
   const [visType, setVisType] = useState("public");
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [applyToChildren, setApplyToChildren] = useState(false);
-  const [autoInherit, setAutoInherit] = useState(false); // ÚJ MAPPA OPCIÓ
+  const [autoInherit, setAutoInherit] = useState(false);
   const [customTitle, setCustomTitle] = useState("");
   const [customDesc, setCustomDesc] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
   const [versions, setVersions] = useState([]);
+  const [versionRules, setVersionRules] = useState({
+    active_version: null,
+    schedules: {},
+  });
   const [isLoadingVersions, setIsLoadingVersions] = useState(false);
 
   const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
@@ -257,6 +261,16 @@ const FileManagerApp = () => {
     setCustomDesc(node.custom_description || "");
     setAutoInherit(node.auto_inherit == 1);
 
+    try {
+      setVersionRules(
+        node.version_rules
+          ? JSON.parse(node.version_rules)
+          : { active_version: null, schedules: {} },
+      );
+    } catch (e) {
+      setVersionRules({ active_version: null, schedules: {} });
+    }
+
     if (!node.visibility_roles) {
       setVisType("public");
       setSelectedRoles([]);
@@ -305,6 +319,7 @@ const FileManagerApp = () => {
           custom_title: customTitle,
           custom_description: customDesc,
           auto_inherit: autoInherit,
+          version_rules: versionRules,
         },
       });
       setIsVisModalOpen(false);
@@ -339,6 +354,65 @@ const FileManagerApp = () => {
     }
     setIsBatchSaving(false);
   };
+
+  const handleActivateVersion = (vid) => {
+    setVersionRules({ ...versionRules, active_version: vid });
+  };
+
+  const handleScheduleVersion = (vid, dateString) => {
+    setVersionRules({
+      ...versionRules,
+      schedules: { ...versionRules.schedules, [vid]: dateString },
+    });
+  };
+
+  const clearVersionRules = () => {
+    setVersionRules({ active_version: null, schedules: {} });
+  };
+
+  // ÚJ: Kiszámolja a jelenleg publikált verzió szövegét a listához
+  const getPublishedVersionText = (node) => {
+    if (node.type === "folder") return "-";
+    try {
+      const rules = node.version_rules ? JSON.parse(node.version_rules) : {};
+      const now = new Date().getTime();
+      let activeVid = rules.active_version;
+      let bestTime = 0;
+
+      if (rules.schedules) {
+        Object.entries(rules.schedules).forEach(([vid, timeStr]) => {
+          if (!timeStr) return;
+          const t = new Date(timeStr).getTime();
+          if (t <= now && t > bestTime) {
+            bestTime = t;
+            activeVid = vid;
+          }
+        });
+      }
+
+      if (!activeVid)
+        return <span style={{ color: "#8c8f94" }}>Legfrissebb</span>;
+      return (
+        <span style={{ fontWeight: "bold", color: "#2271b1" }}>
+          V{activeVid}
+        </span>
+      );
+    } catch (e) {
+      return "Hiba";
+    }
+  };
+
+  const now = new Date().getTime();
+  let currentActiveVid = versionRules.active_version;
+  let bestTime = 0;
+  Object.entries(versionRules.schedules || {}).forEach(([vid, timeStr]) => {
+    if (!timeStr) return;
+    const t = new Date(timeStr).getTime();
+    if (t <= now && t > bestTime) {
+      bestTime = t;
+      currentActiveVid = vid;
+    }
+  });
 
   const hasFolderSelected = selectedNodes.some(
     (id) => nodes.find((n) => n.id === id)?.type === "folder",
@@ -535,7 +609,7 @@ const FileManagerApp = () => {
             </th>
             <th style={{ width: "50px", textAlign: "center" }}>Típus</th>
             <th>Név / Cím</th>
-            <th style={{ width: "80px", textAlign: "center" }}>Leírás</th>
+            <th style={{ width: "100px" }}>Publikálva</th>
             <th style={{ width: "150px" }}>Láthatóság</th>
             <th style={{ width: "100px" }}>Méret</th>
             <th style={{ width: "150px" }}>Műveletek</th>
@@ -626,7 +700,9 @@ const FileManagerApp = () => {
                           color: isHidden ? "#777" : "#1d2327",
                           fontSize: "14px",
                         }}>
-                        {node.custom_title || node.name}
+                        {node.custom_title ||
+                          node.name.substring(0, node.name.lastIndexOf(".")) ||
+                          node.name}
                       </strong>
                     )}
                     {node.custom_title && (
@@ -640,17 +716,8 @@ const FileManagerApp = () => {
                       </div>
                     )}
                   </td>
-                  <td style={{ textAlign: "center", verticalAlign: "middle" }}>
-                    {node.custom_description &&
-                    node.custom_description.trim() !== "" ? (
-                      <span title="Van leírása" style={{ color: "#00a32a" }}>
-                        <Dashicon icon="yes" />
-                      </span>
-                    ) : (
-                      <span title="Nincs leírás" style={{ color: "#ccd0d4" }}>
-                        -
-                      </span>
-                    )}
+                  <td style={{ verticalAlign: "middle" }}>
+                    {getPublishedVersionText(node)}
                   </td>
                   <td style={{ verticalAlign: "middle" }}>
                     {getVisibilityBadge(node.visibility_roles)}
@@ -762,7 +829,7 @@ const FileManagerApp = () => {
         <Modal
           title={`Beállítások: ${editingNode.name}`}
           onRequestClose={() => setIsVisModalOpen(false)}
-          style={{ width: "850px" }}>
+          style={{ width: "900px" }}>
           <div
             style={{
               marginBottom: "20px",
@@ -770,12 +837,15 @@ const FileManagerApp = () => {
               borderBottom: "1px solid #eee",
             }}>
             <TextControl
-              label="Egyedi Cím (Megjelenített Név)"
+              label="Egyedi Cím (Kiterjesztés nélkül!)"
               value={customTitle}
-              onChange={setCustomTitle}
+              onChange={(val) => setCustomTitle(val)}
             />
             {editingNode.type !== "folder" && (
-              <WpTinyMceEditor value={customDesc} onChange={setCustomDesc} />
+              <WpTinyMceEditor
+                value={customDesc}
+                onChange={(val) => setCustomDesc(val)}
+              />
             )}
           </div>
           <RadioControl
@@ -874,27 +944,37 @@ const FileManagerApp = () => {
                 border: "1px solid #ccd0d4",
                 borderRadius: "4px",
               }}>
-              <h3
+              <div
                 style={{
-                  margin: "0 0 5px 0",
                   display: "flex",
+                  justifyContent: "space-between",
                   alignItems: "center",
-                  gap: "8px",
-                }}>
-                <Dashicon icon="backup" style={{ color: "#2271b1" }} />{" "}
-                SharePoint Verzióelőzmények
-              </h3>
-              <p
-                style={{
-                  fontSize: "12px",
-                  color: "#666",
                   marginBottom: "15px",
                 }}>
-                A rendszer a Microsoft szerveréről kéri le az élő verziókat.{" "}
-                <strong>
-                  A frontend oldalon mindig csak a legújabb verzió érhető el!
-                </strong>
-              </p>
+                <div>
+                  <h3
+                    style={{
+                      margin: "0 0 5px 0",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                    }}>
+                    <Dashicon icon="backup" style={{ color: "#2271b1" }} />{" "}
+                    SharePoint Verzióelőzmények
+                  </h3>
+                  <p style={{ fontSize: "12px", color: "#666", margin: 0 }}>
+                    Beállíthatod, hogy melyik verzió legyen elérhető a
+                    weboldalon.
+                  </p>
+                </div>
+                {Object.keys(versionRules.schedules || {}).length > 0 ||
+                versionRules.active_version ? (
+                  <Button isSmall isDestructive onClick={clearVersionRules}>
+                    Visszaállítás (Mindig a legújabb)
+                  </Button>
+                ) : null}
+              </div>
+
               {isLoadingVersions ? (
                 <Spinner />
               ) : (
@@ -902,10 +982,10 @@ const FileManagerApp = () => {
                   <thead>
                     <tr>
                       <th style={{ width: "85px" }}>Verzió</th>
-                      <th>Létrehozva</th>
-                      <th>Szerző</th>
-                      <th style={{ width: "100px" }}>Méret</th>
-                      <th style={{ width: "100px", textAlign: "right" }}>
+                      <th style={{ width: "130px" }}>Létrehozva</th>
+                      <th style={{ width: "170px" }}>Időzítés (Élesítés)</th>
+                      <th style={{ width: "80px" }}>Méret</th>
+                      <th style={{ width: "140px", textAlign: "right" }}>
                         Művelet
                       </th>
                     </tr>
@@ -916,54 +996,110 @@ const FileManagerApp = () => {
                         <td colSpan="5">Nincsenek korábbi verziók.</td>
                       </tr>
                     ) : (
-                      versions.map((v, i) => {
-                        const isCurrent = i === 0;
-                        return (
-                          <tr
-                            key={v.id}
-                            style={{
-                              fontWeight: isCurrent ? "bold" : "normal",
-                              backgroundColor: isCurrent
-                                ? "#f0f6fc"
-                                : "transparent",
-                            }}>
-                            <td>
-                              {isCurrent ? (
-                                <span style={{ color: "#00a32a" }}>
-                                  Aktuális
-                                </span>
-                              ) : (
-                                `V${v.id}`
-                              )}
-                            </td>
-                            <td>
-                              {new Date(v.lastModifiedDateTime).toLocaleString(
-                                "hu-HU",
-                              )}
-                            </td>
-                            <td>
-                              {v.lastModifiedBy?.user?.displayName || "-"}
-                            </td>
-                            <td>{formatSize(v.size)}</td>
-                            <td style={{ textAlign: "right" }}>
-                              {v["@microsoft.graph.downloadUrl"] && (
-                                <a
-                                  href={v["@microsoft.graph.downloadUrl"]}
-                                  target="_blank"
-                                  className="button button-small"
-                                  style={{
-                                    borderColor: isCurrent
-                                      ? "#2271b1"
-                                      : "#8c8f94",
-                                    color: isCurrent ? "#2271b1" : "#8c8f94",
-                                  }}>
-                                  Letöltés
-                                </a>
-                              )}
-                            </td>
-                          </tr>
+                      (() => {
+                        const activeIndex = versions.findIndex((v) =>
+                          currentActiveVid ? v.id === currentActiveVid : false,
                         );
-                      })
+                        const resolvedActiveIndex =
+                          activeIndex !== -1 ? activeIndex : 0;
+
+                        return versions.map((v, i) => {
+                          const isLatest = i === 0;
+                          const isActive = currentActiveVid
+                            ? v.id === currentActiveVid
+                            : isLatest;
+                          const scheduleDate =
+                            versionRules?.schedules?.[v.id] || "";
+                          const showScheduleInput = i < resolvedActiveIndex;
+
+                          return (
+                            <tr
+                              key={v.id}
+                              style={{
+                                fontWeight: isActive ? "bold" : "normal",
+                                backgroundColor: isActive
+                                  ? "#e2ffe8"
+                                  : "transparent",
+                              }}>
+                              <td>
+                                {isActive ? (
+                                  <span style={{ color: "#00a32a" }}>
+                                    Aktív (V{v.id})
+                                  </span>
+                                ) : (
+                                  `V${v.id}`
+                                )}
+                              </td>
+                              <td>
+                                {new Date(
+                                  v.lastModifiedDateTime,
+                                ).toLocaleString("hu-HU", {
+                                  year: "numeric",
+                                  month: "2-digit",
+                                  day: "2-digit",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })}
+                              </td>
+                              <td>
+                                {showScheduleInput ? (
+                                  <input
+                                    type="datetime-local"
+                                    value={scheduleDate}
+                                    onChange={(e) =>
+                                      handleScheduleVersion(
+                                        v.id,
+                                        e.target.value,
+                                      )
+                                    }
+                                    style={{
+                                      fontSize: "12px",
+                                      padding: "2px 4px",
+                                      width: "100%",
+                                      fontWeight: "normal",
+                                    }}
+                                  />
+                                ) : (
+                                  <span
+                                    style={{
+                                      color: "#8c8f94",
+                                      fontSize: "12px",
+                                    }}>
+                                    -
+                                  </span>
+                                )}
+                              </td>
+                              <td>{formatSize(v.size)}</td>
+                              <td style={{ textAlign: "right" }}>
+                                {!isActive && (
+                                  <Button
+                                    isSmall
+                                    isSecondary
+                                    onClick={() => handleActivateVersion(v.id)}
+                                    style={{ marginRight: "5px" }}
+                                    title="Azonnali élesítés">
+                                    Aktiválás
+                                  </Button>
+                                )}
+                                {v["@microsoft.graph.downloadUrl"] && (
+                                  <a
+                                    href={v["@microsoft.graph.downloadUrl"]}
+                                    target="_blank"
+                                    className="button button-small"
+                                    style={{
+                                      borderColor: isActive
+                                        ? "#00a32a"
+                                        : "#8c8f94",
+                                      color: isActive ? "#00a32a" : "#8c8f94",
+                                    }}>
+                                    Letöltés
+                                  </a>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        });
+                      })()
                     )}
                   </tbody>
                 </table>
@@ -1023,9 +1159,6 @@ const FileManagerApp = () => {
                 maxHeight: "200px",
                 overflowY: "auto",
               }}>
-              <p style={{ margin: "0 0 10px 0", fontWeight: "bold" }}>
-                Válassz szerepköröket:
-              </p>
               {Object.entries(wpRoles).map(([key, name]) => (
                 <CheckboxControl
                   key={key}

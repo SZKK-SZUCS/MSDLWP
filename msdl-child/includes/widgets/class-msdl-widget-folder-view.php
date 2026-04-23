@@ -251,15 +251,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             
             $date_str = (!empty($item->last_modified)) ? date('Y.m.d.', strtotime($item->last_modified)) : '-';
             
-            $display_name = $item->name;
-            if ( !empty($item->custom_title) ) {
-                $display_name = $item->custom_title;
-                if ( !$is_folder ) {
-                    if ( $ext !== 'file' && !preg_match('/\.'.$ext.'$/i', $display_name) ) {
-                        $display_name .= '.' . $ext;
-                    }
-                }
-            }
+            $display_name = !empty($item->custom_title) ? $item->custom_title : ( !$is_folder ? pathinfo($item->name, PATHINFO_FILENAME) : $item->name );
 
             $display_style = $is_hidden ? 'display:none;' : '';
             $item_class = 'msdl-fv-item layout-' . esc_attr($item_layout) . ' style-' . esc_attr($card_style) . ' msdl-page-item';
@@ -269,7 +261,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
                 $url = add_query_arg( $param_name, $item->id );
                 $btn_text = 'Megnyitás <i class="fas fa-arrow-right" style="margin-left:5px;"></i>';
             } else {
-                $url = site_url( '/?msdl_download=' . $item->id );
+                $url = rest_url( 'msdl-child/v1/download-file?id=' . $item->id );
                 $btn_text = $settings['btn_text'];
             }
 

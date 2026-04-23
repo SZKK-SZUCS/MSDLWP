@@ -242,7 +242,7 @@ class MSDL_Widget_Button extends \Elementor\Widget_Base {
     protected function render() {
         $settings = $this->get_settings_for_display();
         $file_id = intval( $settings['file_id'] );
-        $download_url = $file_id > 0 ? site_url( '/?msdl_download=' . $file_id ) : '#';
+        $download_url = $file_id > 0 ? rest_url( 'msdl-child/v1/download-file?id=' . $file_id ) : '#';
 
         $has_access = true;
         $needs_login = false;
