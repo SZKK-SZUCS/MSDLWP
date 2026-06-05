@@ -96,8 +96,10 @@ class MSDL_Main_REST_API {
         $child_domain = $request->get_header( 'X-MSDL-Child-Domain' );
         if ( empty( $child_domain ) ) return new WP_Error( 'missing_domain', 'Hiányzik a kliens domain azonosítója.', ['status' => 400] );
 
-        $parsed = parse_url( $child_domain, PHP_URL_HOST );
-        $clean_domain = $parsed ? $parsed : $child_domain;
+        // A parse_url levágná az almappát, ezért regex-szel tisztítjuk az URL-t
+        $clean_domain = preg_replace('#^https?://#', '', $child_domain);
+        $clean_domain = preg_replace('#^www\.#', '', $clean_domain);
+        $clean_domain = rtrim($clean_domain, '/');
         $site_data = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $table_name WHERE domain = %s", $clean_domain ) );
 
         if ( ! $site_data ) {

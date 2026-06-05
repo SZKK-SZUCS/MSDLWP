@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.2.3
+Stable tag: 1.2.4
 Requires PHP: 7.4
 License: Proprietary
 
@@ -28,6 +28,9 @@ A beépített React alapú admin felületen keresztül a weboldal adminisztráto
 * **Automata Tisztítás:** A SharePointból törölt mappák és fájlok (orphaned data) automatikus rekurzív takarítása a helyi adatbázisból.
 
 == Changelog ==
+
+= 1.2.4 =
+* small fix php
 
 = 1.2.3 =
 * Added support for staging
