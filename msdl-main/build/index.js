@@ -137,7 +137,7 @@ __webpack_require__.r(__webpack_exports__);
 
 const cleanDomain = val => {
   if (!val) return "";
-  return val.replace(/^https?:\/\//, "").replace(/^www\./, "").split("/")[0].split("?")[0];
+  return val.replace(/^https?:\/\//, "").replace(/^www\./, "").split("?")[0];
 };
 const App = () => {
   const [options, setOptions] = (0,_wordpress_element__WEBPACK_IMPORTED_MODULE_0__.useState)({
