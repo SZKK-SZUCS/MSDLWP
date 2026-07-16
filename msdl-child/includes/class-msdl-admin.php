@@ -191,37 +191,47 @@ class MSDL_Child_Admin {
         $node = $wpdb->get_row( $wpdb->prepare("SELECT graph_id, visibility_roles, download_url, version_rules FROM $table_name WHERE id = %d AND type = 'file'", $node_id) );
         
         if ( !$node ) wp_die('Fájl nem található a rendszerben.');
-        if ( class_exists('MSDL_Child_Elementor') && !MSDL_Child_Elementor::check_item_access($node->visibility_roles) ) wp_die('Nincs jogosultságod a fájl megtekintéséhez.');
+        if ( !class_exists('MSDL_Child_Elementor') || !MSDL_Child_Elementor::check_item_access($node->visibility_roles) ) wp_die('Nincs jogosultságod a fájl megtekintéséhez.');
 
         $rules = json_decode($node->version_rules, true);
         $active_vid = $this->calculate_active_version($rules);
-
-        if ( !$active_vid ) {
-            wp_redirect( $node->download_url );
-            exit;
-        }
 
         $api = new MSDL_Child_Graph_API();
         $token = $api->fetch_token_from_main();
         if ( is_wp_error( $token ) ) wp_die('Hiba a központi hitelesítés során.');
 
-        // JAVÍTÁS: Mivel a Microsoft API egyedi lekérésnél elrejtheti a linket,
-        // lekérjük a verziók listáját (ahol garantáltan szerepel), és abból olvassuk ki!
-        $endpoint = "/drives/{$api->drive_id}/items/{$node->graph_id}/versions";
-        $response = $api->make_request( $endpoint );
-        
-        if ( !is_wp_error($response) && isset($response['value']) && is_array($response['value']) ) {
-            foreach ( $response['value'] as $v ) {
-                if ( (string)$v['id'] === (string)$active_vid && !empty($v['@microsoft.graph.downloadUrl']) ) {
-                    wp_redirect( $v['@microsoft.graph.downloadUrl'] );
-                    exit;
+        if ( $active_vid ) {
+            // Rögzített/időzített verzió esetén a verziólistából olvassuk ki a linket (ott garantáltan szerepel).
+            $endpoint = "/drives/{$api->drive_id}/items/{$node->graph_id}/versions";
+            $response = $api->make_request( $endpoint );
+
+            if ( !is_wp_error($response) && isset($response['value']) && is_array($response['value']) ) {
+                foreach ( $response['value'] as $v ) {
+                    if ( (string)$v['id'] === (string)$active_vid && !empty($v['@microsoft.graph.downloadUrl']) ) {
+                        wp_redirect( $v['@microsoft.graph.downloadUrl'] );
+                        exit;
+                    }
                 }
             }
+        } else {
+            // Nincs rögzített verzió: mindig friss, élő linket kérünk a legutóbbi tartalomhoz.
+            // (A szinkron delta lekérdezése miatt a cache-elt download_url gyakran üres vagy lejárt.)
+            $endpoint = "/drives/{$api->drive_id}/items/{$node->graph_id}";
+            $response = $api->make_request( $endpoint );
+
+            if ( !is_wp_error($response) && !empty($response['@microsoft.graph.downloadUrl']) ) {
+                wp_redirect( $response['@microsoft.graph.downloadUrl'] );
+                exit;
+            }
         }
-        
-        // Biztonsági tartalék, ha a verzió lekérés nem sikerül (pl. törölték a verziót a szerveren)
-        wp_redirect( $node->download_url );
-        exit;
+
+        // Biztonsági tartalék, ha az élő lekérés nem sikerül (pl. törölték a verziót a szerveren)
+        if ( !empty($node->download_url) ) {
+            wp_redirect( $node->download_url );
+            exit;
+        }
+
+        wp_die('A fájl letöltési linkje jelenleg nem érhető el. Kérjük, próbálja meg később, vagy futtasson egy szinkronizációt.');
     }
 
     public function get_public_file_versions( WP_REST_Request $request ) {

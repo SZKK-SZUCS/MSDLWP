@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.2.4
+Stable tag: 1.2.5
 Requires PHP: 7.4
 License: Proprietary
 
@@ -28,6 +28,10 @@ A beépített React alapú admin felületen keresztül a weboldal adminisztráto
 * **Automata Tisztítás:** A SharePointból törölt mappák és fájlok (orphaned data) automatikus rekurzív takarítása a helyi adatbázisból.
 
 == Changelog ==
+
+= 1.2.5 =
+* Javítva: a letöltés gomb nem működött (üres válasz), ha a fájlhoz nem volt rögzített/időzített verzió beállítva, mert a szinkron során cache-elt letöltési link a Graph delta lekérdezés miatt gyakran üresen maradt. Mostantól ilyenkor mindig friss, élő linket kér a rendszer.
+* Javítva: jogosultság-ellenőrzés fail-open hibája a letöltési végponton (ha az Elementor osztály nem töltődött be, a hozzáférés-ellenőrzés kimaradt).
 
 = 1.2.4 =
 * small fix php
