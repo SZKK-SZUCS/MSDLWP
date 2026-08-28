@@ -77,8 +77,9 @@ class MSDL_Child_Sync {
 
         $delta_link_key = 'msdl_delta_link_' . md5( $drive_id . '_' . $folder_id );
         $delta_link = get_option( $delta_link_key );
+        $is_full_sync = empty( $delta_link );
 
-        if ( empty( $delta_link ) ) {
+        if ( $is_full_sync ) {
             $endpoint = "https://graph.microsoft.com/v1.0/drives/{$drive_id}/items/{$folder_id}/delta";
             $this->debug_log[] = "Delta lekérdezés a NULLÁRÓL indul.";
         } else {
@@ -158,7 +159,7 @@ class MSDL_Child_Sync {
             }
         }
 
-        $processed = $this->process_items( $all_items, $folder_id );
+        $processed = $this->process_items( $all_items, $folder_id, $is_full_sync );
         update_option( 'msdl_last_sync_timestamp', current_time( 'timestamp' ) );
         
         $this->debug_log[] = "=== SZINKRONIZÁCIÓ BEFEJEZVE ===";
@@ -167,18 +168,34 @@ class MSDL_Child_Sync {
         return [ 'success' => true, 'processed' => $processed ];
     }
 
-    private function process_items( $items, $root_folder_id ) {
+    private function process_items( $items, $root_folder_id, $is_full_sync = false ) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'msdl_nodes';
         $processed_count = 0;
 
         $parent_cache = [];
+        $seen_graph_ids = [];
         $this->debug_log[] = "Adatbázis feldolgozás indul. Elemek száma: " . count($items);
 
         foreach ( $items as $item ) {
-            if ( ! isset( $item['id'] ) || ! isset( $item['name'] ) ) continue;
-            
+            if ( ! isset( $item['id'] ) ) continue;
+
             $graph_id = sanitize_text_field( $item['id'] );
+
+            // FONTOS: a törölt elemeket a 'name' ellenőrzés ELŐTT kell kezelni.
+            // A SharePoint / OneDrive for Business a delta válaszban a törölt
+            // elemeknél NEM küldi vissza a 'name' mezőt, csak az 'id'-t és a
+            // 'deleted' (vagy '@removed') jelzőt. A korábbi 'name' szűrő emiatt
+            // eldobta a törléseket, így a fájlok bent ragadtak a listában.
+            if ( isset( $item['deleted'] ) || isset( $item['@removed'] ) ) {
+                $removed = $this->delete_node_and_descendants( $graph_id );
+                $this->debug_log[] = "[DELETE] Elem törölve (graph_id: {$graph_id}), eltávolított sorok: {$removed}";
+                $processed_count++;
+                continue;
+            }
+
+            if ( ! isset( $item['name'] ) ) continue;
+
             $parent_graph_id = isset( $item['parentReference']['id'] ) ? sanitize_text_field( $item['parentReference']['id'] ) : null;
             $type = isset( $item['folder'] ) ? 'folder' : 'file';
             $name = sanitize_text_field( $item['name'] );
@@ -187,13 +204,8 @@ class MSDL_Child_Sync {
                 $this->debug_log[] = "[SKIP] Gyökérmappa kihagyva: $name";
                 continue;
             }
-            
-            if ( isset( $item['deleted'] ) ) {
-                $wpdb->delete( $table_name, [ 'graph_id' => $graph_id ] );
-                $this->debug_log[] = "[DELETE] Elem törölve: $name";
-                $processed_count++;
-                continue;
-            }
+
+            $seen_graph_ids[] = $graph_id;
 
             $size = isset( $item['size'] ) ? intval( $item['size'] ) : 0;
             
@@ -278,7 +290,51 @@ class MSDL_Child_Sync {
             $processed_count++;
         }
 
+        // Teljes (nulláról induló) szinkronnál a delta feed a teljes aktuális
+        // mappafát visszaadja, de a törölt elemeket NEM. Ezért amit lokálisan
+        // tárolunk, de a friss listában nincs benne, azt eltávolítjuk – így a
+        // korábban elmulasztott törlések is kitakarításra kerülnek.
+        if ( $is_full_sync ) {
+            if ( ! empty( $seen_graph_ids ) ) {
+                $placeholders = implode( ',', array_fill( 0, count( $seen_graph_ids ), '%s' ) );
+                $deleted_stale = $wpdb->query( $wpdb->prepare(
+                    "DELETE FROM $table_name WHERE graph_id NOT IN ($placeholders)",
+                    $seen_graph_ids
+                ) );
+                $this->debug_log[] = "[PRUNE] Teljes szinkron: {$deleted_stale} elavult sor eltávolítva a DB-ből.";
+            } else {
+                $this->debug_log[] = "[PRUNE] Kihagyva: a teljes szinkron 0 élő elemet adott vissza, a takarítás biztonsági okból nem fut le.";
+            }
+        }
+
         return $processed_count;
+    }
+
+    // Töröl egy node-ot graph_id alapján, és rekurzívan az alatta lévő elemeket is.
+    // Mappa törlésekor a Graph általában külön jelzi minden gyerek törlését, de ez
+    // nem garantált (és a részfát is elveszíthetjük egy korábbi kihagyott törlés miatt),
+    // ezért a lokális gyerekeket is takarítjuk.
+    private function delete_node_and_descendants( $graph_id, $depth = 0 ) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'msdl_nodes';
+
+        $removed = 0;
+
+        if ( $depth < 50 ) {
+            $child_ids = $wpdb->get_col( $wpdb->prepare(
+                "SELECT graph_id FROM $table_name WHERE parent_graph_id = %s",
+                $graph_id
+            ) );
+
+            foreach ( $child_ids as $child_id ) {
+                if ( $child_id === $graph_id || empty( $child_id ) ) continue;
+                $removed += $this->delete_node_and_descendants( $child_id, $depth + 1 );
+            }
+        }
+
+        $removed += (int) $wpdb->delete( $table_name, [ 'graph_id' => $graph_id ] );
+
+        return $removed;
     }
 
     private function save_log() {

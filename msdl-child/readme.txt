@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.2.5
+Stable tag: 1.2.6
 Requires PHP: 7.4
 License: Proprietary
 
@@ -28,6 +28,11 @@ A beépített React alapú admin felületen keresztül a weboldal adminisztráto
 * **Automata Tisztítás:** A SharePointból törölt mappák és fájlok (orphaned data) automatikus rekurzív takarítása a helyi adatbázisból.
 
 == Changelog ==
+
+= 1.2.6 =
+* Javítva: a SharePointból törölt fájlok/mappák nem tűntek el a pluginból és kezelhetetlenné váltak. A delta feldolgozó a törölt elemeket a 'name' mező hiánya miatt eldobta még a törlés-kezelő előtt (a SharePoint / OneDrive for Business a törölt elemeknél nem küld 'name'-et). Mostantól a törlés az azonosító alapján fut le, a '@removed' jelzőt is figyeli, és a törölt mappák helyi gyerekeit rekurzívan takarítja.
+* Új: teljes (nulláról induló) szinkronnál a rendszer a helyi adatbázisból eltávolítja azokat az elemeket, amelyek már nincsenek a SharePoint mappában – így a korábban „bent ragadt” törlések is kitakarításra kerülnek (elég egyszer a „Gyorsítótár törlése” után szinkronizálni).
+* Módosítva: a Fájlkezelő (Pro) táblázatában a fájlsoroknál a Letöltés és a Részletek gomb sorrendje felcserélődött (előbb Letöltés, majd Részletek), így a Részletek gomb egy vonalba került a mappák Megnyitás gombjával.
 
 = 1.2.5 =
 * Javítva: a letöltés gomb nem működött (üres válasz), ha a fájlhoz nem volt rögzített/időzített verzió beállítva, mert a szinkron során cache-elt letöltési link a Graph delta lekérdezés miatt gyakran üresen maradt. Mostantól ilyenkor mindig friss, élő linket kér a rendszer.
