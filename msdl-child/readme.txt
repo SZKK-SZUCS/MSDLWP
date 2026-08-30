@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.2.7
+Stable tag: 1.2.8
 Requires PHP: 7.4
 License: Proprietary
 
@@ -28,6 +28,10 @@ A beépített React alapú admin felületen keresztül a weboldal adminisztráto
 * **Automata Tisztítás:** A SharePointból törölt mappák és fájlok (orphaned data) automatikus rekurzív takarítása a helyi adatbázisból.
 
 == Changelog ==
+
+= 1.2.8 =
+* Javítva: ha a SharePoint mappa üresre lett takarítva (minden fájl törölve), a teljes szinkron „0 db feldolgozva” eredménnyel lefutott, de a helyben bent ragadt bejegyzéseket nem törölte (a korábbi biztonsági feltétel 0 élő elemnél kihagyta a takarítást). Mostantól: ha a delta lekérdezés hibátlanul végigfutott és teljes szinkron volt, üres mappánál a helyi lista is kiürül. A szinkron visszajelzése és a log külön kiírja, hány elavult sor lett eltávolítva.
+* Új: a Fájlkezelőben minden sorhoz került egy „kuka” (törlés) gomb, amivel egy bejegyzés kézzel eltávolítható a helyi listából (a SharePoint fájlt nem érinti). Mappánál a helyi gyerekeket is törli.
 
 = 1.2.7 =
 * Javítva: a „Gyorsítótár ürítése” után a szinkron mégis növekményes (delta) módban futott perzisztens object cache (Redis/Memcached) esetén, mert a delta tokenek nyers SQL-lel törlődtek a WP opció-gyorsítótár frissítése nélkül. Emiatt a SharePointon már törölt, helyben „bent ragadt” fájlok a teljes újraszinkron ellenére sem tűntek el. Mostantól a tokenek szabályosan (delete_option) törlődnek, plusz egy külön jelző garantálja, hogy a következő szinkron a nulláról induljon.

@@ -171,6 +171,31 @@ const FileManagerApp = () => {
     setIsLoading(false);
   };
 
+  const handleDeleteNode = async (node) => {
+    const label = node.custom_title || node.name;
+    const extra =
+      node.type === "folder"
+        ? "\n\nA mappa alatti helyi bejegyzések is törlődnek."
+        : "";
+    if (
+      !window.confirm(
+        `Biztosan törlöd a(z) "${label}" bejegyzést a helyi listából?\n\nEz csak a WordPress adatbázisból távolítja el – a SharePointon lévő fájlt NEM érinti. Használd akkor, ha egy elem a SharePointról már törölve lett, de itt bent ragadt.${extra}`,
+      )
+    )
+      return;
+    try {
+      const res = await apiFetch({
+        path: "/msdl-child/v1/delete-node",
+        method: "POST",
+        data: { id: node.id },
+      });
+      if (!res.success) alert(res.message || "A törlés nem sikerült.");
+    } catch (e) {
+      alert("Hálózati hiba a törlés során.");
+    }
+    loadNodes(currentFolderId);
+  };
+
   const openRootModal = async () => {
     try {
       const settings = await apiFetch({ path: "/wp/v2/settings" });
@@ -747,12 +772,33 @@ const FileManagerApp = () => {
                     {formatSize(node.size)}
                   </td>
                   <td style={{ verticalAlign: "middle" }}>
-                    <Button
-                      isSmall
-                      isSecondary
-                      onClick={() => openVisibilityModal(node)}>
-                      Szerkesztés
-                    </Button>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "6px",
+                        alignItems: "center",
+                      }}>
+                      <Button
+                        isSmall
+                        isSecondary
+                        onClick={() => openVisibilityModal(node)}>
+                        Szerkesztés
+                      </Button>
+                      <Button
+                        isSmall
+                        isDestructive
+                        title="Eltávolítás a helyi listából (a SharePoint fájlt nem érinti)"
+                        onClick={() => handleDeleteNode(node)}>
+                        <Dashicon
+                          icon="trash"
+                          style={{
+                            fontSize: "16px",
+                            width: "16px",
+                            height: "16px",
+                          }}
+                        />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               );

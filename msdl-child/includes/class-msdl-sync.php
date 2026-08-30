@@ -2,6 +2,7 @@
 class MSDL_Child_Sync {
     private $api;
     private $debug_log = []; // A logolást tároló tömb
+    private $pruned_count = 0; // Az utolsó szinkronban eltávolított elavult sorok száma
 
     public function __construct() {
         $this->api = new MSDL_Child_Graph_API();
@@ -95,6 +96,7 @@ class MSDL_Child_Sync {
 
         $all_items = [];
         $has_more = true;
+        $delta_completed = false;
         $page = 1;
         
         while ( $has_more ) {
@@ -159,27 +161,34 @@ class MSDL_Child_Sync {
             } elseif ( isset( $body['@odata.deltaLink'] ) ) {
                 update_option( $delta_link_key, $body['@odata.deltaLink'] );
                 $this->debug_log[] = "Lapozás vége. Delta token elmentve.";
+                $delta_completed = true;
                 $has_more = false;
             } else {
                 $has_more = false;
             }
         }
 
-        $processed = $this->process_items( $all_items, $folder_id, $is_full_sync );
+        // Csak akkor takarítunk (prune), ha ez teljes szinkron VOLT, ÉS a delta
+        // lekérdezés rendben végigfutott (kaptunk deltaLink-et). Így egy megszakadt
+        // vagy hibás lekérés nem törli ki a helyi adatokat.
+        $prune_stale = $is_full_sync && $delta_completed;
+        $this->pruned_count = 0;
+
+        $processed = $this->process_items( $all_items, $folder_id, $prune_stale );
         update_option( 'msdl_last_sync_timestamp', current_time( 'timestamp' ) );
 
         // A kényszerített teljes szinkron sikeresen lefutott, a jelzőt töröljük.
-        if ( $is_full_sync ) {
+        if ( $is_full_sync && $delta_completed ) {
             delete_option( 'msdl_force_full_sync' );
         }
 
         $this->debug_log[] = "=== SZINKRONIZÁCIÓ BEFEJEZVE ===";
         $this->save_log();
 
-        return [ 'success' => true, 'processed' => $processed ];
+        return [ 'success' => true, 'processed' => $processed, 'pruned' => $this->pruned_count ];
     }
 
-    private function process_items( $items, $root_folder_id, $is_full_sync = false ) {
+    private function process_items( $items, $root_folder_id, $prune_stale = false ) {
         global $wpdb;
         $table_name = $wpdb->prefix . 'msdl_nodes';
         $processed_count = 0;
@@ -301,21 +310,23 @@ class MSDL_Child_Sync {
             $processed_count++;
         }
 
-        // Teljes (nulláról induló) szinkronnál a delta feed a teljes aktuális
-        // mappafát visszaadja, de a törölt elemeket NEM. Ezért amit lokálisan
-        // tárolunk, de a friss listában nincs benne, azt eltávolítjuk – így a
-        // korábban elmulasztott törlések is kitakarításra kerülnek.
-        if ( $is_full_sync ) {
+        // Végigfutott teljes szinkronnál a delta feed a teljes aktuális mappafát
+        // visszaadja (a törölt elemeket viszont NEM). Amit lokálisan tárolunk, de
+        // a friss listában nincs benne, azt eltávolítjuk – így a korábban elmulasztott
+        // törlések is kitakarításra kerülnek. Üres mappa esetén az egész tábla ürül.
+        if ( $prune_stale ) {
             if ( ! empty( $seen_graph_ids ) ) {
                 $placeholders = implode( ',', array_fill( 0, count( $seen_graph_ids ), '%s' ) );
-                $deleted_stale = $wpdb->query( $wpdb->prepare(
+                $deleted_stale = (int) $wpdb->query( $wpdb->prepare(
                     "DELETE FROM $table_name WHERE graph_id NOT IN ($placeholders)",
                     $seen_graph_ids
                 ) );
                 $this->debug_log[] = "[PRUNE] Teljes szinkron: {$deleted_stale} elavult sor eltávolítva a DB-ből.";
             } else {
-                $this->debug_log[] = "[PRUNE] Kihagyva: a teljes szinkron 0 élő elemet adott vissza, a takarítás biztonsági okból nem fut le.";
+                $deleted_stale = (int) $wpdb->query( "DELETE FROM $table_name" );
+                $this->debug_log[] = "[PRUNE] Teljes szinkron: a SharePoint mappa üres, {$deleted_stale} helyi sor törölve.";
             }
+            $this->pruned_count = $deleted_stale;
         }
 
         return $processed_count;

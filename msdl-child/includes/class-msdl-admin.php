@@ -152,6 +152,7 @@ class MSDL_Child_Admin {
         register_rest_route( 'msdl-child/v1', '/update-cron', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'handle_cron_update' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
         register_rest_route( 'msdl-child/v1', '/reset-sync', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'reset_sync' ], 'permission_callback' => [ $this, 'check_api_or_admin_auth' ] ]);
         register_rest_route( 'msdl-child/v1', '/get-sp-folder-url', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_sp_folder_url' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/delete-node', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'delete_node' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
         register_rest_route( 'msdl-child/v1', '/sync-status', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_sync_status' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
         
         register_rest_route( 'msdl-child/v1', '/get-file-versions', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_file_versions' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
@@ -347,6 +348,45 @@ class MSDL_Child_Admin {
         ]);
     }
 
+    // Kézi, helyi törlés: eltávolít egy node-ot (és a mappa esetén a helyi gyerekeit)
+    // a wp_msdl_nodes táblából. A SharePointon lévő fájlt NEM érinti – arra való, hogy
+    // egy már törölt, de a szinkronból bent ragadt bejegyzést ki lehessen takarítani.
+    public function delete_node( WP_REST_Request $request ) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'msdl_nodes';
+        $params = $request->get_json_params();
+        $node_id = isset( $params['id'] ) ? intval( $params['id'] ) : 0;
+        if ( $node_id <= 0 ) return rest_ensure_response( [ 'success' => false, 'message' => 'Érvénytelen azonosító.' ] );
+
+        $node = $wpdb->get_row( $wpdb->prepare( "SELECT graph_id, type FROM $table_name WHERE id = %d", $node_id ) );
+        if ( ! $node ) return rest_ensure_response( [ 'success' => false, 'message' => 'A bejegyzés nem található.' ] );
+
+        $removed = 0;
+        if ( $node->type === 'folder' && ! empty( $node->graph_id ) ) {
+            $removed += $this->delete_node_children( $node->graph_id, 0 );
+        }
+        $removed += (int) $wpdb->delete( $table_name, [ 'id' => $node_id ] );
+
+        return rest_ensure_response( [ 'success' => true, 'message' => "Törölve a helyi listából ({$removed} bejegyzés).", 'removed' => $removed ] );
+    }
+
+    private function delete_node_children( $parent_graph_id, $depth ) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'msdl_nodes';
+        $removed = 0;
+        if ( $depth >= 50 ) return $removed;
+
+        $children = $wpdb->get_results( $wpdb->prepare( "SELECT id, graph_id, type FROM $table_name WHERE parent_graph_id = %s", $parent_graph_id ) );
+        foreach ( $children as $child ) {
+            if ( $child->graph_id === $parent_graph_id ) continue;
+            if ( $child->type === 'folder' && ! empty( $child->graph_id ) ) {
+                $removed += $this->delete_node_children( $child->graph_id, $depth + 1 );
+            }
+            $removed += (int) $wpdb->delete( $table_name, [ 'id' => $child->id ] );
+        }
+        return $removed;
+    }
+
     public function get_sp_folder_url() {
         $cached = get_transient( 'msdl_sp_folder_url' );
         if ( ! empty( $cached ) ) {
@@ -408,7 +448,10 @@ class MSDL_Child_Admin {
         $sync = new MSDL_Child_Sync();
         $result = $sync->run_manual_sync();
         if ( is_wp_error( $result ) ) return rest_ensure_response(['success' => false, 'message' => $result->get_error_message()]);
-        return rest_ensure_response(['success' => true, 'message' => "Sikeres! Feldolgozva: {$result['processed']} db."]);
+        $pruned = isset( $result['pruned'] ) ? intval( $result['pruned'] ) : 0;
+        $msg = "Sikeres! Feldolgozva: {$result['processed']} db.";
+        if ( $pruned > 0 ) $msg .= " Eltávolítva (már nincs a SharePointon): {$pruned} db.";
+        return rest_ensure_response(['success' => true, 'message' => $msg]);
     }
 
     public function get_nodes( WP_REST_Request $request ) {
