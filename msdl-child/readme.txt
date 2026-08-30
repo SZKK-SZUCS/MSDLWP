@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.2.6
+Stable tag: 1.2.7
 Requires PHP: 7.4
 License: Proprietary
 
@@ -28,6 +28,10 @@ A beépített React alapú admin felületen keresztül a weboldal adminisztráto
 * **Automata Tisztítás:** A SharePointból törölt mappák és fájlok (orphaned data) automatikus rekurzív takarítása a helyi adatbázisból.
 
 == Changelog ==
+
+= 1.2.7 =
+* Javítva: a „Gyorsítótár ürítése” után a szinkron mégis növekményes (delta) módban futott perzisztens object cache (Redis/Memcached) esetén, mert a delta tokenek nyers SQL-lel törlődtek a WP opció-gyorsítótár frissítése nélkül. Emiatt a SharePointon már törölt, helyben „bent ragadt” fájlok a teljes újraszinkron ellenére sem tűntek el. Mostantól a tokenek szabályosan (delete_option) törlődnek, plusz egy külön jelző garantálja, hogy a következő szinkron a nulláról induljon.
+* Új: a Fájlkezelő admin oldalán, jobbra fent egy „Feltöltés a SharePointba” gomb, amely új lapon megnyitja a beállított SharePoint mappát (az azonosítás és a feltöltés magán a SharePoint felületén történik).
 
 = 1.2.6 =
 * Javítva: a SharePointból törölt fájlok/mappák nem tűntek el a pluginból és kezelhetetlenné váltak. A delta feldolgozó a törölt elemeket a 'name' mező hiánya miatt eldobta még a törlés-kezelő előtt (a SharePoint / OneDrive for Business a törölt elemeknél nem küld 'name'-et). Mostantól a törlés az azonosító alapján fut le, a '@removed' jelzőt is figyeli, és a törölt mappák helyi gyerekeit rekurzívan takarítja.

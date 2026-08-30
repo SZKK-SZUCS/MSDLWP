@@ -92,6 +92,7 @@ const FileManagerApp = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [showUnhandledOnly, setShowUnhandledOnly] = useState(false);
   const [selectedNodes, setSelectedNodes] = useState([]);
+  const [spFolderUrl, setSpFolderUrl] = useState("");
 
   const [isRootModalOpen, setIsRootModalOpen] = useState(false);
   const [rootVisType, setRootVisType] = useState("public");
@@ -126,6 +127,14 @@ const FileManagerApp = () => {
     loadNodes(currentFolderId);
     if (Object.keys(wpRoles).length === 0) loadRoles();
   }, [currentFolderId]);
+
+  useEffect(() => {
+    apiFetch({ path: "/msdl-child/v1/get-sp-folder-url" })
+      .then((res) => {
+        if (res && res.url) setSpFolderUrl(res.url);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (autoOpenFileId && nodes.length > 0) {
@@ -510,13 +519,25 @@ const FileManagerApp = () => {
           marginBottom: "20px",
         }}>
         <h1 style={{ margin: 0 }}>Fájlkezelő és Jogosultságok</h1>
-        <Button
-          isSecondary
-          onClick={openRootModal}
-          style={{ borderColor: "#2271b1", color: "#2271b1" }}>
-          <Dashicon icon="admin-network" style={{ marginRight: "5px" }} />{" "}
-          Gyökérmappa (Teljes Tár) Levédése
-        </Button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          {spFolderUrl && (
+            <Button
+              isPrimary
+              href={spFolderUrl}
+              target="_blank"
+              rel="noopener noreferrer">
+              <Dashicon icon="upload" style={{ marginRight: "5px" }} /> Feltöltés
+              a SharePointba
+            </Button>
+          )}
+          <Button
+            isSecondary
+            onClick={openRootModal}
+            style={{ borderColor: "#2271b1", color: "#2271b1" }}>
+            <Dashicon icon="admin-network" style={{ marginRight: "5px" }} />{" "}
+            Gyökérmappa (Teljes Tár) Levédése
+          </Button>
+        </div>
       </div>
 
       <div

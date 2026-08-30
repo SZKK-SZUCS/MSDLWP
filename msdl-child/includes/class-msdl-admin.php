@@ -151,6 +151,7 @@ class MSDL_Child_Admin {
         register_rest_route( 'msdl-child/v1', '/batch-update-visibility', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'batch_update_visibility' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
         register_rest_route( 'msdl-child/v1', '/update-cron', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'handle_cron_update' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
         register_rest_route( 'msdl-child/v1', '/reset-sync', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'reset_sync' ], 'permission_callback' => [ $this, 'check_api_or_admin_auth' ] ]);
+        register_rest_route( 'msdl-child/v1', '/get-sp-folder-url', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_sp_folder_url' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
         register_rest_route( 'msdl-child/v1', '/sync-status', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_sync_status' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
         
         register_rest_route( 'msdl-child/v1', '/get-file-versions', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_file_versions' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
@@ -330,8 +331,53 @@ class MSDL_Child_Admin {
 
     public function reset_sync() {
         global $wpdb;
-        $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE 'msdl_delta_link_%'" );
-        return rest_ensure_response(['success' => true, 'message' => 'Gyorsítótár törölve!']);
+        $keys = $wpdb->get_col( "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE 'msdl_delta_link_%'" );
+        foreach ( (array) $keys as $key ) {
+            delete_option( $key );
+        }
+        // A delta linkek autoload opciók: perzisztens object cache (Redis/Memcached) esetén
+        // a nyers SQL törlés nem ürítené a gyorsítótárat, ezért kényszerítjük, és külön jelzőt
+        // is állítunk, hogy a következő szinkron biztosan a nulláról induljon.
+        wp_cache_delete( 'alloptions', 'options' );
+        update_option( 'msdl_force_full_sync', 1, false );
+
+        return rest_ensure_response([
+            'success' => true,
+            'message' => 'Gyorsítótár törölve! (' . count( (array) $keys ) . ' delta token eltávolítva)'
+        ]);
+    }
+
+    public function get_sp_folder_url() {
+        $cached = get_transient( 'msdl_sp_folder_url' );
+        if ( ! empty( $cached ) ) {
+            return rest_ensure_response( [ 'url' => $cached ] );
+        }
+
+        $api = new MSDL_Child_Graph_API();
+        $token = $api->fetch_token_from_main();
+        if ( is_wp_error( $token ) ) {
+            return rest_ensure_response( [ 'url' => '', 'error' => $token->get_error_message() ] );
+        }
+        if ( empty( $api->drive_id ) ) {
+            return rest_ensure_response( [ 'url' => '', 'error' => 'Nincs Drive ID a központtól.' ] );
+        }
+
+        $folder_path = trim( (string) $api->root_folder_id, '/' );
+        if ( $folder_path === '' || $folder_path === 'root' ) {
+            $endpoint = "/drives/{$api->drive_id}/root?\$select=webUrl";
+        } else {
+            $encoded = implode( '/', array_map( 'rawurlencode', explode( '/', $folder_path ) ) );
+            $endpoint = "/drives/{$api->drive_id}/root:/{$encoded}?\$select=webUrl";
+        }
+
+        $response = $api->make_request( $endpoint );
+        if ( is_wp_error( $response ) || empty( $response['webUrl'] ) ) {
+            $msg = is_wp_error( $response ) ? $response->get_error_message() : 'A SharePoint mappa URL-je nem érhető el.';
+            return rest_ensure_response( [ 'url' => '', 'error' => $msg ] );
+        }
+
+        set_transient( 'msdl_sp_folder_url', $response['webUrl'], 12 * HOUR_IN_SECONDS );
+        return rest_ensure_response( [ 'url' => $response['webUrl'] ] );
     }
 
     public function handle_cron_update() {

@@ -76,8 +76,14 @@ class MSDL_Child_Sync {
         }
 
         $delta_link_key = 'msdl_delta_link_' . md5( $drive_id . '_' . $folder_id );
-        $delta_link = get_option( $delta_link_key );
+        $force_full = (bool) get_option( 'msdl_force_full_sync', 0 );
+        $delta_link = $force_full ? '' : get_option( $delta_link_key );
         $is_full_sync = empty( $delta_link );
+
+        if ( $force_full ) {
+            delete_option( $delta_link_key );
+            $this->debug_log[] = "KÉNYSZERÍTETT teljes újraszinkron (gyorsítótár ürítés után).";
+        }
 
         if ( $is_full_sync ) {
             $endpoint = "https://graph.microsoft.com/v1.0/drives/{$drive_id}/items/{$folder_id}/delta";
@@ -161,10 +167,15 @@ class MSDL_Child_Sync {
 
         $processed = $this->process_items( $all_items, $folder_id, $is_full_sync );
         update_option( 'msdl_last_sync_timestamp', current_time( 'timestamp' ) );
-        
+
+        // A kényszerített teljes szinkron sikeresen lefutott, a jelzőt töröljük.
+        if ( $is_full_sync ) {
+            delete_option( 'msdl_force_full_sync' );
+        }
+
         $this->debug_log[] = "=== SZINKRONIZÁCIÓ BEFEJEZVE ===";
         $this->save_log();
-        
+
         return [ 'success' => true, 'processed' => $processed ];
     }
 
