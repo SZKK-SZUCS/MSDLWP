@@ -1,0 +1,20 @@
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+    - phpstan-baseline.neon
+
+parameters:
+    level: 5
+    paths:
+        - .
+    excludePaths:
+        - vendor/*
+        - plugin-update-checker/*
+        - node_modules/*
+        - build/*
+        # Elementor Widget_Base/Base_Data_Control-t extendelik; Elementor csak
+        # feltételesen van betöltve, nincs stub-olva ebben a setupban.
+        - includes/widgets/class-msdl-widget-button.php
+        - includes/widgets/class-msdl-widget-file-card.php
+        - includes/widgets/class-msdl-widget-file-manager.php
+        - includes/widgets/class-msdl-widget-folder-view.php
+        - includes/controls/class-msdl-control-picker.php

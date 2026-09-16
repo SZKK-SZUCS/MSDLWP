@@ -1,0 +1,321 @@
+parameters:
+	ignoreErrors:
+		-
+			message: "#^Constant MSDL_CHILD_DIR not found\\.$#"
+			count: 1
+			path: includes/class-msdl-admin.php
+
+		-
+			message: "#^Constant MSDL_CHILD_URL not found\\.$#"
+			count: 1
+			path: includes/class-msdl-admin.php
+
+		-
+			message: "#^Constant MSDL_CHILD_DIR not found\\.$#"
+			count: 5
+			path: includes/class-msdl-elementor.php
+
+		-
+			message: "#^Instantiated class MSDL_Control_Picker not found\\.$#"
+			count: 1
+			path: includes/class-msdl-elementor.php
+
+		-
+			message: "#^Instantiated class MSDL_Widget_Button not found\\.$#"
+			count: 1
+			path: includes/class-msdl-elementor.php
+
+		-
+			message: "#^Instantiated class MSDL_Widget_File_Card not found\\.$#"
+			count: 1
+			path: includes/class-msdl-elementor.php
+
+		-
+			message: "#^Instantiated class MSDL_Widget_File_Manager not found\\.$#"
+			count: 1
+			path: includes/class-msdl-elementor.php
+
+		-
+			message: "#^Instantiated class MSDL_Widget_Folder_View not found\\.$#"
+			count: 1
+			path: includes/class-msdl-elementor.php
+
+		-
+			message: "#^Strict comparison using \\!\\=\\= between 'YahnisElsts…' and 'YahnisElsts…' will always evaluate to false\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Autoloader.php
+
+		-
+			message: "#^Ternary operator condition is always false\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Autoloader.php
+
+		-
+			message: "#^YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\DebugBar\\\\Panel\\:\\:__construct\\(\\) calls parent\\:\\:__construct\\(\\) but YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\DebugBar\\\\Panel does not extend any class\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/DebugBar/Panel.php
+
+		-
+			message: "#^Else branch is unreachable because previous condition is always true\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/DebugBar/PluginExtension.php
+
+		-
+			message: "#^Result of \\|\\| is always false\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Metadata.php
+
+		-
+			message: "#^Variable \\$apiResponse in empty\\(\\) always exists and is not falsy\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Metadata.php
+
+		-
+			message: "#^Action callback returns mixed but should not return anything\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Plugin/Package.php
+
+		-
+			message: "#^Property YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Plugin\\\\Package\\:\\:\\$pluginFile is never read, only written\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Plugin/Package.php
+
+		-
+			message: "#^Method YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Plugin\\\\Update\\:\\:fromPluginInfo\\(\\) should return static\\(YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Plugin\\\\Update\\) but returns YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Plugin\\\\Update\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Plugin/Update.php
+
+		-
+			message: "#^Offset 0 does not exist on array\\<array\\|WP_Error\\>\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Plugin/UpdateChecker.php
+
+		-
+			message: "#^Offset 1 does not exist on array\\<array\\|WP_Error\\>\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Plugin/UpdateChecker.php
+
+		-
+			message: "#^Parameter \\#1 \\$metaClass of method YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\UpdateChecker\\:\\:requestMetadata\\(\\) expects class\\-string\\<YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Update\\>, string given\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Plugin/UpdateChecker.php
+
+		-
+			message: "#^Strict comparison using \\=\\=\\= between YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Plugin\\\\PluginInfo and null will always evaluate to false\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Plugin/UpdateChecker.php
+
+		-
+			message: "#^Variable \\$checkPeriod might not be defined\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/PucFactory.php
+
+		-
+			message: "#^Variable \\$muPluginFile might not be defined\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/PucFactory.php
+
+		-
+			message: "#^Variable \\$optionName might not be defined\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/PucFactory.php
+
+		-
+			message: "#^Variable \\$slug might not be defined\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/PucFactory.php
+
+		-
+			message: "#^Strict comparison using \\=\\=\\= between string and false will always evaluate to false\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Theme/Package.php
+
+		-
+			message: "#^Method YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Theme\\\\Update\\:\\:fromJson\\(\\) should return YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Theme\\\\Update but returns null\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Theme/Update.php
+
+		-
+			message: "#^Return type \\(array\\) of method YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Theme\\\\Update\\:\\:toWpFormat\\(\\) should be compatible with return type \\(object\\) of method YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Update\\:\\:toWpFormat\\(\\)$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Theme/Update.php
+
+		-
+			message: "#^Offset 0 does not exist on array\\<array\\|WP_Error\\>\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Theme/UpdateChecker.php
+
+		-
+			message: "#^Offset 1 does not exist on array\\<array\\|WP_Error\\>\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Theme/UpdateChecker.php
+
+		-
+			message: "#^If condition is always true\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/UpdateChecker.php
+
+		-
+			message: "#^PHPDoc tag @return contains unresolvable type\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/UpdateChecker.php
+
+		-
+			message: "#^Property WP_Upgrader\\:\\:\\$skin \\(WP_Upgrader_Skin\\) in isset\\(\\) is not nullable\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/UpdateChecker.php
+
+		-
+			message: "#^Variable \\$remoteSource in isset\\(\\) always exists and is not nullable\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/UpdateChecker.php
+
+		-
+			message: "#^Variable \\$source in isset\\(\\) always exists and is not nullable\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/UpdateChecker.php
+
+		-
+			message: "#^Variable \\$upgrader in isset\\(\\) always exists and is not nullable\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/UpdateChecker.php
+
+		-
+			message: "#^Variable \\$wp_filesystem in isset\\(\\) always exists and is not nullable\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/UpdateChecker.php
+
+		-
+			message: "#^Action callback returns mixed but should not return anything\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/UpgraderStatus.php
+
+		-
+			message: "#^Property Plugin_Upgrader_Skin\\:\\:\\$plugin \\(string\\) in isset\\(\\) is not nullable\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/UpgraderStatus.php
+
+		-
+			message: "#^Property Theme_Upgrader_Skin\\:\\:\\$theme \\(string\\) in isset\\(\\) is not nullable\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/UpgraderStatus.php
+
+		-
+			message: "#^Property WP_Upgrader\\:\\:\\$skin \\(WP_Upgrader_Skin\\) in isset\\(\\) is not nullable\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/UpgraderStatus.php
+
+		-
+			message: "#^Right side of && is always true\\.$#"
+			count: 2
+			path: includes/plugin-update-checker/Puc/v5p6/UpgraderStatus.php
+
+		-
+			message: "#^Variable \\$upgrader in isset\\(\\) always exists and is not nullable\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/UpgraderStatus.php
+
+		-
+			message: "#^If condition is always true\\.$#"
+			count: 2
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/BitBucketApi.php
+
+		-
+			message: "#^Property YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Vcs\\\\BitBucketApi\\:\\:\\$oauth \\(YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\OAuthSignature\\) does not accept null\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/BitBucketApi.php
+
+		-
+			message: "#^Access to an undefined property object\\:\\:\\$encoding\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/GitHubApi.php
+
+		-
+			message: "#^Callback expects 2 parameters, \\$accepted_args is set to 4\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/GitHubApi.php
+
+		-
+			message: "#^Property YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Vcs\\\\GitHubApi\\:\\:\\$releaseFilterByType \\(string\\) does not accept default value of type int\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/GitHubApi.php
+
+		-
+			message: "#^Property YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Vcs\\\\GitHubApi\\:\\:\\$releaseFilterByType \\(string\\) does not accept int\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/GitHubApi.php
+
+		-
+			message: "#^Return type \\(void\\) of method YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Vcs\\\\GitHubApi\\:\\:getTag\\(\\) should be compatible with return type \\(YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Vcs\\\\Reference\\|null\\) of method YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Vcs\\\\Api\\:\\:getTag\\(\\)$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/GitHubApi.php
+
+		-
+			message: "#^Right side of && is always true\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/GitHubApi.php
+
+		-
+			message: "#^Access to an undefined property object\\:\\:\\$encoding\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/GitLabApi.php
+
+		-
+			message: "#^Access to an undefined property object\\:\\:\\$released_at\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/GitLabApi.php
+
+		-
+			message: "#^Access to an undefined property object\\:\\:\\$url\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/GitLabApi.php
+
+		-
+			message: "#^Property YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Vcs\\\\GitLabApi\\:\\:\\$releaseFilterByType \\(string\\) does not accept default value of type int\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/GitLabApi.php
+
+		-
+			message: "#^Property YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Vcs\\\\GitLabApi\\:\\:\\$releaseFilterByType \\(string\\) does not accept int\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/GitLabApi.php
+
+		-
+			message: "#^Return type \\(void\\) of method YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Vcs\\\\GitLabApi\\:\\:getTag\\(\\) should be compatible with return type \\(YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Vcs\\\\Reference\\|null\\) of method YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Vcs\\\\Api\\:\\:getTag\\(\\)$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/GitLabApi.php
+
+		-
+			message: "#^Right side of && is always true\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/GitLabApi.php
+
+		-
+			message: "#^Access to an undefined property YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Vcs\\\\Reference\\:\\:\\$version\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/PluginUpdateChecker.php
+
+		-
+			message: "#^Method YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Vcs\\\\PluginUpdateChecker\\:\\:requestInfo\\(\\) should return YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Plugin\\\\PluginInfo but returns null\\.$#"
+			count: 2
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/PluginUpdateChecker.php
+
+		-
+			message: "#^Variable \\$icons in isset\\(\\) is never defined\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/PluginUpdateChecker.php
+
+		-
+			message: "#^PHPDoc tag @property has invalid value \\(string\\|null version\\)\\: Unexpected token \"version\", expected variable at offset 227$#"
+			count: 1
+			path: includes/plugin-update-checker/Puc/v5p6/Vcs/Reference.php
+
+		-
+			message: "#^Unsafe usage of new static\\(\\)\\.$#"
+			count: 1
+			path: includes/plugin-update-checker/vendor/ParsedownModern.php
+
+		-
+			message: "#^Call to an undefined method YahnisElsts\\\\PluginUpdateChecker\\\\v5p6\\\\Vcs\\\\Api\\:\\:enableReleaseAssets\\(\\)\\.$#"
+			count: 1
+			path: msdl-child.php
