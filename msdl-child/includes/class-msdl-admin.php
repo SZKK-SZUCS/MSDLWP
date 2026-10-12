@@ -27,6 +27,17 @@ class MSDL_Child_Admin {
         add_action( 'wp_dashboard_setup', [ $this, 'add_dashboard_widget' ] );
         add_filter( 'cron_schedules', [ $this, 'add_cron_schedules' ] );
         add_action( 'msdl_scheduled_sync', [ $this, 'run_scheduled_sync' ] );
+        add_filter( 'user_has_cap', [ $this, 'grant_manage_documents_cap' ], 10, 4 );
+    }
+
+    // Aki `manage_options`-szal bír (Administrator), automatikusan megkapja a
+    // `msdl_manage_documents` jogot is – így a Fájlkezelő köré nem kell OR-olni
+    // a capability-ellenőrzéseket, elég mindenhol ezt az egy capability-t nézni.
+    // Más role-oknak ezt a capability-t egy role-kezelő pluginban (pl. Members,
+    // User Role Editor) kell manuálisan hozzáadni.
+    public function grant_manage_documents_cap( $allcaps, $caps, $args, $user ) {
+        if ( ! empty( $allcaps['manage_options'] ) ) $allcaps['msdl_manage_documents'] = true;
+        return $allcaps;
     }
 
     public function add_dashboard_widget() { wp_add_dashboard_widget( 'msdl_child_dashboard_widget', 'MSDL Dokumentumtár Áttekintés', [ $this, 'render_dashboard_widget' ] ); }
@@ -118,8 +129,8 @@ class MSDL_Child_Admin {
         $unhandled = $wpdb->get_var( "SELECT COUNT(id) FROM {$wpdb->prefix}msdl_nodes WHERE type='file' AND (visibility_roles = '' OR visibility_roles IS NULL)" );
         $menu_title = 'Dokumentumtár';
         if ( $unhandled > 0 ) $menu_title .= ' <span class="update-plugins count-' . $unhandled . '"><span class="plugin-count">' . $unhandled . '</span></span>';
-        add_menu_page( 'Dokumentumtár', $menu_title, 'manage_options', 'msdl-child', [ $this, 'display_filemanager_page' ], 'dashicons-media-document', 25 );
-        add_submenu_page( 'msdl-child', 'Fájlkezelő', 'Fájlkezelő', 'manage_options', 'msdl-child', [ $this, 'display_filemanager_page' ] );
+        add_menu_page( 'Dokumentumtár', $menu_title, 'msdl_manage_documents', 'msdl-child', [ $this, 'display_filemanager_page' ], 'dashicons-media-document', 25 );
+        add_submenu_page( 'msdl-child', 'Fájlkezelő', 'Fájlkezelő', 'msdl_manage_documents', 'msdl-child', [ $this, 'display_filemanager_page' ] );
         add_submenu_page( 'msdl-child', 'Szinkronizáció', 'Szinkronizáció', 'manage_options', 'msdl-sync', [ $this, 'display_sync_page' ] );
         if ( in_array( 'administrator', (array) wp_get_current_user()->roles ) ) add_submenu_page( 'msdl-child', 'Beállítások', 'Beállítások', 'manage_options', 'msdl-settings', [ $this, 'display_settings_page' ] );
     }
@@ -145,17 +156,17 @@ class MSDL_Child_Admin {
 
         register_rest_route( 'msdl-child/v1', '/test-connection', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'test_connection' ], 'permission_callback' => [ $this, 'check_api_or_admin_auth' ] ]);
         register_rest_route( 'msdl-child/v1', '/sync-now', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'trigger_sync' ], 'permission_callback' => [ $this, 'check_api_or_admin_auth' ] ]);
-        register_rest_route( 'msdl-child/v1', '/get-nodes', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_nodes' ], 'permission_callback' => function() { return current_user_can( 'read' ); } ]);
-        register_rest_route( 'msdl-child/v1', '/get-roles', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_wp_roles' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
-        register_rest_route( 'msdl-child/v1', '/update-visibility', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'update_visibility' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
-        register_rest_route( 'msdl-child/v1', '/batch-update-visibility', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'batch_update_visibility' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/get-nodes', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_nodes' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/get-roles', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_wp_roles' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/update-visibility', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'update_visibility' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/batch-update-visibility', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'batch_update_visibility' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
         register_rest_route( 'msdl-child/v1', '/update-cron', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'handle_cron_update' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
         register_rest_route( 'msdl-child/v1', '/reset-sync', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'reset_sync' ], 'permission_callback' => [ $this, 'check_api_or_admin_auth' ] ]);
-        register_rest_route( 'msdl-child/v1', '/get-sp-folder-url', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_sp_folder_url' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
-        register_rest_route( 'msdl-child/v1', '/delete-node', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'delete_node' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/get-sp-folder-url', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_sp_folder_url' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/delete-node', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'delete_node' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
         register_rest_route( 'msdl-child/v1', '/sync-status', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_sync_status' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
-        
-        register_rest_route( 'msdl-child/v1', '/get-file-versions', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_file_versions' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
+
+        register_rest_route( 'msdl-child/v1', '/get-file-versions', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_file_versions' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
         register_rest_route( 'msdl-child/v1', '/public-file-versions', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_public_file_versions' ], 'permission_callback' => '__return_true' ]);
         
         // ÚJ: A dinamikus letöltő végpont
