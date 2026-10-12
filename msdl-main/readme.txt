@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.2.8
+Stable tag: 1.2.9
 Requires PHP: 7.4
 License: Proprietary
 
@@ -24,6 +24,9 @@ Nem tartalmaz frontend megjelenítőket; kizárólag a hálózatbiztonságra, az
 * **Dinamikus Útválasztás:** Automatikusan lekérdezi és biztosítja a helyes SharePoint URL-eket és struktúrákat az újonnan csatlakozó weboldalak számára.
 
 == Changelog ==
+
+= 1.2.9 =
+* Child plugin: saját `msdl_manage_documents` jogosultság a Fájlkezelő admin menühöz, és biztonsági javítás a `/get-nodes` végponton (lásd Child changelog). A Mainben nincs funkcionális változás, csak verziószinkron.
 
 = 1.2.8 =
 * Child plugin: üres SharePoint mappánál a teljes szinkron most már kitakarítja a bent ragadt bejegyzéseket; új kézi „törlés a helyi listából” gomb a Fájlkezelőben (lásd Child changelog). A Mainben nincs funkcionális változás, csak verziószinkron.

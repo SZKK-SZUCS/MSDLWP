@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.2.8
+Stable tag: 1.2.9
 Requires PHP: 7.4
 License: Proprietary
 
@@ -28,6 +28,10 @@ A beépített React alapú admin felületen keresztül a weboldal adminisztráto
 * **Automata Tisztítás:** A SharePointból törölt mappák és fájlok (orphaned data) automatikus rekurzív takarítása a helyi adatbázisból.
 
 == Changelog ==
+
+= 1.2.9 =
+* Új: saját `msdl_manage_documents` jogosultság (capability) a Fájlkezelő admin menühöz és a mögötte lévő funkciókhoz (átnevezés, leírás, verziókezelés, láthatóság-állítás, lokális törlés). Eddig ez kizárólag Administratornak volt elérhető (`manage_options`) — mostantól egy role-kezelő pluginban (pl. Members, User Role Editor) tetszőleges role-nak (pl. Szerkesztő) megadható anélkül, hogy teljes site-adminná kellene tenni. Administrator továbbra is automatikusan mindent lát.
+* Javítva (biztonsági): a `/get-nodes` REST végpont eddig bármelyik bejelentkezett felhasználó (akár Subscriber) számára elérhető volt, és a teljes, szűrés nélküli fájl/mappa-listát adta vissza a láthatósági beállításoktól függetlenül. Mostantól ugyanaz a jogosultság védi, mint a Fájlkezelő menüt.
 
 = 1.2.8 =
 * Javítva: ha a SharePoint mappa üresre lett takarítva (minden fájl törölve), a teljes szinkron „0 db feldolgozva” eredménnyel lefutott, de a helyben bent ragadt bejegyzéseket nem törölte (a korábbi biztonsági feltétel 0 élő elemnél kihagyta a takarítást). Mostantól: ha a delta lekérdezés hibátlanul végigfutott és teljes szinkron volt, üres mappánál a helyi lista is kiürül. A szinkron visszajelzése és a log külön kiírja, hány elavult sor lett eltávolítva.
