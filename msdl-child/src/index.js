@@ -198,7 +198,7 @@ const FileManagerApp = () => {
 
   const openRootModal = async () => {
     try {
-      const settings = await apiFetch({ path: "/wp/v2/settings" });
+      const settings = await apiFetch({ path: "/msdl-child/v1/root-visibility" });
       const rootVis = settings.msdl_root_visibility || "public";
       const rAuto = settings.msdl_root_auto_inherit === "1";
       setRootAutoInherit(rAuto);
@@ -224,7 +224,7 @@ const FileManagerApp = () => {
       rootVisType === "roles" ? JSON.stringify(rootSelectedRoles) : rootVisType;
     try {
       await apiFetch({
-        path: "/wp/v2/settings",
+        path: "/msdl-child/v1/root-visibility",
         method: "POST",
         data: {
           msdl_root_visibility: finalRolesString,
@@ -1479,7 +1479,7 @@ const SettingsApp = () => {
   const [statusText, setStatusText] = useState("");
 
   useEffect(() => {
-    apiFetch({ path: "/wp/v2/settings" }).then((settings) => {
+    apiFetch({ path: "/msdl-child/v1/settings" }).then((settings) => {
       setOptions({
         msdl_main_server_url: settings.msdl_main_server_url || "",
         msdl_internal_api_key: settings.msdl_internal_api_key || "",
@@ -1494,7 +1494,7 @@ const SettingsApp = () => {
     setStatusText("Mentés...");
     try {
       await apiFetch({
-        path: "/wp/v2/settings",
+        path: "/msdl-child/v1/settings",
         method: "POST",
         data: options,
       });

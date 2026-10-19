@@ -28,19 +28,71 @@ class MSDL_Child_Admin {
         add_filter( 'cron_schedules', [ $this, 'add_cron_schedules' ] );
         add_action( 'msdl_scheduled_sync', [ $this, 'run_scheduled_sync' ] );
         add_filter( 'user_has_cap', [ $this, 'grant_manage_documents_cap' ], 10, 4 );
+        add_action( 'admin_init', [ $this, 'ensure_admin_role_cap' ] );
+        add_filter( 'members_get_capabilities', [ $this, 'add_members_capabilities' ] );
+        add_action( 'members_register_cap_groups', [ $this, 'register_members_cap_group' ] );
+        add_action( 'members_register_caps', [ $this, 'register_members_caps' ] );
     }
 
-    // Aki `manage_options`-szal bír (Administrator), automatikusan megkapja a
-    // `msdl_manage_documents` jogot is – így a Fájlkezelő köré nem kell OR-olni
-    // a capability-ellenőrzéseket, elég mindenhol ezt az egy capability-t nézni.
-    // Más role-oknak ezt a capability-t egy role-kezelő pluginban (pl. Members,
-    // User Role Editor) kell manuálisan hozzáadni.
+    // A Dokumentumtár saját capability-jei. Mindhárom külön adható egy role-nak
+    // (pl. Members → Szerepkörök → Szerkesztő → "Dokumentumtár" fül):
+    //  - msdl_manage_documents: Fájlkezelő (láthatóság, átnevezés, verziók, gyökérmappa védelem)
+    //  - msdl_manage_sync:      Szinkronizáció almenü (kézi szinkron, gyorsítótár ürítése)
+    //  - msdl_manage_settings:  Beállítások almenü (Main szerver URL, belső API kulcs, időzítés)
+    const CAPS = [
+        'msdl_manage_documents' => 'Dokumentumtár: Fájlkezelő',
+        'msdl_manage_sync'      => 'Dokumentumtár: Szinkronizáció',
+        'msdl_manage_settings'  => 'Dokumentumtár: Beállítások (API kulcs, szerver URL)',
+    ];
+
+    // Aki `manage_options`-szal bír (Administrator), automatikusan megkapja az
+    // összes MSDL capability-t – így a kódban elég mindenhol a saját cap-et nézni.
     public function grant_manage_documents_cap( $allcaps, $caps, $args, $user ) {
-        if ( ! empty( $allcaps['manage_options'] ) ) $allcaps['msdl_manage_documents'] = true;
+        if ( ! empty( $allcaps['manage_options'] ) ) {
+            foreach ( array_keys( self::CAPS ) as $cap ) $allcaps[ $cap ] = true;
+        }
         return $allcaps;
     }
 
-    public function add_dashboard_widget() { wp_add_dashboard_widget( 'msdl_child_dashboard_widget', 'MSDL Dokumentumtár Áttekintés', [ $this, 'render_dashboard_widget' ] ); }
+    // A fenti filter miatt a cap-ek egyetlen role-ban sincsenek eltárolva, a
+    // role-kezelő pluginok (Members, User Role Editor) viszont csak a role-okban
+    // tárolt vagy nekik explicit regisztrált capability-ket listázzák. Ezért
+    // egyszer beírjuk őket az Administrator role-ba (így minden role-kezelő
+    // "látja"), Members-nek pedig külön is regisztráljuk saját fül alatt.
+    public function ensure_admin_role_cap() {
+        if ( get_option( 'msdl_caps_version' ) === '2' ) return;
+        $role = get_role( 'administrator' );
+        if ( $role ) {
+            foreach ( array_keys( self::CAPS ) as $cap ) {
+                if ( ! $role->has_cap( $cap ) ) $role->add_cap( $cap );
+            }
+        }
+        update_option( 'msdl_caps_version', '2' );
+    }
+
+    public function add_members_capabilities( $caps ) {
+        return array_unique( array_merge( $caps, array_keys( self::CAPS ) ) );
+    }
+
+    public function register_members_cap_group() {
+        if ( ! function_exists( 'members_register_cap_group' ) ) return;
+        members_register_cap_group( 'msdl', [
+            'label'    => 'Dokumentumtár',
+            'caps'     => array_keys( self::CAPS ),
+            'icon'     => 'dashicons-media-document',
+            'priority' => 30,
+        ] );
+    }
+
+    public function register_members_caps() {
+        if ( ! function_exists( 'members_register_cap' ) ) return;
+        foreach ( self::CAPS as $cap => $label ) members_register_cap( $cap, [ 'label' => $label, 'group' => 'msdl' ] );
+    }
+
+    public function add_dashboard_widget() {
+        if ( ! current_user_can( 'msdl_manage_documents' ) ) return;
+        wp_add_dashboard_widget( 'msdl_child_dashboard_widget', 'MSDL Dokumentumtár Áttekintés', [ $this, 'render_dashboard_widget' ] );
+    }
 
     public function render_dashboard_widget() {
         global $wpdb;
@@ -93,7 +145,7 @@ class MSDL_Child_Admin {
             echo '</ul>';
         }
 
-        echo '<div class="msdl-dash-footer"><div style="font-size: 12px; color: #50575e;">Utolsó frissítés:<br><strong style="color:#1d2327;">' . $last_sync . '</strong></div><button type="button" id="msdl-quick-sync-btn" class="button button-secondary"><span class="dashicons dashicons-update" style="margin-top:3px;"></span> Szinkronizálás</button></div>';
+        echo '<div class="msdl-dash-footer"><div style="font-size: 12px; color: #50575e;">Utolsó frissítés:<br><strong style="color:#1d2327;">' . $last_sync . '</strong></div>' . ( current_user_can( 'msdl_manage_sync' ) ? '<button type="button" id="msdl-quick-sync-btn" class="button button-secondary"><span class="dashicons dashicons-update" style="margin-top:3px;"></span> Szinkronizálás</button>' : '' ) . '</div>';
         echo '<div id="msdl-quick-sync-msg" style="margin-top: 8px; font-weight: 600; font-size: 12px; text-align: right; display:none;"></div></div>';
         ?>
         <script>
@@ -131,8 +183,8 @@ class MSDL_Child_Admin {
         if ( $unhandled > 0 ) $menu_title .= ' <span class="update-plugins count-' . $unhandled . '"><span class="plugin-count">' . $unhandled . '</span></span>';
         add_menu_page( 'Dokumentumtár', $menu_title, 'msdl_manage_documents', 'msdl-child', [ $this, 'display_filemanager_page' ], 'dashicons-media-document', 25 );
         add_submenu_page( 'msdl-child', 'Fájlkezelő', 'Fájlkezelő', 'msdl_manage_documents', 'msdl-child', [ $this, 'display_filemanager_page' ] );
-        add_submenu_page( 'msdl-child', 'Szinkronizáció', 'Szinkronizáció', 'manage_options', 'msdl-sync', [ $this, 'display_sync_page' ] );
-        if ( in_array( 'administrator', (array) wp_get_current_user()->roles ) ) add_submenu_page( 'msdl-child', 'Beállítások', 'Beállítások', 'manage_options', 'msdl-settings', [ $this, 'display_settings_page' ] );
+        add_submenu_page( 'msdl-child', 'Szinkronizáció', 'Szinkronizáció', 'msdl_manage_sync', 'msdl-sync', [ $this, 'display_sync_page' ] );
+        add_submenu_page( 'msdl-child', 'Beállítások', 'Beállítások', 'msdl_manage_settings', 'msdl-settings', [ $this, 'display_settings_page' ] );
     }
 
     public function display_filemanager_page() { echo '<div id="msdl-admin-filemanager"></div>'; }
@@ -154,17 +206,28 @@ class MSDL_Child_Admin {
         $settings = [ 'msdl_main_server_url', 'msdl_internal_api_key', 'msdl_sync_mode', 'msdl_local_sync_interval', 'msdl_root_visibility', 'msdl_root_auto_inherit' ];
         foreach ( $settings as $setting ) register_setting( 'msdl_options', $setting, [ 'type' => 'string', 'show_in_rest' => true, 'default' => '' ] );
 
-        register_rest_route( 'msdl-child/v1', '/test-connection', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'test_connection' ], 'permission_callback' => [ $this, 'check_api_or_admin_auth' ] ]);
-        register_rest_route( 'msdl-child/v1', '/sync-now', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'trigger_sync' ], 'permission_callback' => [ $this, 'check_api_or_admin_auth' ] ]);
+        register_rest_route( 'msdl-child/v1', '/test-connection', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'test_connection' ], 'permission_callback' => function( $request ) { return $this->check_api_or_cap( $request, 'msdl_manage_settings' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/sync-now', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'trigger_sync' ], 'permission_callback' => function( $request ) { return $this->check_api_or_cap( $request, 'msdl_manage_sync' ); } ]);
         register_rest_route( 'msdl-child/v1', '/get-nodes', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_nodes' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
         register_rest_route( 'msdl-child/v1', '/get-roles', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_wp_roles' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
         register_rest_route( 'msdl-child/v1', '/update-visibility', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'update_visibility' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
         register_rest_route( 'msdl-child/v1', '/batch-update-visibility', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'batch_update_visibility' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
-        register_rest_route( 'msdl-child/v1', '/update-cron', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'handle_cron_update' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
-        register_rest_route( 'msdl-child/v1', '/reset-sync', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'reset_sync' ], 'permission_callback' => [ $this, 'check_api_or_admin_auth' ] ]);
+        register_rest_route( 'msdl-child/v1', '/update-cron', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'handle_cron_update' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_settings' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/reset-sync', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'reset_sync' ], 'permission_callback' => function( $request ) { return $this->check_api_or_cap( $request, 'msdl_manage_sync' ); } ]);
         register_rest_route( 'msdl-child/v1', '/get-sp-folder-url', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_sp_folder_url' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
         register_rest_route( 'msdl-child/v1', '/delete-node', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'delete_node' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
-        register_rest_route( 'msdl-child/v1', '/sync-status', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_sync_status' ], 'permission_callback' => function() { return current_user_can( 'manage_options' ); } ]);
+        register_rest_route( 'msdl-child/v1', '/sync-status', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_sync_status' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_sync' ); } ]);
+
+        // A core /wp/v2/settings végpont manage_options-t kér, ezért a gyökérmappa-
+        // védelem és a Beállítások oldal saját, capability-hez kötött végpontot kap.
+        register_rest_route( 'msdl-child/v1', '/root-visibility', [
+            [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_root_visibility' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ],
+            [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'save_root_visibility' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ],
+        ]);
+        register_rest_route( 'msdl-child/v1', '/settings', [
+            [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_client_settings' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_settings' ); } ],
+            [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'save_client_settings' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_settings' ); } ],
+        ]);
 
         register_rest_route( 'msdl-child/v1', '/get-file-versions', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_file_versions' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
         register_rest_route( 'msdl-child/v1', '/public-file-versions', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_public_file_versions' ], 'permission_callback' => '__return_true' ]);
@@ -438,6 +501,50 @@ class MSDL_Child_Admin {
         if ( $mode === 'central' || $mode === 'disabled' ) return rest_ensure_response( ['success' => true, 'message' => 'Helyi időzítő kikapcsolva.'] );
         wp_schedule_event( time(), $local_interval, 'msdl_scheduled_sync' );
         return rest_ensure_response( ['success' => true, 'message' => "Helyi felülbírálás aktív: {$local_interval}"] );
+    }
+
+    public function get_root_visibility() {
+        return rest_ensure_response( [
+            'msdl_root_visibility'   => get_option( 'msdl_root_visibility', 'public' ),
+            'msdl_root_auto_inherit' => get_option( 'msdl_root_auto_inherit', '0' ),
+        ] );
+    }
+
+    public function save_root_visibility( WP_REST_Request $request ) {
+        $params = $request->get_json_params();
+        $vis = isset( $params['msdl_root_visibility'] ) ? (string) $params['msdl_root_visibility'] : 'public';
+        if ( ! in_array( $vis, [ 'public', 'loggedin', 'hidden' ], true ) ) {
+            $roles = json_decode( $vis, true );
+            $vis = is_array( $roles ) ? wp_json_encode( array_values( array_filter( array_map( 'sanitize_key', $roles ) ) ) ) : 'public';
+        }
+        update_option( 'msdl_root_visibility', $vis );
+        update_option( 'msdl_root_auto_inherit', ! empty( $params['msdl_root_auto_inherit'] ) && $params['msdl_root_auto_inherit'] !== '0' ? '1' : '0' );
+        return $this->get_root_visibility();
+    }
+
+    public function get_client_settings() {
+        return rest_ensure_response( [
+            'msdl_main_server_url'     => get_option( 'msdl_main_server_url', '' ),
+            'msdl_internal_api_key'    => get_option( 'msdl_internal_api_key', '' ),
+            'msdl_sync_mode'           => get_option( 'msdl_sync_mode', 'central' ),
+            'msdl_local_sync_interval' => get_option( 'msdl_local_sync_interval', 'hourly' ),
+        ] );
+    }
+
+    public function save_client_settings( WP_REST_Request $request ) {
+        $params = $request->get_json_params();
+        if ( isset( $params['msdl_main_server_url'] ) ) update_option( 'msdl_main_server_url', esc_url_raw( trim( (string) $params['msdl_main_server_url'] ) ) );
+        if ( isset( $params['msdl_internal_api_key'] ) ) update_option( 'msdl_internal_api_key', sanitize_text_field( (string) $params['msdl_internal_api_key'] ) );
+        if ( isset( $params['msdl_sync_mode'] ) && in_array( $params['msdl_sync_mode'], [ 'central', 'override', 'disabled' ], true ) ) update_option( 'msdl_sync_mode', $params['msdl_sync_mode'] );
+        if ( isset( $params['msdl_local_sync_interval'] ) && array_key_exists( $params['msdl_local_sync_interval'], wp_get_schedules() ) ) update_option( 'msdl_local_sync_interval', $params['msdl_local_sync_interval'] );
+        return $this->get_client_settings();
+    }
+
+    // Bejelentkezett user esetén a megadott MSDL capability kell, gépi hívásnál
+    // (Main szerver) a belső API kulcs.
+    public function check_api_or_cap( WP_REST_Request $request, $cap ) {
+        if ( current_user_can( $cap ) ) return true;
+        return $this->check_api_or_admin_auth( $request );
     }
 
     public function check_api_or_admin_auth( WP_REST_Request $request ) {
