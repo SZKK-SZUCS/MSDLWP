@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.2.9
+Stable tag: 1.2.10
 Requires PHP: 7.4
 License: Proprietary
 
@@ -28,6 +28,12 @@ A beépített React alapú admin felületen keresztül a weboldal adminisztráto
 * **Automata Tisztítás:** A SharePointból törölt mappák és fájlok (orphaned data) automatikus rekurzív takarítása a helyi adatbázisból.
 
 == Changelog ==
+
+= 1.2.10 =
+* Új: két további jogosultság (capability) a Dokumentumtár almenüihez: `msdl_manage_sync` (Szinkronizáció: kézi szinkron, gyorsítótár ürítése) és `msdl_manage_settings` (Beállítások: Main szerver URL, belső API kulcs, időzítés). A `msdl_manage_documents`-szel együtt mindhárom külön adható meg bármely role-nak (pl. Szerkesztő). Administrator továbbra is automatikusan mindent lát.
+* Javítva: a Members plugin eddig nem listázta a `msdl_manage_documents` jogosultságot (csak menet közben, filterrel létezett). Mostantól mindhárom MSDL jogosultság megjelenik a Members-ben egy saját „Dokumentumtár” fül alatt, és az Administrator role-ba is be vannak írva, így más role-kezelők (pl. User Role Editor) is látják.
+* Javítva: a „Gyökérmappa levédése” ablak és a Beállítások oldal nem-admin felhasználónak nem működött (a core `/wp/v2/settings` végpont admin jogot kér). Mindkettő saját, jogosultsághoz kötött REST végpontot kapott.
+* Módosítva: az MSDL dashboard widget csak Fájlkezelő-joggal jelenik meg, a Szinkronizálás gomb csak szinkron-joggal.
 
 = 1.2.9 =
 * Új: saját `msdl_manage_documents` jogosultság (capability) a Fájlkezelő admin menühöz és a mögötte lévő funkciókhoz (átnevezés, leírás, verziókezelés, láthatóság-állítás, lokális törlés). Eddig ez kizárólag Administratornak volt elérhető (`manage_options`) — mostantól egy role-kezelő pluginban (pl. Members, User Role Editor) tetszőleges role-nak (pl. Szerkesztő) megadható anélkül, hogy teljes site-adminná kellene tenni. Administrator továbbra is automatikusan mindent lát.
