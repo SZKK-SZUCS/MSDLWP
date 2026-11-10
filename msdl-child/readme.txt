@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.2.10
+Stable tag: 1.2.11
 Requires PHP: 7.4
 License: Proprietary
 
@@ -28,6 +28,10 @@ A beépített React alapú admin felületen keresztül a weboldal adminisztráto
 * **Automata Tisztítás:** A SharePointból törölt mappák és fájlok (orphaned data) automatikus rekurzív takarítása a helyi adatbázisból.
 
 == Changelog ==
+
+= 1.2.11 =
+* Új: „Link másolása” gomb a Fájlkezelőben minden fájlnál. Stabil, nem lejáró letöltési linket másol a vágólapra (pl. sablonfájl belinkeléséhez Forminator űrlapba). A link mindig az aktív/ütemezett verziót tölti le.
+* Új: a kimásolt link aláírt (`msdl_key`), így a **rejtett** fájlok is letölthetők vele, miközben a listákban továbbra sem jelennek meg. Kulcs nélkül a rejtett fájl továbbra is tiltott (ID-próbálgatással nem érhető el). A szerepkörhöz/bejelentkezéshez kötött fájlok és a gyökérmappa-védelem változatlanul érvényes.
 
 = 1.2.10 =
 * Új: két további jogosultság (capability) a Dokumentumtár almenüihez: `msdl_manage_sync` (Szinkronizáció: kézi szinkron, gyorsítótár ürítése) és `msdl_manage_settings` (Beállítások: Main szerver URL, belső API kulcs, időzítés). A `msdl_manage_documents`-szel együtt mindhárom külön adható meg bármely role-nak (pl. Szerkesztő). Administrator továbbra is automatikusan mindent lát.

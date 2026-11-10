@@ -2,7 +2,7 @@
 /**
  * Plugin Name: MSDL - Dokumentumtár Kliens (Child)
  * Description: Microsoft Graph API dokumentumtár kliens, amely a Main plugintól kapja a hitelesítést.
- * Version: 1.2.10
+ * Version: 1.2.11
  * Author: MFÜI - Szurofka Márton
  */
 

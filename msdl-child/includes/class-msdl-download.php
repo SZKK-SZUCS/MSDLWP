@@ -5,6 +5,17 @@ class MSDL_Child_Download {
         add_action( 'template_redirect', [ $this, 'handle_download_request' ] );
     }
 
+    /**
+     * HMAC a node ID-jára és graph_id-jára: ha a fájl újraszinkronizáláskor új rekordot kap, a régi link érvénytelenné válik.
+     */
+    public static function get_share_key( $node ) {
+        return substr( hash_hmac( 'sha256', 'msdl_download|' . $node->id . '|' . $node->graph_id, wp_salt( 'auth' ) ), 0, 24 );
+    }
+
+    public static function get_share_url( $node ) {
+        return add_query_arg( [ 'msdl_download' => (int) $node->id, 'msdl_key' => self::get_share_key( $node ) ], home_url( '/' ) );
+    }
+
     public function handle_download_request() {
         if ( ! isset( $_GET['msdl_download'] ) ) return;
 
@@ -18,7 +29,17 @@ class MSDL_Child_Download {
 
         if ( ! $node ) wp_die( 'A fájl nem található a helyi adatbázisban.', 'Hiba', [ 'response' => 404 ] );
 
-        if ( ! class_exists('MSDL_Child_Elementor') || ! MSDL_Child_Elementor::check_item_access( $node->visibility_roles ) ) {
+        // Az admin "Link másolása" gombja aláírt linket ad ki. Érvényes kulccsal a "rejtett" fájl is letölthető
+        // (rejtett = nem jelenik meg a listákban, de közvetlen linkkel, pl. Forminatorból, elérhető legyen).
+        // A gyökér- és szerepkör-korlátozás ettől még érvényes; kulcs nélkül a rejtett fájl továbbra is tiltott,
+        // így az ID-k végigpróbálgatásával nem lehet rejtett fájlokat letölteni.
+        $access_roles = $node->visibility_roles;
+        $key = isset( $_GET['msdl_key'] ) ? sanitize_text_field( wp_unslash( $_GET['msdl_key'] ) ) : '';
+        if ( $access_roles === 'hidden' && $key !== '' && hash_equals( self::get_share_key( $node ), $key ) ) {
+            $access_roles = 'public';
+        }
+
+        if ( ! class_exists('MSDL_Child_Elementor') || ! MSDL_Child_Elementor::check_item_access( $access_roles ) ) {
             wp_die( 'Nincs jogosultságod a fájl megtekintéséhez vagy letöltéséhez.', 'Hozzáférés megtagadva', [ 'response' => 403 ] );
         }
 

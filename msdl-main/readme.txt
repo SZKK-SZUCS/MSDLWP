@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.2.9
+Stable tag: 1.2.11
 Requires PHP: 7.4
 License: Proprietary
 
@@ -24,6 +24,12 @@ Nem tartalmaz frontend megjelenítőket; kizárólag a hálózatbiztonságra, az
 * **Dinamikus Útválasztás:** Automatikusan lekérdezi és biztosítja a helyes SharePoint URL-eket és struktúrákat az újonnan csatlakozó weboldalak számára.
 
 == Changelog ==
+
+= 1.2.11 =
+* Child plugin: „Link másolása” gomb a Fájlkezelőben, aláírt letöltési linkkel, ami rejtett fájloknál is működik (lásd Child changelog). A Mainben nincs funkcionális változás, csak verziószinkron.
+
+= 1.2.10 =
+* Child plugin: külön jogosultság a Szinkronizáció és Beállítások almenühöz (lásd Child changelog). A Mainben nincs funkcionális változás, csak verziószinkron.
 
 = 1.2.9 =
 * Child plugin: saját `msdl_manage_documents` jogosultság a Fájlkezelő admin menühöz, és biztonsági javítás a `/get-nodes` végponton (lásd Child changelog). A Mainben nincs funkcionális változás, csak verziószinkron.

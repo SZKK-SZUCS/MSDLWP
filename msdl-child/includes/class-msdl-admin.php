@@ -198,8 +198,7 @@ class MSDL_Child_Admin {
         $asset_file = MSDL_CHILD_DIR . 'build/index.asset.php';
         if ( ! file_exists( $asset_file ) ) return;
         $asset = require $asset_file;
-        wp_enqueue_script( 'msdl-child-js', MSDL_CHILD_URL . 'build/index.js', $asset['dependencies'], $asset['version'], true );
-        wp_enqueue_style( 'wp-components' );
+        wp_enqueue_script( 'msdl-child-js', MSDL_CHILD_URL . 'build/index.js', $asset['dependencies'], $asset['version'], true );        wp_enqueue_style( 'wp-components' );
     }
 
     public function register_rest_endpoints() {
@@ -601,6 +600,8 @@ class MSDL_Child_Admin {
         foreach ( $nodes as &$node ) {
             if ( $node->type === 'folder' && isset($unhandled_parents[$node->graph_id]) ) $node->has_unhandled = true;
             else $node->has_unhandled = false;
+            // "Link másolása" gombhoz: stabil, aláírt letöltési link (a Graph downloadUrl kb. 1 óra után lejár).
+            if ( $node->type === 'file' && class_exists( 'MSDL_Child_Download' ) ) $node->share_url = MSDL_Child_Download::get_share_url( $node );
         }
 
         return rest_ensure_response( $nodes );

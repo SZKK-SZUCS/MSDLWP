@@ -109,6 +109,7 @@ const FileManagerApp = () => {
   const [customTitle, setCustomTitle] = useState("");
   const [customDesc, setCustomDesc] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [copiedNodeId, setCopiedNodeId] = useState(null);
 
   const [versions, setVersions] = useState([]);
   const [versionRules, setVersionRules] = useState({
@@ -169,6 +170,42 @@ const FileManagerApp = () => {
       setNodes(data);
     } catch (error) {}
     setIsLoading(false);
+  };
+
+  // A szerver által aláírt share_url-t másoljuk (pl. Forminatorba, sablonfájlhoz): rejtett fájlnál is működik,
+  // és nem jár le, szemben a Graph downloadUrl-lel.
+  const handleCopyLink = async (node) => {
+    const link = node.share_url;
+    if (!link) return;
+    let ok = false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(link);
+        ok = true;
+      }
+    } catch (e) {}
+    if (!ok) {
+      // Tartalék nem-HTTPS adminhoz (pl. helyi fejlesztés), ahol a Clipboard API nem érhető el.
+      const ta = document.createElement("textarea");
+      ta.value = link;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        ok = document.execCommand("copy");
+      } catch (e) {}
+      document.body.removeChild(ta);
+    }
+    if (!ok) {
+      window.prompt("Másold ki a linket (Ctrl+C):", link);
+      return;
+    }
+    setCopiedNodeId(node.id);
+    setTimeout(
+      () => setCopiedNodeId((cur) => (cur === node.id ? null : cur)),
+      2000,
+    );
   };
 
   const handleDeleteNode = async (node) => {
@@ -784,6 +821,32 @@ const FileManagerApp = () => {
                         onClick={() => openVisibilityModal(node)}>
                         Szerkesztés
                       </Button>
+                      {node.type === "file" && (
+                        <Button
+                          isSmall
+                          isSecondary
+                          title={
+                            !node.visibility_roles ||
+                            node.visibility_roles === "public" ||
+                            node.visibility_roles === "hidden"
+                              ? "Letöltési link másolása (pl. Forminatorba)"
+                              : "Letöltési link másolása – FIGYELEM: a fájl bejelentkezéshez/szerepkörhöz kötött, csak a jogosult felhasználók tudják megnyitni"
+                          }
+                          onClick={() => handleCopyLink(node)}>
+                          <Dashicon
+                            icon={
+                              copiedNodeId === node.id ? "yes" : "admin-links"
+                            }
+                            style={{
+                              fontSize: "16px",
+                              width: "16px",
+                              height: "16px",
+                              color:
+                                copiedNodeId === node.id ? "#00a32a" : undefined,
+                            }}
+                          />
+                        </Button>
+                      )}
                       <Button
                         isSmall
                         isDestructive
