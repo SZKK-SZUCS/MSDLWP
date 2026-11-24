@@ -66,6 +66,8 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
 
         MSDL_Child_Elementor::add_description_style_section( $this, 'section_desc_style', 'Leírás', '.msdl-fv-desc', [ 'show_desc' => 'yes' ] );
 
+        $this->register_box_styles();
+
         $this->start_controls_section( 'section_btn_style', [ 'label' => 'Gomb', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
         $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'btn_typo', 'selector' => '{{WRAPPER}} .msdl-fv-btn' ] );
         $this->start_controls_tabs( 'tabs_btn' );
@@ -86,6 +88,37 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         $this->add_control( 'pag_color', [ 'label' => 'Szín', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-pag-btn' => 'color: {{VALUE}}; border-color: {{VALUE}};', '{{WRAPPER}} .swiper-button-next, {{WRAPPER}} .swiper-button-prev' => 'color: {{VALUE}};' ] ] );
         $this->add_control( 'pag_bg_color', [ 'label' => 'Aktív / Hover Háttér', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-pag-btn.active, {{WRAPPER}} .msdl-pag-btn:hover' => 'background-color: {{VALUE}}; color: #fff;' ] ] );
         $this->end_controls_section();
+    }
+
+    /**
+     * Részletes (doboz) stílusvezérlők a widget minden elemére.
+     */
+    protected function register_box_styles() {
+        $all     = [ 'background', 'border', 'radius', 'shadow', 'margin', 'padding' ];
+        $spacing = [ 'margin', 'padding' ];
+        $text    = [ 'parts' => $spacing, 'typography' => true, 'color' => true ];
+
+        MSDL_Child_Elementor::add_box_style_sections( $this, [
+            [ 'box_fv_widget', 'Teljes widget – részletes', '> .elementor-widget-container', [ 'parts' => $all ] ],
+            [ 'box_fv_bc', 'Navigáció – sáv', '.msdl-fv-breadcrumbs', $text ],
+            [ 'box_fv_bc_link', 'Navigáció – linkek', '.msdl-fv-breadcrumbs a', [ 'parts' => $all, 'typography' => true, 'color' => true ] ],
+            [ 'box_fv_bc_current', 'Navigáció – aktuális elem', '.msdl-fv-breadcrumbs span.msdl-bc-current', $text ],
+            [ 'box_fv_card', 'Kártyák / sorok – részletes', '.msdl-fv-item', [ 'parts' => $all ] ],
+            [ 'box_fv_icon', 'Ikonok – doboz és méret', '.msdl-fv-icon', [
+                'parts'     => [ 'background', 'border', 'radius', 'shadow', 'margin', 'padding' ],
+                'icon_size' => [
+                    '.msdl-fv-icon i'   => 'font-size: {{SIZE}}{{UNIT}};',
+                    '.msdl-fv-icon svg' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};',
+                ],
+                'condition' => [ 'show_icon' => 'yes' ],
+            ] ],
+            [ 'box_fv_title', 'Cím – térköz', '.msdl-fv-title', [ 'parts' => $spacing, 'condition' => [ 'show_title' => 'yes' ] ] ],
+            [ 'box_fv_desc_box', 'Leírás – háttér és keret', '.msdl-fv-desc', [ 'parts' => [ 'background', 'border', 'radius', 'shadow' ], 'condition' => [ 'show_desc' => 'yes' ] ] ],
+            [ 'box_fv_meta', 'Meta sor – részletes', '.msdl-fv-meta', [ 'parts' => [ 'background', 'border', 'radius', 'margin', 'padding' ] ] ],
+            [ 'box_fv_badge', 'Verzió jelzés – további', '.msdl-version-badge', [ 'parts' => [ 'border', 'shadow', 'margin' ] ] ],
+            [ 'box_fv_btn', 'Gomb – további', '.msdl-fv-btn', [ 'parts' => [ 'background', 'shadow', 'margin', 'padding' ], 'condition' => [ 'show_button' => 'yes' ] ] ],
+            [ 'box_fv_pag', 'Lapozó – részletes', '.msdl-pag-btn', [ 'parts' => $all, 'typography' => true, 'color' => true ] ],
+        ] );
     }
 
     protected function render() {

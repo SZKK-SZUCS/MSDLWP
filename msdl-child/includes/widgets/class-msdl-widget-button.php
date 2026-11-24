@@ -183,6 +183,8 @@ class MSDL_Widget_Button extends \Elementor\Widget_Base {
         ]);
         $this->end_controls_section();
 
+        MSDL_Child_Elementor::add_box_style_section( $this, 'box_btn_extra', 'Gomb – további (színátmenet, árnyék, margó)', '.msdl-btn', [ 'parts' => [ 'background', 'shadow', 'margin' ] ] );
+
         $this->start_controls_section( 'style_button_section', [ 
             'label' => 'Gomb Háttere és Animációja', 
             'tab' => \Elementor\Controls_Manager::TAB_STYLE 

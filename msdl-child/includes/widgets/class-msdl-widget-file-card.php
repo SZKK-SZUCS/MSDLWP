@@ -120,6 +120,8 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
         $this->add_responsive_control( 'desc_margin_top', [ 'label' => 'Távolság a kártyától', 'type' => \Elementor\Controls_Manager::SLIDER, 'default' => [ 'unit' => 'px', 'size' => 12 ], 'selectors' => [ '{{WRAPPER}} .msdl-fc-desc-box' => 'margin-top: {{SIZE}}{{UNIT}};' ] ] );
         $this->end_controls_section();
 
+        $this->register_box_styles();
+
         $this->start_controls_section( 'section_btn_style', [ 'label' => '7. Letöltés Gomb', 'tab' => \Elementor\Controls_Manager::TAB_STYLE, 'condition' => [ 'show_button' => 'yes' ] ] );
         $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'btn_typography', 'selector' => '{{WRAPPER}} .msdl-fc-btn' ] );
         $this->start_controls_tabs( 'tabs_btn_style' );
@@ -139,6 +141,18 @@ class MSDL_Widget_File_Card extends \Elementor\Widget_Base {
         $this->add_responsive_control( 'btn_border_radius', [ 'label' => 'Lekerekítés', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '6', 'right' => '6', 'bottom' => '6', 'left' => '6', 'unit' => 'px', 'isLinked' => true ], 'selectors' => [ '{{WRAPPER}} .msdl-fc-btn' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ]);
         $this->add_responsive_control( 'btn_padding', [ 'label' => 'Belső Margó', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '8', 'right' => '16', 'bottom' => '8', 'left' => '16', 'unit' => 'px', 'isLinked' => false ], 'selectors' => [ '{{WRAPPER}} .msdl-fc-btn' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ]);
         $this->end_controls_section();
+    }
+
+    /**
+     * A meglévő szekciókat kiegészítő vezérlők (színátmenet, margin, árnyék, térközök).
+     */
+    protected function register_box_styles() {
+        MSDL_Child_Elementor::add_box_style_sections( $this, [
+            [ 'box_fc_widget', 'Kártya – színátmenet és margó', '.msdl-fc-wrapper', [ 'parts' => [ 'background', 'margin' ] ] ],
+            [ 'box_fc_title', 'Cím – térköz', '.msdl-fc-title', [ 'parts' => [ 'margin', 'padding' ] ] ],
+            [ 'box_fc_meta', 'Meta – térköz', '.msdl-fc-meta', [ 'parts' => [ 'margin', 'padding' ] ] ],
+            [ 'box_fc_btn', 'Gomb – további', '.msdl-fc-btn', [ 'parts' => [ 'background', 'shadow', 'margin' ] ] ],
+        ] );
     }
 
     protected function render() {

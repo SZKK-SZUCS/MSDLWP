@@ -134,6 +134,95 @@ class MSDL_Child_Elementor {
         $widget->end_controls_section();
     }
 
+    /**
+     * Közös "doboz" stílus-szekció: egy CSS selector minden gyakori vizuális tulajdonsága.
+     *
+     * Opciók ($args):
+     *  - parts:      mely csoportok jelenjenek meg: background (szín+színátmenet), border, radius, shadow, margin, padding
+     *  - typography: betűcsalád/méret/vastagság/sormagasság/betűköz (reszponzív)
+     *  - color:      szövegszín
+     *  - icon_size:  [ selector => css-sablon ] reszponzív méret-csúszka ikonokhoz
+     *  - condition:  Elementor feltétel a szekcióra
+     *
+     * Miért sztringek a konstansok helyén ('color', 'dimensions', 'box-shadow'...): az Elementor osztályai
+     * nincsenek stub-olva a phpstan-ban; az értékek megegyeznek a Controls_Manager / Group_Control típusnevekkel.
+     * A régi (már mentett) vezérlőket nem érinti: az új szekciók csak kiegészítenek, a vezérlő-azonosítók egyediek.
+     */
+    public static function add_box_style_section( $widget, $id, $label, $selector, $args = [] ) {
+        $args = array_merge( [
+            'parts'      => [ 'background', 'border', 'radius', 'shadow', 'margin', 'padding' ],
+            'typography' => false,
+            'color'      => false,
+            'icon_size'  => [],
+            'condition'  => [],
+        ], $args );
+        $sel = '{{WRAPPER}} ' . $selector;
+        $dim = 'size_units';
+
+        $section = [ 'label' => $label, 'tab' => 'style' ];
+        if ( ! empty( $args['condition'] ) ) {
+            $section['condition'] = $args['condition'];
+        }
+        $widget->start_controls_section( $id, $section );
+
+        if ( $args['color'] ) {
+            $widget->add_control( $id . '_color', [ 'label' => 'Szövegszín', 'type' => 'color', 'selectors' => [ $sel => 'color: {{VALUE}};' ] ] );
+        }
+        if ( $args['typography'] ) {
+            $widget->add_group_control( 'typography', [ 'name' => $id . '_typo', 'selector' => $sel ] );
+        }
+        if ( ! empty( $args['icon_size'] ) ) {
+            $selectors = [];
+            foreach ( $args['icon_size'] as $css_selector => $css_template ) {
+                $selectors[ '{{WRAPPER}} ' . $css_selector ] = $css_template;
+            }
+            $widget->add_responsive_control( $id . '_size', [
+                'label'      => 'Ikon mérete',
+                'type'       => 'slider',
+                'size_units' => [ 'px', 'em' ],
+                'range'      => [ 'px' => [ 'min' => 8, 'max' => 120 ], 'em' => [ 'min' => 0.5, 'max' => 8, 'step' => 0.1 ] ],
+                'selectors'  => $selectors,
+            ] );
+        }
+        if ( in_array( 'background', $args['parts'], true ) ) {
+            $widget->add_group_control( 'background', [ 'name' => $id . '_bg', 'types' => [ 'classic', 'gradient' ], 'selector' => $sel ] );
+        }
+        if ( in_array( 'border', $args['parts'], true ) ) {
+            $widget->add_group_control( 'border', [ 'name' => $id . '_border', 'selector' => $sel ] );
+        }
+        if ( in_array( 'radius', $args['parts'], true ) ) {
+            $widget->add_responsive_control( $id . '_radius', [
+                'label' => 'Lekerekítés', 'type' => 'dimensions', $dim => [ 'px', '%', 'em' ],
+                'selectors' => [ $sel => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
+            ] );
+        }
+        if ( in_array( 'shadow', $args['parts'], true ) ) {
+            $widget->add_group_control( 'box-shadow', [ 'name' => $id . '_shadow', 'selector' => $sel ] );
+        }
+        if ( in_array( 'margin', $args['parts'], true ) ) {
+            $widget->add_responsive_control( $id . '_margin', [
+                'label' => 'Külső térköz (margin)', 'type' => 'dimensions', $dim => [ 'px', '%', 'em' ],
+                'selectors' => [ $sel => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
+            ] );
+        }
+        if ( in_array( 'padding', $args['parts'], true ) ) {
+            $widget->add_responsive_control( $id . '_padding', [
+                'label' => 'Belső térköz (padding)', 'type' => 'dimensions', $dim => [ 'px', '%', 'em' ],
+                'selectors' => [ $sel => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
+            ] );
+        }
+        $widget->end_controls_section();
+    }
+
+    /**
+     * Több doboz-szekció egyszerre: [ [ id, label, selector, args ], ... ].
+     */
+    public static function add_box_style_sections( $widget, $sections ) {
+        foreach ( $sections as $s ) {
+            self::add_box_style_section( $widget, $s[0], $s[1], $s[2], isset( $s[3] ) ? $s[3] : [] );
+        }
+    }
+
     public function register_custom_controls( $controls_manager ) {
         require_once MSDL_CHILD_DIR . 'includes/controls/class-msdl-control-picker.php';
         $controls_manager->register( new MSDL_Control_Picker() );

@@ -80,6 +80,8 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         $this->add_responsive_control( 'version_border_radius', [ 'label' => 'Lekerekítés', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'selectors' => [ '{{WRAPPER}} .msdl-version-badge' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
         $this->end_controls_section();
 
+        $this->register_box_styles();
+
         $this->start_controls_section( 'style_buttons', [ 'label' => 'Gombok', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
         
         // --- FŐ GOMB ---
@@ -119,6 +121,51 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         $this->add_responsive_control( 'outline_padding', [ 'label' => 'Belső Margó', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'default' => [ 'top' => '8', 'right' => '14', 'bottom' => '8', 'left' => '14', 'unit' => 'px', 'isLinked' => false ], 'selectors' => [ '{{WRAPPER}} .msdl-fm-btn-outline' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
 
         $this->end_controls_section();
+    }
+
+    /**
+     * Részletes (doboz) stílusvezérlők a widget minden elemére.
+     */
+    protected function register_box_styles() {
+        $all     = [ 'background', 'border', 'radius', 'shadow', 'margin', 'padding' ];
+        $spacing = [ 'margin', 'padding' ];
+        $btn     = [ 'background', 'shadow', 'margin' ];
+        $text    = [ 'parts' => $spacing, 'typography' => true, 'color' => true ];
+        $in_head = [ 'show_header' => 'yes' ];
+        $in_srch = [ 'show_header' => 'yes', 'enable_search' => 'yes' ];
+        $in_bc   = [ 'show_header' => 'yes', 'show_breadcrumbs' => 'yes' ];
+
+        MSDL_Child_Elementor::add_box_style_sections( $this, [
+            [ 'box_fm_widget', 'Teljes widget – részletes', '.msdl-fm-wrapper', [ 'parts' => $all ] ],
+            [ 'box_fm_header', 'Fejléc sáv – részletes', '.msdl-fm-header', [ 'parts' => $all, 'condition' => $in_head ] ],
+            [ 'box_fm_search', 'Kereső – doboz', '.msdl-fm-search', [ 'parts' => $all, 'condition' => $in_srch ] ],
+            [ 'box_fm_search_input', 'Kereső – beviteli mező', '.msdl-fm-search input', [ 'parts' => [ 'background', 'border', 'radius', 'padding' ], 'typography' => true, 'color' => true, 'condition' => $in_srch ] ],
+            [ 'box_fm_bc', 'Navigáció – sáv', '.msdl-fm-breadcrumbs', $text + [ 'condition' => $in_bc ] ],
+            [ 'box_fm_bc_link', 'Navigáció – linkek', '.msdl-fm-breadcrumbs a', [ 'parts' => $all, 'typography' => true, 'color' => true, 'condition' => $in_bc ] ],
+            [ 'box_fm_bc_current', 'Navigáció – aktuális elem', '.msdl-fm-breadcrumbs .msdl-fm-current', $text + [ 'condition' => $in_bc ] ],
+            [ 'box_fm_table', 'Táblázat – doboz', '.msdl-fm-table', [ 'parts' => [ 'background', 'border', 'radius', 'shadow', 'margin' ] ] ],
+            [ 'box_fm_th', 'Táblázat – fejléc cellák', '.msdl-fm-table th', [ 'parts' => [ 'background', 'padding' ], 'typography' => true, 'color' => true, 'condition' => [ 'show_table_header' => 'yes' ] ] ],
+            [ 'box_fm_td', 'Táblázat – sorok (cellák)', '.msdl-fm-table td', [ 'parts' => [ 'background', 'padding' ], 'typography' => true, 'color' => true ] ],
+            [ 'box_fm_folder', 'Mappák (név)', '.msdl-fm-item-name.msdl-fm-item-folder', $text ],
+            [ 'box_fm_file', 'Fájlok (név)', '.msdl-fm-item-name.msdl-fm-item-file', $text ],
+            [ 'box_fm_row_desc_box', 'Leírás (lista) – háttér és keret', '.msdl-fm-row-desc', [ 'parts' => [ 'background', 'border', 'radius', 'shadow' ], 'condition' => [ 'show_desc' => 'yes' ] ] ],
+            [ 'box_fm_icon', 'Ikonok – doboz és méret', '.msdl-fm-icon', [
+                'parts'     => [ 'background', 'border', 'radius', 'shadow', 'margin', 'padding' ],
+                'icon_size' => [
+                    '.msdl-fm-icon i'   => 'font-size: {{SIZE}}{{UNIT}};',
+                    '.msdl-fm-icon svg' => 'width: {{SIZE}}{{UNIT}}; height: {{SIZE}}{{UNIT}};',
+                ],
+            ] ],
+            [ 'box_fm_btn', 'Fő gomb – további', '.msdl-fm-btn', [ 'parts' => $btn ] ],
+            [ 'box_fm_btn_outline', 'Másodlagos gomb – további', '.msdl-fm-btn-outline', [ 'parts' => $btn ] ],
+            [ 'box_fm_fv_card', 'Adatlap – kártya', '.msdl-fm-fv-card', [ 'parts' => $all ] ],
+            [ 'box_fm_fv_icon', 'Adatlap – nagy ikon', '.msdl-fm-fv-icon', [ 'parts' => $all, 'condition' => [ 'fv_show_icon' => 'yes' ] ] ],
+            [ 'box_fm_fv_title', 'Adatlap – fájlnév', '.msdl-fm-fv-title', $text + [ 'condition' => [ 'fv_show_title' => 'yes' ] ] ],
+            [ 'box_fm_fv_desc_box', 'Adatlap – leírás háttér és keret', '.msdl-fm-fv-desc', [ 'parts' => [ 'background', 'border', 'radius', 'shadow' ], 'condition' => [ 'fv_show_desc' => 'yes' ] ] ],
+            [ 'box_fm_fv_meta', 'Adatlap – meta sor', '.msdl-fm-fv-meta', $text ],
+            [ 'box_fm_back', 'Adatlap – Vissza gomb', '.msdl-fm-back-btn', [ 'parts' => [ 'background', 'border', 'radius', 'padding' ], 'typography' => true, 'color' => true ] ],
+        ] );
+        MSDL_Child_Elementor::add_description_style_section( $this, 'style_fv_desc', 'Adatlap – leírás szöveg', '.msdl-fm-fv-desc', [ 'fv_show_desc' => 'yes' ] );
     }
 
     protected function render() {
