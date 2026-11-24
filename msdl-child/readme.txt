@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.2.11
+Stable tag: 1.3.0
 Requires PHP: 7.4
 License: Proprietary
 
@@ -28,6 +28,12 @@ A beépített React alapú admin felületen keresztül a weboldal adminisztráto
 * **Automata Tisztítás:** A SharePointból törölt mappák és fájlok (orphaned data) automatikus rekurzív takarítása a helyi adatbázisból.
 
 == Changelog ==
+
+= 1.3.0 =
+* Új: rendezés a Fájlkezelő (Pro) és a Mappa lista widgetben: név (a megjelenített cím szerint), módosítás dátuma, méret, szinkronizálási sorrend; irány és „Mappák elöl” kapcsoló.
+* Új: a fájlokhoz megadott leírás megjelenik a listasorokban és a Mappa lista elemein (kapcsolóval, szín/tipográfia/térköz vezérlőkkel).
+* Új: részletes stílusvezérlők a widgetek minden elemére (háttér/színátmenet, keret, lekerekítés, árnyék, margin, padding, tipográfia, ikonméret).
+* Javítva: a névrendezés a nyers fájlnév helyett a megjelenített címet (egyedi cím) veszi figyelembe.
 
 = 1.2.11 =
 * Új: „Link másolása” gomb a Fájlkezelőben minden fájlnál. Stabil, nem lejáró letöltési linket másol a vágólapra (pl. sablonfájl belinkeléséhez Forminator űrlapba). A link mindig az aktív/ütemezett verziót tölti le.
