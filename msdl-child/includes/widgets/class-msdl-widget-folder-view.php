@@ -22,6 +22,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         $this->start_controls_section( 'section_elements', [ 'label' => 'Megjelenítés', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
         $this->add_control( 'show_icon', [ 'label' => 'Ikon', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'show_title', [ 'label' => 'Fájlnév / Cím', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
+        $this->add_control( 'show_desc', [ 'label' => 'Leírás', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'divider_1', [ 'type' => \Elementor\Controls_Manager::DIVIDER ] );
         $this->add_control( 'show_meta_version', [ 'label' => 'Verzió (Legújabb)', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'show_meta_ext', [ 'label' => 'Kiterjesztés', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
@@ -62,6 +63,8 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         $this->add_responsive_control( 'version_padding', [ 'label' => 'Belső Margó', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'selectors' => [ '{{WRAPPER}} .msdl-version-badge' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
         $this->add_responsive_control( 'version_border_radius', [ 'label' => 'Lekerekítés', 'type' => \Elementor\Controls_Manager::DIMENSIONS, 'selectors' => [ '{{WRAPPER}} .msdl-version-badge' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ] ] );
         $this->end_controls_section();
+
+        MSDL_Child_Elementor::add_description_style_section( $this, 'section_desc_style', 'Leírás', '.msdl-fv-desc', [ 'show_desc' => 'yes' ] );
 
         $this->start_controls_section( 'section_btn_style', [ 'label' => 'Gomb', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
         $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [ 'name' => 'btn_typo', 'selector' => '{{WRAPPER}} .msdl-fv-btn' ] );
@@ -286,6 +289,9 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
                         </h4>
                     <?php endif; ?>
                     
+                    <?php if ( $settings['show_desc'] === 'yes' && !empty($item->custom_description) ) : ?>
+                        <div class="msdl-fv-desc"><?php echo wp_kses_post($item->custom_description); ?></div>
+                    <?php endif; ?>
                     <div class="msdl-fv-meta">
                         <?php if ( $settings['show_meta_version'] === 'yes' && !$is_folder ) : ?>
                             <span class="msdl-version-badge" data-file-id="<?php echo esc_attr($item->id); ?>" title="Verzió betöltése...">
@@ -358,6 +364,8 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
             .msdl-fv-title a { transition: color 0.2s; }
             .msdl-fv-title a:hover { opacity: 0.8; }
             
+            .msdl-fv-desc { font-size: 13px; line-height: 1.5; margin: 4px 0 6px; color: #787c82; }
+            .msdl-fv-item.style-card-dark .msdl-fv-desc { color: #a7aaad; }
             .msdl-fv-meta { font-size: 12px; font-weight: 500; display: flex; flex-wrap: wrap; gap: 4px; color: #787c82;}
             .msdl-fv-item.layout-list .msdl-fv-meta { justify-content: flex-start; }
             .msdl-fv-item:not(.layout-list) .msdl-fv-meta { justify-content: center; }

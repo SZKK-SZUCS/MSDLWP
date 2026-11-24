@@ -30,6 +30,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         $this->add_control( 'divider_1', [ 'type' => \Elementor\Controls_Manager::DIVIDER ] );
         $this->add_control( 'show_size', [ 'label' => 'Méret', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->add_control( 'show_date', [ 'label' => 'Dátum', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
+        $this->add_control( 'show_desc', [ 'label' => 'Leírás (fájlnév alatt)', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ] );
         $this->end_controls_section();
 
         $this->start_controls_section( 'section_fv_elements', [ 'label' => 'Fájl Adatlap', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
@@ -62,6 +63,8 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         $this->add_control( 'th_color', [ 'label' => 'Fejléc Szöveg', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fm-table th' => 'color: {{VALUE}};' ] ] );
         $this->add_control( 'row_border', [ 'label' => 'Sor Elválasztó', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fm-table td' => 'border-bottom-color: {{VALUE}};' ] ] );
         $this->end_controls_section();
+
+        MSDL_Child_Elementor::add_description_style_section( $this, 'style_row_desc', 'Leírás (lista)', '.msdl-fm-row-desc', [ 'show_desc' => 'yes' ] );
 
         $this->start_controls_section( 'style_icons', [ 'label' => 'Ikonok', 'tab' => \Elementor\Controls_Manager::TAB_STYLE ] );
         $this->add_control( 'folder_icon_color', [ 'label' => 'Mappa Színe', 'type' => \Elementor\Controls_Manager::COLOR, 'selectors' => [ '{{WRAPPER}} .msdl-fm-item-folder .msdl-fm-icon svg' => 'fill: {{VALUE}} !important;', '{{WRAPPER}} .msdl-fm-item-folder .msdl-fm-icon i' => 'color: {{VALUE}} !important;' ] ] );
@@ -135,6 +138,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         $allow_down = $settings['allow_navigate_down'] === 'yes' ? 'true' : 'false';
         $show_size = $settings['show_size'] === 'yes' ? 'true' : 'false';
         $show_date = $settings['show_date'] === 'yes' ? 'true' : 'false';
+        $show_desc = $settings['show_desc'] === 'yes' ? 'true' : 'false';
         $show_table_icon = $settings['show_table_icon'] === 'yes' ? 'true' : 'false';
         
         $fv_show_icon = $settings['fv_show_icon'] === 'yes' ? 'true' : 'false';
@@ -201,6 +205,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
             .msdl-fm-fv-icon svg { width: 30px; height: 30px; fill: #fff; }
             .msdl-fm-fv-icon i { font-size: 28px; color: #fff; }
             .msdl-fm-fv-title { font-size: 20px; font-weight: 700; margin: 0 0 12px 0; word-wrap: break-word; line-height: 1.3; color: #242943;}
+            .msdl-fm-row-desc { font-size: 12px; font-weight: 400; line-height: 1.5; margin-top: 2px; color: #787c82; }
             .msdl-fm-fv-desc { font-size: 13px; line-height: 1.6; margin-bottom: 20px; padding: 12px; background: rgba(0,0,0,0.02); border-radius: 6px; border-left: 3px solid #dcdcde; text-align: left; color: #50575e; word-wrap: break-word;}
             
             .msdl-fm-fv-meta { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin-bottom: 25px; font-size: 12px; color: #787c82; font-weight: 600; align-items: center;}
@@ -264,7 +269,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         jQuery(document).ready(function($) {
             var uid = "<?php echo $uid; ?>"; var $wrapper = $('#' + uid); var $toast = $('#msdl-toast-' + uid); var ajaxUrl = "<?php echo esc_url($ajax_url); ?>"; var nonce = "<?php echo $nonce; ?>";
             var baseFolder = "<?php echo $base_folder; ?>"; var allowUp = <?php echo $allow_up; ?>; var allowDown = <?php echo $allow_down; ?>;
-            var showSize = <?php echo $show_size; ?>; var showDate = <?php echo $show_date; ?>; var showTableIcon = <?php echo $show_table_icon; ?>;
+            var showSize = <?php echo $show_size; ?>; var showDesc = <?php echo $show_desc; ?>; var showDate = <?php echo $show_date; ?>; var showTableIcon = <?php echo $show_table_icon; ?>;
             var fvShowIcon = <?php echo $fv_show_icon; ?>; var fvShowTitle = <?php echo $fv_show_title; ?>; var fvShowDesc = <?php echo $fv_show_desc; ?>;
             var fvShowExt = <?php echo $fv_show_ext; ?>; var fvShowSize = <?php echo $fv_show_size; ?>; var fvShowDate = <?php echo $fv_show_date; ?>;
             var fvShowDownload = <?php echo $fv_show_download; ?>; var fvShowCopy = <?php echo $fv_show_copy; ?>;
@@ -362,7 +367,8 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
                                 actionHtml = '<div class="msdl-action-buttons"><a href="'+dUrl+'" target="_blank" class="msdl-fm-btn" title="Gyors letöltés" style="padding: 6px 10px;"><svg style="width:14px;height:14px;fill:currentColor;" viewBox="0 0 512 512"><path d="M288 32c0-17.7-14.3-32-32-32s-32 14.3-32 32V274.7l-73.4-73.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l128 128c12.5 12.5 32.8 12.5 45.3 0l128-128c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L288 274.7V32zM64 352c-35.3 0-64 28.7-64 64v32c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V416c0-35.3-28.7-64-64-64H346.5l-45.3 45.3c-25 25-65.5 25-90.5 0L165.5 352H64zm368 56a24 24 0 1 1 0 48 24 24 0 1 1 0-48z"/></svg></a><a class="msdl-fm-btn-outline msdl-fm-file-link" data-id="'+item.id+'" title="Részletek">Részletek</a></div>';
                             }
 
-                            var trHtml = '<tr><td class="msdl-col-name">' + nameHtml + '</td>';
+                            var descHtml = (showDesc && item.description) ? '<div class="msdl-fm-row-desc">' + item.description + '</div>' : '';
+                            var trHtml = '<tr><td class="msdl-col-name">' + nameHtml + descHtml + '</td>';
                             if(showSize) trHtml += '<td class="msdl-col-meta" style="color:#787c82;">' + item.size + '</td>';
                             if(showDate) trHtml += '<td class="msdl-col-meta" style="color:#787c82;">' + item.date + '</td>';
                             trHtml += '<td class="msdl-col-action">' + actionHtml + '</td></tr>';

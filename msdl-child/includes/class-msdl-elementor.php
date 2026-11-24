@@ -99,6 +99,41 @@ class MSDL_Child_Elementor {
         ] );
     }
 
+    /**
+     * Leírás-stílus szekció (szín, tipográfia, margin, padding) egy adott CSS selectorra.
+     * A konstansok helyett sztringeket használunk ('color', 'typography', 'dimensions'), mert az
+     * Elementor osztályai nincsenek stub-olva a phpstan-ban; az értékek megegyeznek a Controls_Manager konstansokkal.
+     */
+    public static function add_description_style_section( $widget, $section_id, $label, $selector, $condition = [] ) {
+        $section_args = [ 'label' => $label, 'tab' => 'style' ];
+        if ( ! empty( $condition ) ) {
+            $section_args['condition'] = $condition;
+        }
+        $widget->start_controls_section( $section_id, $section_args );
+        $widget->add_control( $section_id . '_color', [
+            'label'     => 'Szín',
+            'type'      => 'color',
+            'selectors' => [ '{{WRAPPER}} ' . $selector => 'color: {{VALUE}};' ],
+        ] );
+        $widget->add_group_control( 'typography', [
+            'name'     => $section_id . '_typo',
+            'selector' => '{{WRAPPER}} ' . $selector,
+        ] );
+        $widget->add_responsive_control( $section_id . '_margin', [
+            'label'      => 'Külső térköz (margin)',
+            'type'       => 'dimensions',
+            'size_units' => [ 'px', 'em', '%' ],
+            'selectors'  => [ '{{WRAPPER}} ' . $selector => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
+        ] );
+        $widget->add_responsive_control( $section_id . '_padding', [
+            'label'      => 'Belső térköz (padding)',
+            'type'       => 'dimensions',
+            'size_units' => [ 'px', 'em', '%' ],
+            'selectors'  => [ '{{WRAPPER}} ' . $selector => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
+        ] );
+        $widget->end_controls_section();
+    }
+
     public function register_custom_controls( $controls_manager ) {
         require_once MSDL_CHILD_DIR . 'includes/controls/class-msdl-control-picker.php';
         $controls_manager->register( new MSDL_Control_Picker() );
@@ -267,6 +302,7 @@ class MSDL_Child_Elementor {
                         'type' => $item->type,
                         'name' => $display_name,
                         'icon_html' => $icon_render,
+                        'description' => !empty($item->custom_description) ? wp_kses_post($item->custom_description) : '',
                         'size' => $formatted_size,
                         'date' => (!empty($item->last_modified) && $item->last_modified !== '0000-00-00 00:00:00') ? date('Y.m.d.', strtotime($item->last_modified)) : '-'
                     ];
