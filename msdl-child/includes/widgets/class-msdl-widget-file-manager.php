@@ -15,6 +15,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         $this->add_control( 'start_folder_id', [ 'label' => 'Bázis Mappa (Opcionális)', 'type' => 'msdl_picker', 'item_type' => 'folder' ]);
         $this->add_control( 'allow_navigate_up', [ 'label' => 'Kifelé navigálás', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => '', 'separator' => 'before' ]);
         $this->add_control( 'allow_navigate_down', [ 'label' => 'Befelé navigálás', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes' ]);
+        MSDL_Child_Elementor::add_order_controls( $this );
         $this->end_controls_section();
 
         $this->start_controls_section( 'section_header_elements', [ 'label' => 'Fejléc Elemek', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
@@ -125,6 +126,10 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
         $base_folder = isset($settings['start_folder_id']) && !empty($settings['start_folder_id']) ? $settings['start_folder_id'] : 'root';
         $nonce = wp_create_nonce( 'msdl_frontend_nonce' );
         $ajax_url = admin_url( 'admin-ajax.php' );
+
+        $js_orderby = isset( MSDL_Child_Elementor::get_orderby_options()[ $settings['orderby'] ] ) ? $settings['orderby'] : 'name';
+        $js_order = $settings['order'] === 'DESC' ? 'DESC' : 'ASC';
+        $js_folders_first = $settings['folders_first'] === 'yes' ? 'yes' : 'no';
 
         $allow_up = $settings['allow_navigate_up'] === 'yes' ? 'true' : 'false';
         $allow_down = $settings['allow_navigate_down'] === 'yes' ? 'true' : 'false';
@@ -307,7 +312,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
                 $wrapper.find('.msdl-fm-file-view').hide(); $wrapper.find('.msdl-fm-view-table').show();
                 $wrapper.find('.msdl-loader-text').text('Mappatartalom lekérése...'); $wrapper.find('.msdl-fm-loader').css('display', 'flex');
                 
-                $.post(ajaxUrl, { action: 'msdl_frontend_get_folder', nonce: nonce, folder_id: folderId, search: searchQ }, function(response) {
+                $.post(ajaxUrl, { action: 'msdl_frontend_get_folder', nonce: nonce, folder_id: folderId, search: searchQ, orderby: <?php echo wp_json_encode($js_orderby); ?>, order: <?php echo wp_json_encode($js_order); ?>, folders_first: <?php echo wp_json_encode($js_folders_first); ?> }, function(response) {
                     $wrapper.find('.msdl-fm-loader').hide();
                     if (response.success) {
                         currentFolder = folderId; currentSearch = searchQ; currentFile = '';

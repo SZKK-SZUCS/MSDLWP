@@ -40,6 +40,65 @@ class MSDL_Child_Elementor {
 
     public function enqueue_frontend_assets() {}
 
+    /**
+     * Rendezési beállítások közös whitelistje.
+     * Miért whitelist: az értékek a publikus AJAX-ból is érkeznek, SQL-be nem kerülhet nyers input.
+     */
+    public static function get_orderby_options() {
+        return [
+            'name' => 'Név (megjelenített cím szerint, A-Z)',
+            'date' => 'Módosítás dátuma',
+            'size' => 'Méret',
+            'sync' => 'Szinkronizálási sorrend',
+        ];
+    }
+
+    /**
+     * ORDER BY szakasz összeállítása whitelistelt értékekből.
+     * A névrendezés a megjelenített címre (custom_title, ennek hiányában name) megy, hogy a
+     * látogató által látott sorrend egyezzen a rendezéssel.
+     */
+    public static function build_order_sql( $orderby = 'name', $order = 'ASC', $folders_first = true ) {
+        $columns = [
+            'name' => "COALESCE(NULLIF(custom_title, ''), name)",
+            'date' => 'last_modified',
+            'size' => 'size',
+            'sync' => 'id',
+        ];
+        $column    = isset( $columns[ $orderby ] ) ? $columns[ $orderby ] : $columns['name'];
+        $direction = ( strtoupper( (string) $order ) === 'DESC' ) ? 'DESC' : 'ASC';
+        $sql       = 'ORDER BY ';
+        if ( $folders_first ) {
+            $sql .= "CASE WHEN type='folder' THEN 1 ELSE 2 END ASC, ";
+        }
+        $sql .= "$column $direction, name ASC";
+        return $sql;
+    }
+
+    /**
+     * Közös rendezés-vezérlők (Elementor widget content szekcióba hívandó).
+     */
+    public static function add_order_controls( $widget ) {
+        $widget->add_control( 'orderby', [
+            'label'     => 'Rendezés alapja',
+            'type'      => 'select', // = Controls_Manager::SELECT; sztring, mert az Elementor osztályai nincsenek stub-olva a phpstan-ban
+            'options'   => self::get_orderby_options(),
+            'default'   => 'name',
+            'separator' => 'before',
+        ] );
+        $widget->add_control( 'order', [
+            'label'   => 'Irány',
+            'type'    => 'select', // = Controls_Manager::SELECT; sztring, mert az Elementor osztályai nincsenek stub-olva a phpstan-ban
+            'options' => [ 'ASC' => 'Növekvő (A-Z / régebbi elöl)', 'DESC' => 'Csökkenő (Z-A / újabb elöl)' ],
+            'default' => 'ASC',
+        ] );
+        $widget->add_control( 'folders_first', [
+            'label'   => 'Mappák elöl',
+            'type'    => 'switcher', // = Controls_Manager::SWITCHER (lásd fent)
+            'default' => 'yes',
+        ] );
+    }
+
     public function register_custom_controls( $controls_manager ) {
         require_once MSDL_CHILD_DIR . 'includes/controls/class-msdl-control-picker.php';
         $controls_manager->register( new MSDL_Control_Picker() );
@@ -138,7 +197,10 @@ class MSDL_Child_Elementor {
         global $wpdb;
         $table = $wpdb->prefix . 'msdl_nodes';
 
-        $order_sql = "ORDER BY CASE WHEN type='folder' THEN 1 ELSE 2 END ASC, name ASC";
+        $req_orderby       = isset($_POST['orderby']) ? sanitize_key($_POST['orderby']) : 'name';
+        $req_order         = isset($_POST['order']) ? sanitize_text_field($_POST['order']) : 'ASC';
+        $req_folders_first = ! isset($_POST['folders_first']) || $_POST['folders_first'] !== 'no';
+        $order_sql = self::build_order_sql( $req_orderby, $req_order, $req_folders_first );
         
         if ( !empty($search) ) {
             $items = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $table WHERE name LIKE %s OR custom_title LIKE %s OR custom_description LIKE %s $order_sql", '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%', '%' . $wpdb->esc_like($search) . '%' ) );

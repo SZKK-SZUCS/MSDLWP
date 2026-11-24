@@ -15,8 +15,7 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         $this->start_controls_section( 'section_query', [ 'label' => 'Adatforrás és Rendezés', 'tab' => \Elementor\Controls_Manager::TAB_CONTENT ] );
         $this->add_control( 'folder_id', [ 'label' => 'Mappa Kiválasztása (Gyökér)', 'type' => 'msdl_picker', 'item_type' => 'folder' ]);
         $this->add_control( 'allow_subfolders', [ 'label' => 'Almappák megjelenítése (Navigáció)', 'type' => \Elementor\Controls_Manager::SWITCHER, 'default' => 'yes', 'separator' => 'before' ]);
-        $this->add_control( 'orderby', [ 'label' => 'Rendezés alapja', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'name' => 'Fájlnév (A-Z)', 'date' => 'Módosítás Dátuma' ], 'default' => 'name' ]);
-        $this->add_control( 'order', [ 'label' => 'Irány', 'type' => \Elementor\Controls_Manager::SELECT, 'options' => [ 'ASC' => 'Növekvő (A-Z / Régebbi elöl)', 'DESC' => 'Csökkenő (Z-A / Újabb elöl)' ], 'default' => 'ASC' ]);
+        MSDL_Child_Elementor::add_order_controls( $this );
         $this->add_control( 'items_per_page', [ 'label' => 'Fájlok száma oldalanként', 'type' => \Elementor\Controls_Manager::NUMBER, 'default' => 12, 'separator' => 'before' ]);
         $this->end_controls_section();
 
@@ -119,16 +118,15 @@ class MSDL_Widget_Folder_View extends \Elementor\Widget_Base {
         }
 
         $type_sql = $allow_subfolders ? "" : " AND type = 'file'";
-        $orderby = $settings['orderby'] === 'date' ? 'last_modified' : 'name';
-        $order = $settings['order'] === 'DESC' ? 'DESC' : 'ASC';
+        $order_sql = MSDL_Child_Elementor::build_order_sql( $settings['orderby'], $settings['order'], $settings['folders_first'] === 'yes' );
 
         $items = [];
         if ( $current_folder_id === '0' || $current_folder_id === 'root' ) {
-            $items = $wpdb->get_results( "SELECT * FROM $table WHERE parent_graph_id IS NULL $type_sql ORDER BY CASE WHEN type='folder' THEN 1 ELSE 2 END ASC, $orderby $order" );
+            $items = $wpdb->get_results( "SELECT * FROM $table WHERE parent_graph_id IS NULL $type_sql $order_sql" );
         } elseif ( intval($current_folder_id) > 0 ) {
             $folder = $wpdb->get_row( $wpdb->prepare( "SELECT graph_id FROM $table WHERE id = %d", intval($current_folder_id) ) );
             if ( $folder ) {
-                $items = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $table WHERE parent_graph_id = %s $type_sql ORDER BY CASE WHEN type='folder' THEN 1 ELSE 2 END ASC, $orderby $order", $folder->graph_id ) );
+                $items = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM $table WHERE parent_graph_id = %s $type_sql $order_sql", $folder->graph_id ) );
             }
         }
 
