@@ -230,7 +230,7 @@ class MSDL_Widget_File_Manager extends \Elementor\Widget_Base {
             .msdl-col-meta { white-space: nowrap; width: auto; }
             .msdl-col-action { white-space: normal; width: auto; text-align: right; }
             
-            .msdl-action-buttons { display: flex; justify-content: flex-end; gap: 6px; align-items: center; flex-wrap: wrap; }
+            .msdl-action-buttons { display: flex; justify-content: flex-end; gap: 6px; align-items: stretch; flex-wrap: wrap; } /* stretch: a Letöltés és Részletek gomb mindig egyforma magas (a Letöltés gombon inline padding van, ezt a vezérlők nem érik el) */
             .msdl-fm-item-name { display: flex; align-items: center; gap: 10px; font-weight: 600; cursor: pointer; text-decoration: none !important; transition: all 0.2s; line-height: 1.4; color: #242943; word-break: break-word; white-space: normal;}
             .msdl-fm-icon { display: inline-flex; align-items: center; justify-content: center; width: 24px; flex-shrink: 0; }
             .msdl-fm-icon svg { width: 20px; height: 20px; }

@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.3.0
+Stable tag: 1.3.1
 Requires PHP: 7.4
 License: Proprietary
 
@@ -28,6 +28,9 @@ A beépített React alapú admin felületen keresztül a weboldal adminisztráto
 * **Automata Tisztítás:** A SharePointból törölt mappák és fájlok (orphaned data) automatikus rekurzív takarítása a helyi adatbázisból.
 
 == Changelog ==
+
+= 1.3.1 =
+* Javítva: a Fájlkezelő táblázatában a Letöltés és a Részletek gomb mostantól mindig egyforma magas (a Letöltés gomb beégetett belső térköze miatt a stílusvezérlőkkel nem lehetett egyenlővé tenni).
 
 = 1.3.0 =
 * Új: rendezés a Fájlkezelő (Pro) és a Mappa lista widgetben: név (a megjelenített cím szerint), módosítás dátuma, méret, szinkronizálási sorrend; irány és „Mappák elöl” kapcsoló.
