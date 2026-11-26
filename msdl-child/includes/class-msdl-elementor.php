@@ -50,6 +50,7 @@ class MSDL_Child_Elementor {
             'date' => 'Módosítás dátuma',
             'size' => 'Méret',
             'sync' => 'Szinkronizálási sorrend',
+            'custom' => 'Egyedi sorrend (Dokumentumtár adminban állítható)',
         ];
     }
 
@@ -71,6 +72,10 @@ class MSDL_Child_Elementor {
         if ( $folders_first ) {
             $sql .= "CASE WHEN type='folder' THEN 1 ELSE 2 END ASC, ";
         }
+        if ( $orderby === 'custom' ) {
+            // Kézzel rendezett elemek elöl (sort_order), a rendezetlenek (NULL) mindig a végén, név szerint.
+            return $sql . "(sort_order IS NULL) ASC, sort_order $direction, COALESCE(NULLIF(custom_title, ''), name) ASC, name ASC";
+        }
         $sql .= "$column $direction, name ASC";
         return $sql;
     }
@@ -84,6 +89,7 @@ class MSDL_Child_Elementor {
             'type'      => 'select', // = Controls_Manager::SELECT; sztring, mert az Elementor osztályai nincsenek stub-olva a phpstan-ban
             'options'   => self::get_orderby_options(),
             'default'   => 'name',
+            'description' => 'Az „Egyedi sorrend” a Dokumentumtár → Fájlkezelő → „Sorrend szerkesztése” gombbal mappánként állítható; a még nem rendezett elemek a végén, név szerint jelennek meg.',
             'separator' => 'before',
         ] );
         $widget->add_control( 'order', [

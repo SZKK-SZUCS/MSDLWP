@@ -275,7 +275,64 @@ const FileManagerApp = () => {
     setIsRootSaving(false);
   };
 
-  const filteredNodes = nodes.filter((node) => {
+  // --- Egyedi sorrend szerkesztése (mappánként) ---
+  const [isOrderMode, setIsOrderMode] = useState(false);
+  const [orderedNodes, setOrderedNodes] = useState([]);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [isOrderSaving, setIsOrderSaving] = useState(false);
+
+  // Mappaváltáskor kilépünk a szerkesztő módból, hogy ne a régi mappa listája maradjon.
+  useEffect(() => {
+    setIsOrderMode(false);
+  }, [currentFolderId]);
+
+  const startOrderMode = () => {
+    setOrderedNodes([...nodes]);
+    setIsOrderMode(true);
+  };
+  const moveOrderNode = (from, to) => {
+    if (from === to || to < 0 || to >= orderedNodes.length) return;
+    const copy = [...orderedNodes];
+    const [item] = copy.splice(from, 1);
+    copy.splice(to, 0, item);
+    setOrderedNodes(copy);
+  };
+  const saveOrder = async () => {
+    setIsOrderSaving(true);
+    try {
+      await apiFetch({
+        path: "/msdl-child/v1/set-order",
+        method: "POST",
+        data: {
+          parent_id: currentFolderId || "",
+          ids: orderedNodes.map((n) => n.id),
+        },
+      });
+      setIsOrderMode(false);
+      await loadNodes(currentFolderId);
+    } catch (e) {
+      alert("A sorrend mentése sikertelen: " + ((e && e.message) || "ismeretlen hiba"));
+    }
+    setIsOrderSaving(false);
+  };
+  const resetOrder = async () => {
+    if (!window.confirm("Törlöd a mappa egyedi sorrendjét? Visszaáll a név szerinti rendezés.")) return;
+    setIsOrderSaving(true);
+    try {
+      await apiFetch({
+        path: "/msdl-child/v1/set-order",
+        method: "POST",
+        data: { parent_id: currentFolderId || "", reset: true },
+      });
+      setIsOrderMode(false);
+      await loadNodes(currentFolderId);
+    } catch (e) {
+      alert("A visszaállítás sikertelen: " + ((e && e.message) || "ismeretlen hiba"));
+    }
+    setIsOrderSaving(false);
+  };
+
+    const filteredNodes = nodes.filter((node) => {
     if (
       showUnhandledOnly &&
       node.visibility_roles &&
@@ -654,6 +711,19 @@ const FileManagerApp = () => {
             }}>
             Tömeges Beállítás ({selectedNodes.length})
           </Button>
+          <Button
+            isSecondary
+            style={{ marginLeft: "8px" }}
+            disabled={
+              isLoading ||
+              isOrderMode ||
+              nodes.length < 2 ||
+              searchQuery !== "" ||
+              showUnhandledOnly
+            }
+            onClick={startOrderMode}>
+            <Dashicon icon="sort" style={{ marginRight: "5px" }} /> Sorrend szerkesztése
+          </Button>
         </div>
         <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
           <ToggleControl
@@ -677,7 +747,37 @@ const FileManagerApp = () => {
         </div>
       </div>
 
-      <table className="wp-list-table widefat fixed striped table-view-list">
+      {isOrderMode && (
+        <Notice status="info" isDismissible={false}>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: "10px",
+              flexWrap: "wrap",
+            }}>
+            <span>
+              <strong>Egyedi sorrend szerkesztése:</strong> húzd a sorokat, vagy
+              használd a ▲ ▼ gombokat. A widgetekben a „Rendezés alapja → Egyedi
+              sorrend” opcióval jelenik meg.
+            </span>
+            <span style={{ display: "flex", gap: "8px" }}>
+              <Button isPrimary isBusy={isOrderSaving} disabled={isOrderSaving} onClick={saveOrder}>
+                Sorrend mentése
+              </Button>
+              <Button isSecondary disabled={isOrderSaving} onClick={() => setIsOrderMode(false)}>
+                Mégse
+              </Button>
+              <Button isDestructive disabled={isOrderSaving} onClick={resetOrder}>
+                Alaphelyzet (név szerint)
+              </Button>
+            </span>
+          </div>
+        </Notice>
+      )}
+
+            <table className="wp-list-table widefat fixed striped table-view-list">
         <thead>
           <tr>
             <th style={{ width: "40px", textAlign: "center" }}>
@@ -714,12 +814,23 @@ const FileManagerApp = () => {
               </td>
             </tr>
           ) : (
-            filteredNodes.map((node) => {
+            (isOrderMode ? orderedNodes : filteredNodes).map((node, nodeIdx) => {
               const isUntreated = !node.visibility_roles;
               const isHidden = node.visibility_roles === "hidden";
               return (
                 <tr
                   key={node.id}
+                  draggable={isOrderMode}
+                  onDragStart={() => setDragIdx(nodeIdx)}
+                  onDragOver={(e) => {
+                    if (isOrderMode) e.preventDefault();
+                  }}
+                  onDrop={(e) => {
+                    if (!isOrderMode) return;
+                    e.preventDefault();
+                    if (dragIdx !== null) moveOrderNode(dragIdx, nodeIdx);
+                    setDragIdx(null);
+                  }}
                   style={{
                     backgroundColor: isUntreated ? "#fcf0f1" : "transparent",
                     opacity: isHidden ? 0.6 : 1,
@@ -742,6 +853,25 @@ const FileManagerApp = () => {
                     )}
                   </td>
                   <td style={{ verticalAlign: "middle" }}>
+                    {isOrderMode && (
+                      <span style={{ marginRight: "8px", whiteSpace: "nowrap", cursor: "grab" }}>
+                        <Dashicon icon="menu" style={{ color: "#8c8f94" }} />
+                        <Button
+                          isSmall
+                          disabled={nodeIdx === 0}
+                          onClick={() => moveOrderNode(nodeIdx, nodeIdx - 1)}
+                          aria-label="Feljebb">
+                          ▲
+                        </Button>
+                        <Button
+                          isSmall
+                          disabled={nodeIdx === orderedNodes.length - 1}
+                          onClick={() => moveOrderNode(nodeIdx, nodeIdx + 1)}
+                          aria-label="Lejjebb">
+                          ▼
+                        </Button>
+                      </span>
+                    )}
                     {node.type === "folder" ? (
                       <div style={{ display: "flex", alignItems: "center" }}>
                         <a

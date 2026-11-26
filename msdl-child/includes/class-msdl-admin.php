@@ -17,6 +17,8 @@ class MSDL_Child_Admin {
             if(!in_array('version_rules', $col_names)) $wpdb->query("ALTER TABLE $table_name ADD version_rules TEXT");
             if(!in_array('download_url', $col_names)) $wpdb->query("ALTER TABLE $table_name ADD download_url TEXT");
             if(!in_array('web_url', $col_names)) $wpdb->query("ALTER TABLE $table_name ADD web_url TEXT");
+            // Egyedi (kézi) sorrend mappánként; NULL = nincs kézzel rendezve (az ilyenek a rendezettek után, név szerint jönnek).
+            if(!in_array('sort_order', $col_names)) $wpdb->query("ALTER TABLE $table_name ADD sort_order INT(11) DEFAULT NULL");
         }
     }
 
@@ -216,6 +218,8 @@ class MSDL_Child_Admin {
         register_rest_route( 'msdl-child/v1', '/get-sp-folder-url', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_sp_folder_url' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
         register_rest_route( 'msdl-child/v1', '/delete-node', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'delete_node' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
         register_rest_route( 'msdl-child/v1', '/sync-status', [ 'methods' => WP_REST_Server::READABLE, 'callback' => [ $this, 'get_sync_status' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_sync' ); } ]);
+
+        register_rest_route( 'msdl-child/v1', '/set-order', [ 'methods' => WP_REST_Server::CREATABLE, 'callback' => [ $this, 'set_order' ], 'permission_callback' => function() { return current_user_can( 'msdl_manage_documents' ); } ]);
 
         // A core /wp/v2/settings végpont manage_options-t kér, ezért a gyökérmappa-
         // védelem és a Beállítások oldal saját, capability-hez kötött végpontot kap.
@@ -577,8 +581,8 @@ class MSDL_Child_Admin {
         $parent_id = sanitize_text_field( $request->get_param( 'parent_id' ) );
         
         $query = empty( $parent_id ) 
-            ? "SELECT * FROM $table_name WHERE parent_graph_id IS NULL OR parent_graph_id = '' ORDER BY type DESC, name ASC" 
-            : $wpdb->prepare( "SELECT * FROM $table_name WHERE parent_graph_id = %s ORDER BY type DESC, name ASC", $parent_id );
+            ? "SELECT * FROM $table_name WHERE parent_graph_id IS NULL OR parent_graph_id = '' ORDER BY (sort_order IS NULL) ASC, sort_order ASC, type DESC, name ASC" 
+            : $wpdb->prepare( "SELECT * FROM $table_name WHERE parent_graph_id = %s ORDER BY (sort_order IS NULL) ASC, sort_order ASC, type DESC, name ASC", $parent_id );
             
         $nodes = $wpdb->get_results( $query );
         $unhandled_files = $wpdb->get_results( "SELECT parent_graph_id FROM $table_name WHERE type='file' AND (visibility_roles = '' OR visibility_roles IS NULL)" );
@@ -668,6 +672,62 @@ class MSDL_Child_Admin {
             }
         }
         return rest_ensure_response( ['success' => true] );
+    }
+
+    /**
+     * Egyedi sorrend mentése egy mappa elemeihez.
+     * Paraméterek: parent_id (a mappa graph_id-ja, üres = gyökér), ids (a node id-k a kívánt sorrendben)
+     * vagy reset=true (a mappa kézi sorrendjének törlése).
+     * A mappában lévő, a listában nem szereplő elemek sort_order-e NULL lesz, így a rendezettek után jönnek.
+     */
+    public function set_order( WP_REST_Request $request ) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'msdl_nodes';
+        $parent_id  = sanitize_text_field( (string) $request->get_param( 'parent_id' ) );
+        $reset      = (bool) $request->get_param( 'reset' );
+
+        if ( $parent_id === '' ) {
+            $where      = "(parent_graph_id IS NULL OR parent_graph_id = '')";
+            $where_args = [];
+        } else {
+            $where      = 'parent_graph_id = %s';
+            $where_args = [ $parent_id ];
+        }
+
+        if ( $reset ) {
+            $sql = "UPDATE $table_name SET sort_order = NULL WHERE $where";
+            $wpdb->query( $where_args ? $wpdb->prepare( $sql, $where_args ) : $sql );
+            return rest_ensure_response( [ 'success' => true, 'reset' => true ] );
+        }
+
+        $ids = $request->get_param( 'ids' );
+        if ( ! is_array( $ids ) || empty( $ids ) ) {
+            return new WP_Error( 'msdl_bad_order', 'Hiányzó sorrend.', [ 'status' => 400 ] );
+        }
+        $ids = array_values( array_unique( array_filter( array_map( 'intval', $ids ), function ( $v ) { return $v > 0; } ) ) );
+
+        // Minden id-nak ebbe a mappába kell tartoznia, különben nem írunk semmit.
+        $placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+        $found = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM $table_name WHERE id IN ($placeholders) AND $where", array_merge( $ids, $where_args ) ) );
+        if ( count( $found ) !== count( $ids ) ) {
+            return new WP_Error( 'msdl_bad_order', 'A lista nem ebbe a mappába tartozó elemet tartalmaz.', [ 'status' => 400 ] );
+        }
+
+        $wpdb->query( 'START TRANSACTION' );
+        $sql = "UPDATE $table_name SET sort_order = NULL WHERE $where";
+        $ok  = $wpdb->query( $where_args ? $wpdb->prepare( $sql, $where_args ) : $sql ) !== false;
+        $pos = 1;
+        foreach ( $ids as $id ) {
+            if ( ! $ok ) break;
+            $ok = $wpdb->update( $table_name, [ 'sort_order' => $pos ], [ 'id' => $id ] ) !== false;
+            $pos++;
+        }
+        if ( ! $ok ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'msdl_order_failed', 'A sorrend mentése sikertelen.', [ 'status' => 500 ] );
+        }
+        $wpdb->query( 'COMMIT' );
+        return rest_ensure_response( [ 'success' => true, 'count' => count( $ids ) ] );
     }
 
     private function update_descendants_visibility( $parent_graph_id, $roles, $table_name ) {

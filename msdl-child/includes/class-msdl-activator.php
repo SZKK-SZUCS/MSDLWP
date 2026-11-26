@@ -24,6 +24,7 @@ class MSDL_Activator {
             mime_type varchar(255) DEFAULT '',
             custom_title varchar(255) DEFAULT '',
             custom_description text DEFAULT '',
+            sort_order int(11) DEFAULT NULL,
             PRIMARY KEY  (id),
             UNIQUE KEY graph_id (graph_id)
         ) $charset_collate;";
