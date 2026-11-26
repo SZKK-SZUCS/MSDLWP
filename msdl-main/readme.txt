@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.3.1
+Stable tag: 1.4.0
 Requires PHP: 7.4
 License: Proprietary
 
@@ -24,6 +24,9 @@ Nem tartalmaz frontend megjelenítőket; kizárólag a hálózatbiztonságra, az
 * **Dinamikus Útválasztás:** Automatikusan lekérdezi és biztosítja a helyes SharePoint URL-eket és struktúrákat az újonnan csatlakozó weboldalak számára.
 
 == Changelog ==
+
+= 1.4.0 =
+* Child plugin: egyedi fájlsorrend mappánként (lásd Child changelog). A Main pluginban verziószinkron, nincs funkcionális változás.
 
 = 1.3.1 =
 * Child plugin: gombmagasság-javítás a Fájlkezelő táblázatában (lásd Child changelog). A Main pluginban verziószinkron, nincs funkcionális változás.

@@ -2,7 +2,7 @@
 Contributors: MFÜI - Szurofka Márton
 Requires at least: 6.0
 Tested up to: 6.5
-Stable tag: 1.3.1
+Stable tag: 1.4.0
 Requires PHP: 7.4
 License: Proprietary
 
@@ -28,6 +28,11 @@ A beépített React alapú admin felületen keresztül a weboldal adminisztráto
 * **Automata Tisztítás:** A SharePointból törölt mappák és fájlok (orphaned data) automatikus rekurzív takarítása a helyi adatbázisból.
 
 == Changelog ==
+
+= 1.4.0 =
+* Új: egyedi (kézi) fájlsorrend mappánként. A Dokumentumtár → Fájlkezelő oldalon a „Sorrend szerkesztése” gombbal húzással vagy ▲▼ gombokkal állítható a mappa elemeinek sorrendje, mentés és „Alaphelyzet” gombbal.
+* Új: „Egyedi sorrend” rendezési alap a Fájlkezelő (Pro) és a Mappa lista widgetben; a még nem rendezett elemek a végén, név szerint jelennek meg.
+* Adatbázis: új `sort_order` oszlop a `msdl_nodes` táblában (automatikusan létrejön az első admin-oldalbetöltéskor).
 
 = 1.3.1 =
 * Javítva: a Fájlkezelő táblázatában a Letöltés és a Részletek gomb mostantól mindig egyforma magas (a Letöltés gomb beégetett belső térköze miatt a stílusvezérlőkkel nem lehetett egyenlővé tenni).
